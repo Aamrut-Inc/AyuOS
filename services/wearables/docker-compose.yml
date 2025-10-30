@@ -1,0 +1,91 @@
+services:
+  db:
+    image: postgres:18
+    container_name: api-postgres
+    environment:
+      POSTGRES_DB: open-wearables
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d open-wearables"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  app:
+    build:
+        context: .
+        dockerfile: Dockerfile
+    container_name: open-wearables-app
+    command: scripts/start/app.sh
+    env_file:
+      - ./config/.env
+    environment:
+      - DB_HOST=db
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/root_project/app
+      - type: bind
+        source: ./config/.env
+        target: /root_project/config/.env
+        bind:
+          create_host_path: false
+    restart: on-failure
+
+  celery-worker:
+    container_name: celery-worker
+    image: open-wearables-app:latest
+    command: scripts/start/worker.sh
+    volumes:
+      - .:/root_project
+      - /root_project/.venv
+    env_file:
+      - config/.env
+    depends_on:
+      - redis
+      - postgres
+
+  celery-beat:
+    container_name: celery-beat
+    image: open-wearables-app:latest
+    command: scripts/start/beat.sh
+    volumes:
+      - .:/root_project
+      - /root_project/.venv
+    env_file:
+      - config/.env
+    depends_on:
+      - redis
+      - postgres
+
+  flower:
+    container_name: flower
+    image: open-wearables-app:latest
+    command: scripts/start/flower.sh
+    volumes:
+      - .:/root_project
+      - /root_project/.venv
+    env_file:
+      - config/.env
+    ports:
+      - 5555:5555
+    depends_on:
+      - redis
+      - postgres
+
+  redis:
+    image: redis:7
+    volumes:
+      - redis_data:/var/lib/redis/data
+
+volumes:
+  postgres_data:
+  redis_data:
