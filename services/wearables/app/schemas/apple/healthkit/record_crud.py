@@ -7,8 +7,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-class WorkoutCreate(BaseModel):
-    """Schema for creating a workout."""
+class RecordCreate(BaseModel):
+    """Schema for creating a record."""
 
     id: UUID
     provider_id: UUID | None = None
@@ -16,15 +16,17 @@ class WorkoutCreate(BaseModel):
     type: str | None = None
     startDate: datetime
     endDate: datetime
-    duration: Decimal
-    durationUnit: str
+    unit: str
+    value: Decimal
     sourceName: str | None = None
 
 
-class WorkoutUpdate(BaseModel):
-    """Schema for updating a workout."""
+class RecordUpdate(BaseModel):
+    """Schema for updating a record."""
 
     type: str | None = None
-    startDate: datetime
-    endDate: datetime
+    startDate: datetime | None = None
+    endDate: datetime | None = None
+    unit: str | None = None
+    value: Decimal | None = None
     sourceName: str | None = None
