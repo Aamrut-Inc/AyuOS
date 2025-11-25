@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     cors_allow_all: bool = False
 
     # DATABASE SETTINGS
-    db_host: str = "localhost"
+    db_host: str = "db"
     db_port: int = 5432
     db_name: str = "open-wearables"
     db_user: str = "open-wearables"
@@ -94,6 +94,16 @@ class Settings(BaseSettings):
     polar_token_url: str = "https://polarremote.com/v2/oauth2/token"
     polar_api_base_url: str = "https://www.polaraccesslink.com"
     polar_default_scope: str = "accesslink.read_all"
+    
+    # AWS SETTINGS
+    aws_bucket_name: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "eu-north-1"
+    sqs_queue_url: str | None = None
+    
+    xml_chunk_size: int = 50_000
+      
 
     @field_validator("cors_origins", mode="after")
     @classmethod
