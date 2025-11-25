@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
+    redis_password: SecretStr | None = None
+    redis_username: str | None = None  # Redis 6.0+ ACL
 
     # SUUNTO OAUTH SETTINGS
     suunto_client_id: str | None = None
@@ -118,6 +120,19 @@ class Settings(BaseSettings):
             f"{self.db_user}:{self.db_password.get_secret_value()}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+    @property
+    def redis_url(self) -> str:
+        """Get Redis connection URL built from individual settings."""
+        auth_part = ""
+        if self.redis_username and self.redis_password:
+            auth_part = f"{self.redis_username}:{self.redis_password.get_secret_value()}@"
+        elif self.redis_password:
+            auth_part = f":{self.redis_password.get_secret_value()}@"
+        elif self.redis_username:
+            auth_part = f"{self.redis_username}@"
+        
+        return f"redis://{auth_part}{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     @property
     def auth0_issuer_url(self) -> str:
