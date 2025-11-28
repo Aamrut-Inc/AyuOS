@@ -52,12 +52,25 @@ export function useUpdateUser() {
         queryKeys.users.detail(id)
       );
 
-      // Optimistically update
+      // Optimistically update (only apply non-null values to preserve required fields)
       if (previousUser) {
-        queryClient.setQueryData<UserRead>(queryKeys.users.detail(id), {
+        const optimisticUpdate: UserRead = {
           ...previousUser,
-          ...data,
-        });
+          first_name:
+            data.first_name !== undefined
+              ? data.first_name
+              : previousUser.first_name,
+          last_name:
+            data.last_name !== undefined
+              ? data.last_name
+              : previousUser.last_name,
+          email: data.email !== undefined ? data.email : previousUser.email,
+          client_user_id: data.client_user_id ?? previousUser.client_user_id,
+        };
+        queryClient.setQueryData<UserRead>(
+          queryKeys.users.detail(id),
+          optimisticUpdate
+        );
       }
 
       return { previousUser };
@@ -111,7 +124,7 @@ export function useDeleteUser() {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
       toast.success('User deleted successfully');
     },
-    onError: (error: unknown, id, context) => {
+    onError: (error: unknown, _id, context) => {
       // Rollback on error
       if (context?.previousUsers) {
         queryClient.setQueryData(
