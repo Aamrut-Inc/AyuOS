@@ -11,7 +11,6 @@ import {
   useUserConnections,
   useHealthSummary,
   useGenerateConnectionLink,
-  useSyncUserData,
   useDisconnectProvider,
 } from '@/hooks/api/use-health';
 import { useUsers } from '@/hooks/api/use-users';
@@ -29,7 +28,6 @@ function UserDetailPage() {
   const { data: healthSummary, isLoading: healthLoading } =
     useHealthSummary(userId);
   const generateLinkMutation = useGenerateConnectionLink();
-  const syncMutation = useSyncUserData();
   const disconnectMutation = useDisconnectProvider();
 
   const user = users?.find((u) => u.id === userId);
@@ -41,10 +39,6 @@ function UserDetailPage() {
     });
     await navigator.clipboard.writeText(result.url);
     toast.success('Connection link copied to clipboard');
-  };
-
-  const handleSync = async () => {
-    await syncMutation.mutateAsync(userId);
   };
 
   const handleDisconnect = async (

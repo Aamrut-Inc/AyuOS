@@ -12,7 +12,6 @@ import {
   Activity,
   ArrowRight,
   Mail,
-  Lock,
   Eye,
   EyeOff,
   ShieldCheck,
