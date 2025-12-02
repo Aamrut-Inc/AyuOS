@@ -23,11 +23,11 @@ export function useUserConnections(userId: string) {
 }
 
 // Get heart rate data
-export function useHeartRateData(userId: string, days: number = 7) {
+export function useHeartRateData(userId: string, deviceId: string, days: number = 7) {
   return useQuery({
-    queryKey: queryKeys.health.heartRate(userId, days),
-    queryFn: () => healthService.getHeartRateData(userId, days),
-    enabled: !!userId,
+    queryKey: queryKeys.health.heartRate(userId, deviceId, days),
+    queryFn: () => healthService.getHeartRateData(userId, deviceId, days),
+    enabled: !!userId && !!deviceId,
   });
 }
 
@@ -134,11 +134,20 @@ export function useSyncUserData() {
   });
 }
 
-export function useUserHeartRate(userId: string, params?: HealthDataParams) {
+export function useUserHeartRate(
+  userId: string,
+  deviceId: string,
+  params?: Omit<HealthDataParams, 'device_id'>
+) {
+  const queryParams: HealthDataParams = {
+    ...params,
+    device_id: deviceId,
+  };
+
   return useQuery({
-    queryKey: queryKeys.health.heartRateList(userId, params),
-    queryFn: () => healthService.getHeartRateList(userId, params),
-    enabled: !!userId,
+    queryKey: queryKeys.health.heartRateList(userId, queryParams),
+    queryFn: () => healthService.getHeartRateList(userId, queryParams),
+    enabled: !!userId && !!deviceId,
   });
 }
 
@@ -150,10 +159,3 @@ export function useUserWorkouts(userId: string, params?: HealthDataParams) {
   });
 }
 
-export function useUserRecords(userId: string, params?: HealthDataParams) {
-  return useQuery({
-    queryKey: queryKeys.health.records(userId, params),
-    queryFn: () => healthService.getRecords(userId, params),
-    enabled: !!userId,
-  });
-}

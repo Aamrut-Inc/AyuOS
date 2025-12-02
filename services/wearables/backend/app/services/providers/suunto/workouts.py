@@ -4,14 +4,9 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import (
-    SuuntoWorkoutJSON,
-    WorkoutCreate,
-    WorkoutStatisticCreate,
-)
+from app.schemas import HealthRecordCreate, SuuntoWorkoutJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
-from app.services.workout_statistic_service import workout_statistic_service
 
 
 class SuuntoWorkouts(BaseWorkoutsTemplate):
@@ -77,8 +72,9 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: SuuntoWorkoutJSON,
         user_id: UUID,
-    ) -> WorkoutCreate:
-        """Normalize Suunto workout to WorkoutCreate."""
+        metrics: dict[str, Decimal | None],
+    ) -> HealthRecordCreate:
+        """Normalize Suunto workout to HealthRecordCreate."""
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates(raw_workout.startTime, raw_workout.stopTime)
@@ -86,80 +82,45 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
 
         source_name = raw_workout.gear.name if raw_workout.gear else "Unknown"
 
-        return WorkoutCreate(
+        device_id = raw_workout.gear.serialNumber if raw_workout.gear else None
+
+        return HealthRecordCreate(
             id=workout_id,
             provider_id=str(raw_workout.workoutId),
             user_id=user_id,
             type="Unknown",
             duration_seconds=Decimal(duration_seconds),
             source_name=source_name,
+            device_id=device_id,
             start_datetime=start_date,
             end_datetime=end_date,
+            **metrics,
         )
 
-    def _normalize_workout_statistics(
-        self,
-        raw_workout: SuuntoWorkoutJSON,
-        user_id: UUID,
-        workout_id: UUID,
-    ) -> list[WorkoutStatisticCreate]:
-        """Normalize Suunto workout statistics to WorkoutStatisticCreate."""
-        workout_statistics = []
-
-        units = {
-            "totalDistance": "km",
-            "stepCount": "count",
-            "energyConsumption": "kcal",
-        }
-
-        start_date, end_date = self._extract_dates(raw_workout.startTime, raw_workout.stopTime)
-
-        for field in ["totalDistance", "stepCount", "energyConsumption"]:
-            value = getattr(raw_workout, field)
-            workout_statistics.append(
-                WorkoutStatisticCreate(
-                    id=uuid4(),
-                    user_id=user_id,
-                    workout_id=workout_id,
-                    type=field,
-                    start_datetime=start_date,
-                    end_datetime=end_date,
-                    min=value,
-                    max=value,
-                    avg=value,
-                    unit=units[field],
-                ),
-            )
-
+    def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> dict[str, Decimal | None]:
         hr_data = raw_workout.hrdata
-        if hr_data:
-            workout_statistics.append(
-                WorkoutStatisticCreate(
-                    id=uuid4(),
-                    user_id=user_id,
-                    workout_id=workout_id,
-                    type="heartRate",
-                    start_datetime=start_date,
-                    end_datetime=end_date,
-                    min=None,  # doesnt exist for suunto
-                    max=hr_data.max,
-                    avg=hr_data.avg,
-                    unit="bpm",
-                ),
-            )
+        heart_rate_avg = Decimal(str(hr_data.avg)) if hr_data and hr_data.avg is not None else None
+        heart_rate_max = Decimal(str(hr_data.max)) if hr_data and hr_data.max is not None else None
+        steps_value = Decimal(str(raw_workout.stepCount)) if raw_workout.stepCount is not None else None
 
-        return workout_statistics
+        return {
+            "heart_rate_min": heart_rate_avg,
+            "heart_rate_max": heart_rate_max,
+            "heart_rate_avg": heart_rate_avg,
+            "steps_min": steps_value,
+            "steps_max": steps_value,
+            "steps_avg": steps_value,
+        }
 
     def _build_bundles(
         self,
         raw: list[SuuntoWorkoutJSON],
         user_id: UUID,
-    ) -> Iterable[tuple[WorkoutCreate, list[WorkoutStatisticCreate]]]:
-        """Build bundles of WorkoutCreate and WorkoutStatisticCreate."""
+    ) -> Iterable[HealthRecordCreate]:
+        """Build health record payloads for Suunto workouts."""
         for raw_workout in raw:
-            workout = self._normalize_workout(raw_workout, user_id)
-            statistics = self._normalize_workout_statistics(raw_workout, user_id, workout.id)
-            yield workout, statistics
+            metrics = self._build_metrics(raw_workout)
+            yield self._normalize_workout(raw_workout, user_id, metrics)
 
     def load_data(
         self,
@@ -172,10 +133,8 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         workouts_data = response.get("payload", [])
         workouts = [SuuntoWorkoutJSON(**w) for w in workouts_data]
 
-        for workout_row, workout_statistics in self._build_bundles(workouts, user_id):
-            workout_service.create(db, workout_row)
-            for stat in workout_statistics:
-                workout_statistic_service.create(db, stat)
+        for record in self._build_bundles(workouts, user_id):
+            workout_service.create(db, record)
 
         return True
 

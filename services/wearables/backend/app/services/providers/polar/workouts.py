@@ -6,14 +6,9 @@ from uuid import UUID, uuid4
 import isodate
 
 from app.database import DbSession
-from app.schemas import (
-    PolarExerciseJSON,
-    WorkoutCreate,
-    WorkoutStatisticCreate,
-)
+from app.schemas import HealthRecordCreate, PolarExerciseJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
-from app.services.workout_statistic_service import workout_statistic_service
 
 
 class PolarWorkouts(BaseWorkoutsTemplate):
@@ -67,8 +62,9 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: PolarExerciseJSON,
         user_id: UUID,
-    ) -> WorkoutCreate:
-        """Normalize Polar exercise to WorkoutCreate."""
+        metrics: dict[str, Decimal | None],
+    ) -> HealthRecordCreate:
+        """Normalize Polar exercise to HealthRecordCreate."""
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates_with_offset(
@@ -78,83 +74,45 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         )
         duration_seconds = (end_date - start_date).total_seconds()
 
-        return WorkoutCreate(
+        return HealthRecordCreate(
             id=workout_id,
             provider_id=raw_workout.id,
             user_id=user_id,
             type=raw_workout.sport,
             duration_seconds=Decimal(duration_seconds),
             source_name=raw_workout.device,
+            device_id=raw_workout.device,
             start_datetime=start_date,
             end_datetime=end_date,
+            **metrics,
         )
 
-    def _normalize_workout_statistics(
-        self,
-        raw_workout: PolarExerciseJSON,
-        user_id: UUID,
-        workout_id: UUID,
-    ) -> list[WorkoutStatisticCreate]:
-        """Normalize Polar exercise statistics to WorkoutStatisticCreate."""
-        workout_statistics = []
-
-        start_date, end_date = self._extract_dates_with_offset(
-            raw_workout.start_time,
-            raw_workout.start_time_utc_offset,
-            raw_workout.duration,
+    def _build_metrics(self, raw_workout: PolarExerciseJSON) -> dict[str, Decimal | None]:
+        hr_avg = (
+            Decimal(str(raw_workout.heart_rate.average)) if raw_workout.heart_rate.average is not None else None
+        )
+        hr_max = (
+            Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
         )
 
-        units = {
-            "calories": "kcal",
-            "distance": "m",
+        return {
+            "heart_rate_min": hr_avg,
+            "heart_rate_max": hr_max,
+            "heart_rate_avg": hr_avg,
+            "steps_min": None,
+            "steps_max": None,
+            "steps_avg": None,
         }
-
-        for field in ["calories", "distance"]:
-            workout_statistics.append(
-                WorkoutStatisticCreate(
-                    id=uuid4(),
-                    user_id=user_id,
-                    workout_id=workout_id,
-                    type=field,
-                    start_datetime=start_date,
-                    end_datetime=end_date,
-                    min=None,
-                    max=None,
-                    avg=getattr(raw_workout, field),
-                    unit=units[field],
-                ),
-            )
-
-        hr_avg = raw_workout.heart_rate.average
-        hr_max = raw_workout.heart_rate.maximum
-
-        workout_statistics.append(
-            WorkoutStatisticCreate(
-                id=uuid4(),
-                user_id=user_id,
-                workout_id=workout_id,
-                type="heartRate",
-                start_datetime=start_date,
-                end_datetime=end_date,
-                min=None,
-                max=hr_max,
-                avg=hr_avg,
-                unit="bpm",
-            ),
-        )
-
-        return workout_statistics
 
     def _build_bundles(
         self,
         raw: list[PolarExerciseJSON],
         user_id: UUID,
-    ) -> Iterable[tuple[WorkoutCreate, list[WorkoutStatisticCreate]]]:
-        """Build bundles of WorkoutCreate and WorkoutStatisticCreate."""
+    ) -> Iterable[HealthRecordCreate]:
+        """Build health record payloads for Polar exercises."""
         for raw_workout in raw:
-            workout = self._normalize_workout(raw_workout, user_id)
-            statistics = self._normalize_workout_statistics(raw_workout, user_id, workout.id)
-            yield workout, statistics
+            metrics = self._build_metrics(raw_workout)
+            yield self._normalize_workout(raw_workout, user_id, metrics)
 
     def load_data(
         self,
@@ -166,10 +124,8 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         workouts_data = self.get_workouts_from_api(db, user_id, **kwargs)
         workouts = [PolarExerciseJSON(**w) for w in workouts_data]
 
-        for workout_row, workout_statistics in self._build_bundles(workouts, user_id):
-            workout_service.create(db, workout_row)
-            for stat in workout_statistics:
-                workout_statistic_service.create(db, stat)
+        for record in self._build_bundles(workouts, user_id):
+            workout_service.create(db, record)
 
         return True
 

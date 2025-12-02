@@ -8,26 +8,30 @@ from app.database import DbSession
 from app.schemas import (
     HKRecordJSON,
     HKWorkoutJSON,
+    HeartRateSampleCreate,
+    HealthRecordCreate,
     RootJSON,
+    StepSampleCreate,
     UploadDataResponse,
-    WorkoutCreate,
-    WorkoutStatisticCreate,
 )
 from app.services.workout_service import workout_service
-from app.services.workout_statistic_service import workout_statistic_service
+from app.services.workout_statistic_service import time_series_service
 
 
 class ImportService:
     def __init__(self, log: Logger, **kwargs):
         self.log = log
         self.workout_service = workout_service
-        self.workout_statistic_service = workout_statistic_service
+        self.time_series_service = time_series_service
+
+    def _dec(self, value: float | int | Decimal | None) -> Decimal | None:
+        return None if value is None else Decimal(str(value))
 
     def _build_workout_bundles(
         self,
         raw: dict,
         user_id: str,
-    ) -> Iterable[tuple[WorkoutCreate, list[WorkoutStatisticCreate]]]:
+    ) -> Iterable[HealthRecordCreate]:
         """
         Given the parsed JSON dict from HealthAutoExport, yield ImportBundle(s)
         ready to insert into your ORM session.
@@ -41,7 +45,9 @@ class ImportService:
 
             duration_seconds = (wjson.endDate - wjson.startDate).total_seconds()
 
-            workout_create = WorkoutCreate(
+            metrics = self._extract_metrics_from_workout_stats(wjson.workoutStatistics)
+
+            workout_create = HealthRecordCreate(
                 id=uuid4(),
                 provider_id=provider_id,
                 user_id=UUID(user_id),
@@ -50,60 +56,90 @@ class ImportService:
                 source_name=wjson.sourceName or "Apple Health",
                 start_datetime=wjson.startDate,
                 end_datetime=wjson.endDate,
+                **metrics,
             )
 
-            # Handle workout statistics
-            workout_statistics = []
-            if wjson.workoutStatistics is not None:
-                for stat in wjson.workoutStatistics:
-                    stat_create = WorkoutStatisticCreate(
-                        id=uuid4(),
-                        user_id=UUID(user_id),
-                        workout_id=workout_create.id,
-                        type=stat.type,
-                        start_datetime=wjson.startDate,
-                        end_datetime=wjson.endDate,
-                        min=float(stat.value) if stat.value is not None else None,
-                        max=float(stat.value) if stat.value is not None else None,
-                        avg=float(stat.value) if stat.value is not None else None,
-                        unit=stat.unit,
-                    )
-                    workout_statistics.append(stat_create)
+            yield workout_create
 
-            yield workout_create, workout_statistics
-
-    def _build_statistic_bundles(self, raw: dict, user_id: str) -> Iterable[WorkoutStatisticCreate]:
+    def _build_statistic_bundles(
+        self,
+        raw: dict,
+        _user_id: str,
+    ) -> Iterable[tuple[list[HeartRateSampleCreate], list[StepSampleCreate]]]:
         root = RootJSON(**raw)
         records_raw = root.data.get("records", [])
+        heart_rate_samples: list[HeartRateSampleCreate] = []
+        step_samples: list[StepSampleCreate] = []
+
         for r in records_raw:
             rjson = HKRecordJSON(**r)
+            value = Decimal(str(rjson.value))
 
-            # provider_id = rjson.uuid if rjson.uuid else None # Unused
+            if rjson.type and "HeartRate" in rjson.type:
+                heart_rate_samples.append(
+                    HeartRateSampleCreate(
+                        id=uuid4(),
+                        device_id=rjson.sourceName or None,
+                        recorded_at=rjson.startDate,
+                        value=value,
+                    ),
+                )
+            elif rjson.type and "StepCount" in rjson.type:
+                step_samples.append(
+                    StepSampleCreate(
+                        id=uuid4(),
+                        device_id=rjson.sourceName or None,
+                        recorded_at=rjson.startDate,
+                        value=value,
+                    ),
+                )
 
-            stat_create = WorkoutStatisticCreate(
-                id=uuid4(),
-                # provider_id=provider_id, # Removed
-                user_id=UUID(user_id),
-                type=rjson.type or "Unknown",
-                start_datetime=rjson.startDate,
-                end_datetime=rjson.endDate,
-                unit=rjson.unit,
-                min=float(rjson.value) if rjson.value is not None else None,
-                max=float(rjson.value) if rjson.value is not None else None,
-                avg=float(rjson.value) if rjson.value is not None else None,
-            )
+        yield heart_rate_samples, step_samples
 
-            yield stat_create
+    def _extract_metrics_from_workout_stats(self, stats: list | None) -> dict[str, Decimal | None]:
+        heart_rate_values: list[Decimal] = []
+        step_values: list[Decimal] = []
+
+        if stats:
+            for stat in stats:
+                value = self._dec(stat.value)
+                if value is None or stat.type is None:
+                    continue
+                lowered = stat.type.lower()
+                if "heart" in lowered:
+                    heart_rate_values.append(value)
+                elif "step" in lowered:
+                    step_values.append(value)
+
+        def _compute(values: list[Decimal]) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
+            if not values:
+                return None, None, None
+            min_v = min(values)
+            max_v = max(values)
+            avg_v = sum(values) / Decimal(len(values))
+            return min_v, max_v, avg_v
+
+        hr_min, hr_max, hr_avg = _compute(heart_rate_values)
+        steps_min, steps_max, steps_avg = _compute(step_values)
+
+        return {
+            "heart_rate_min": hr_min,
+            "heart_rate_max": hr_max,
+            "heart_rate_avg": hr_avg,
+            "steps_min": steps_min,
+            "steps_max": steps_max,
+            "steps_avg": steps_avg,
+        }
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
-        for workout_row, workout_statistics in self._build_workout_bundles(raw, user_id):
+        for workout_row in self._build_workout_bundles(raw, user_id):
             self.workout_service.create(db_session, workout_row)
 
-            for stat_create in workout_statistics:
-                self.workout_statistic_service.create(db_session, stat_create)
-
-        for stat_create in self._build_statistic_bundles(raw, user_id):
-            self.workout_statistic_service.create(db_session, stat_create)
+        for heart_rate_records, step_records in self._build_statistic_bundles(raw, user_id):
+            if heart_rate_records:
+                self.time_series_service.bulk_create_heart_rate_samples(db_session, heart_rate_records)
+            if step_records:
+                self.time_series_service.bulk_create_step_samples(db_session, step_records)
 
         return True
 

@@ -8,8 +8,8 @@ from uuid import UUID, uuid4
 from faker import Faker
 
 from app.database import SessionLocal
+from app.schemas.health_record import HealthRecordCreate
 from app.schemas.user import UserCreate
-from app.schemas.workout import WorkoutCreate
 from app.services import user_service, workout_service
 
 fake = Faker()
@@ -44,7 +44,7 @@ SOURCE_NAMES = [
 ]
 
 
-def generate_workout(user_id: UUID, fake_instance: Faker) -> WorkoutCreate:
+def generate_workout(user_id: UUID, fake_instance: Faker) -> HealthRecordCreate:
     """Generate a single workout with random data."""
     # Generate start datetime within last 6 months
     start_datetime = fake_instance.date_time_between(start_date="-6M", end_date="now", tzinfo=timezone.utc)
@@ -55,7 +55,10 @@ def generate_workout(user_id: UUID, fake_instance: Faker) -> WorkoutCreate:
 
     end_datetime = start_datetime + timedelta(seconds=float(duration_seconds))
 
-    return WorkoutCreate(
+    steps = Decimal(fake_instance.random_int(min=500, max=20000))
+    heart_rate = Decimal(fake_instance.random_int(min=90, max=170))
+
+    return HealthRecordCreate(
         id=uuid4(),
         provider_id=str(uuid4()) if fake_instance.boolean(chance_of_getting_true=70) else None,
         user_id=user_id,
@@ -64,6 +67,12 @@ def generate_workout(user_id: UUID, fake_instance: Faker) -> WorkoutCreate:
         source_name=fake_instance.random.choice(SOURCE_NAMES),
         start_datetime=start_datetime,
         end_datetime=end_datetime,
+        heart_rate_min=heart_rate,
+        heart_rate_max=heart_rate,
+        heart_rate_avg=heart_rate,
+        steps_min=steps,
+        steps_max=steps,
+        steps_avg=steps,
     )
 
 

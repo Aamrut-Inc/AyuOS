@@ -65,16 +65,18 @@ from .user import (
     UserUpdate,
     UserUpdateInternal,
 )
-from .workout import (
-    WorkoutCreate,
-    WorkoutQueryParams,
-    WorkoutResponse,
-    WorkoutUpdate,
+from .health_record import (
+    HealthRecordCreate,
+    HealthRecordQueryParams,
+    HealthRecordResponse,
+    HealthRecordUpdate,
 )
-from .workout_statistics import (
-    WorkoutStatisticCreate,
-    WorkoutStatisticResponse,
-    WorkoutStatisticUpdate,
+from .time_series import (
+    HeartRateSampleCreate,
+    HeartRateSampleResponse,
+    StepSampleCreate,
+    StepSampleResponse,
+    TimeSeriesQueryParams,
 )
 
 __all__ = [
@@ -107,13 +109,15 @@ __all__ = [
     "UserConnectionUpdate",
     "AuthorizationURLResponse",
     "RootJSON",
-    "WorkoutCreate",
-    "WorkoutUpdate",
-    "WorkoutResponse",
-    "WorkoutQueryParams",
-    "WorkoutStatisticCreate",
-    "WorkoutStatisticUpdate",
-    "WorkoutStatisticResponse",
+    "HealthRecordCreate",
+    "HealthRecordUpdate",
+    "HealthRecordResponse",
+    "HealthRecordQueryParams",
+    "HeartRateSampleCreate",
+    "HeartRateSampleResponse",
+    "StepSampleCreate",
+    "StepSampleResponse",
+    "TimeSeriesQueryParams",
     "HKWorkoutJSON",
     "HKRecordJSON",
     "AEWorkoutJSON",

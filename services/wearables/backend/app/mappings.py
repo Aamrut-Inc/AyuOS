@@ -39,5 +39,3 @@ numeric_15_5 = Annotated[Decimal, mapped_column(Numeric(15, 5))]
 # Custom foreign keys
 FKDeveloper = Annotated[UUID, mapped_column(ForeignKey("developer.id", ondelete="SET NULL"))]
 FKUser = Annotated[UUID, mapped_column(ForeignKey("user.id", ondelete="CASCADE"))]
-FKWorkout = Annotated[UUID, mapped_column(ForeignKey("workout.id", ondelete="CASCADE"))]
-FKRecord = Annotated[UUID, mapped_column(ForeignKey("record.id", ondelete="CASCADE"))]

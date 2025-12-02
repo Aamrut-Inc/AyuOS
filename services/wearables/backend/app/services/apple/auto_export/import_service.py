@@ -6,15 +6,9 @@ from typing import Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import (
-    AEWorkoutJSON,
-    RootJSON,
-    UploadDataResponse,
-    WorkoutCreate,
-    WorkoutStatisticCreate,
-)
+from app.schemas import AEWorkoutJSON, HeartRateSampleCreate, HealthRecordCreate, RootJSON, UploadDataResponse
 from app.services.workout_service import workout_service
-from app.services.workout_statistic_service import workout_statistic_service
+from app.services.workout_statistic_service import time_series_service
 from app.utils.exceptions import handle_exceptions
 
 APPLE_DT_FORMAT = "%Y-%m-%d %H:%M:%S %z"
@@ -24,7 +18,7 @@ class ImportService:
     def __init__(self, log: Logger, **kwargs):
         self.log = log
         self.workout_service = workout_service
-        self.workout_statistic_service = workout_statistic_service
+        self.time_series_service = time_series_service
 
     def _dt(self, s: str) -> datetime:
         s = s.replace(" +", "+").replace(" ", "T", 1)
@@ -35,71 +29,60 @@ class ImportService:
     def _dec(self, x: float | int | None) -> Decimal | None:
         return None if x is None else Decimal(str(x))
 
-    def _get_workout_statistics(
-        self,
-        workout: AEWorkoutJSON,
-        user_id: str,
-        workout_id: UUID,
-    ) -> list[WorkoutStatisticCreate]:
-        """
-        Get workout statistics from workout JSON.
-        """
-        statistics: list[WorkoutStatisticCreate] = []
+    def _compute_metrics(self, workout: AEWorkoutJSON) -> dict[str, Decimal | None]:
+        hr_entries = workout.heartRateData or []
 
-        for field in ["activeEnergyBurned", "distance", "intensity", "temperature", "humidity"]:
-            if field in workout:
-                data = getattr(workout, field)
-                statistics.append(
-                    WorkoutStatisticCreate(
-                        id=uuid4(),
-                        user_id=UUID(user_id),
-                        workout_id=workout_id,
-                        type=field,
-                        start_datetime=datetime.strptime(workout.start, APPLE_DT_FORMAT),
-                        end_datetime=datetime.strptime(workout.end, APPLE_DT_FORMAT),
-                        min=data.qty or 0,
-                        max=data.qty or 0,
-                        avg=data.qty or 0,
-                        unit=data.units or "",
-                    ),
-                )
+        hr_min_candidates = [self._dec(entry.min) for entry in hr_entries if entry.min is not None]
+        hr_max_candidates = [self._dec(entry.max) for entry in hr_entries if entry.max is not None]
+        hr_avg_candidates = [self._dec(entry.avg) for entry in hr_entries if entry.avg is not None]
 
-        return statistics
+        heart_rate_min = min(hr_min_candidates) if hr_min_candidates else None
+        heart_rate_max = max(hr_max_candidates) if hr_max_candidates else None
+        heart_rate_avg = (
+            sum(hr_avg_candidates) / Decimal(len(hr_avg_candidates)) if hr_avg_candidates else None
+        )
+
+        return {
+            "heart_rate_min": heart_rate_min,
+            "heart_rate_max": heart_rate_max,
+            "heart_rate_avg": heart_rate_avg,
+            "steps_min": None,
+            "steps_max": None,
+            "steps_avg": None,
+        }
 
     def _get_records(
         self,
         workout: AEWorkoutJSON,
-        workout_id: UUID,
-        user_id: str,
-    ) -> list[WorkoutStatisticCreate]:
-        statistics: list[WorkoutStatisticCreate] = []
+        _user_id: str,
+    ) -> list[HeartRateSampleCreate]:
+        samples: list[HeartRateSampleCreate] = []
 
-        for field in ["heartRate", "heartRateRecovery", "activeEnergy"]:
-            if field in workout:
-                data = getattr(workout, field)
-                for entry in data:
-                    statistics.append(
-                        WorkoutStatisticCreate(
-                            id=uuid4(),
-                            user_id=UUID(user_id),
-                            workout_id=workout_id,
-                            type=field,
-                            start_datetime=self._dt(entry.date),
-                            end_datetime=self._dt(entry.date),
-                            min=entry.min or 0,
-                            max=entry.max or 0,
-                            avg=entry.avg or 0,
-                            unit=entry.units or "",
-                        ),
-                    )
+        heart_rate_fields = ("heartRate", "heartRateRecovery")
+        for field in heart_rate_fields:
+            entries = getattr(workout, field, None)
+            if not entries:
+                continue
 
-        return statistics
+            for entry in entries:
+                value = entry.avg or entry.max or entry.min or 0
+                source_name = getattr(entry, "source", None) or "Auto Export"
+                samples.append(
+                    HeartRateSampleCreate(
+                        id=uuid4(),
+                        device_id=source_name,
+                        recorded_at=self._dt(entry.date),
+                        value=self._dec(value) or 0,
+                    ),
+                )
+
+        return samples
 
     def _build_import_bundles(
         self,
         raw: dict,
         user_id: str,
-    ) -> Iterable[tuple[WorkoutCreate, list[WorkoutStatisticCreate]]]:
+    ) -> Iterable[tuple[HealthRecordCreate, list[HeartRateSampleCreate]]]:
         """
         Given the parsed JSON dict from HealthAutoExport, yield ImportBundles
         ready to insert the database.
@@ -116,14 +99,12 @@ class ImportService:
             end_date = self._dt(wjson.end)
             duration_seconds = Decimal(str((end_date - start_date).total_seconds()))
 
-            workout_statistics = self._get_workout_statistics(wjson, user_id, workout_id)
-            records = self._get_records(wjson, workout_id, user_id)
-
-            statistics = [*workout_statistics, *records]
+            metrics = self._compute_metrics(wjson)
+            hr_samples = self._get_records(wjson, user_id)
 
             workout_type = wjson.name or "Unknown Workout"
 
-            workout_row = WorkoutCreate(
+            workout_row = HealthRecordCreate(
                 id=workout_id,
                 user_id=UUID(user_id),
                 type=workout_type,
@@ -131,16 +112,17 @@ class ImportService:
                 source_name="Auto Export",
                 start_datetime=start_date,
                 end_datetime=end_date,
+                **metrics,
             )
 
-            yield workout_row, statistics
+            yield workout_row, hr_samples
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
-        for workout_row, statistics in self._build_import_bundles(raw, user_id):
+        for workout_row, hr_samples in self._build_import_bundles(raw, user_id):
             self.workout_service.create(db_session, workout_row)
 
-            for stat in statistics:
-                self.workout_statistic_service.create(db_session, stat)
+            if hr_samples:
+                self.time_series_service.bulk_create_heart_rate_samples(db_session, hr_samples)
 
         return True
 

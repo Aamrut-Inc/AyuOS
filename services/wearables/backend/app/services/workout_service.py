@@ -1,90 +1,73 @@
 from logging import Logger, getLogger
-from uuid import UUID
 
 from app.database import DbSession
-from app.models import Workout
-from app.repositories import WorkoutRepository
+from app.models import HealthRecord
+from app.repositories import HealthRecordRepository
 from app.schemas import (
-    WorkoutCreate,
-    WorkoutQueryParams,
-    WorkoutResponse,
-    WorkoutUpdate,
+    HealthRecordCreate,
+    HealthRecordQueryParams,
+    HealthRecordResponse,
+    HealthRecordUpdate,
 )
 from app.services.services import AppService
-from app.services.workout_statistic_service import workout_statistic_service
 from app.utils.exceptions import handle_exceptions
 
 
-class WorkoutService(AppService[WorkoutRepository, Workout, WorkoutCreate, WorkoutUpdate]):
-    """Service for HealthKit workout-related business logic."""
+class HealthRecordService(
+    AppService[HealthRecordRepository, HealthRecord, HealthRecordCreate, HealthRecordUpdate],
+):
+    """Service coordinating CRUD access for unified health records."""
 
     def __init__(self, log: Logger, **kwargs):
-        super().__init__(crud_model=WorkoutRepository, model=Workout, log=log, **kwargs)
+        super().__init__(crud_model=HealthRecordRepository, model=HealthRecord, log=log, **kwargs)
 
     @handle_exceptions
-    async def _get_workouts_with_filters(
+    async def _get_records_with_filters(
         self,
         db_session: DbSession,
-        query_params: WorkoutQueryParams,
+        query_params: HealthRecordQueryParams,
         user_id: str,
-    ) -> tuple[list[Workout], int]:
-        """
-        Get workouts with filtering, sorting, and pagination.
-        Includes business logic and logging.
-        """
-        self.logger.debug(f"Fetching HealthKit workouts with filters: {query_params.model_dump()}")
+    ) -> tuple[list[HealthRecord], int]:
+        self.logger.debug(f"Fetching health records with filters: {query_params.model_dump()}")
 
-        workouts, total_count = self.crud.get_workouts_with_filters(db_session, query_params, user_id)
+        records, total_count = self.crud.get_records_with_filters(db_session, query_params, user_id)
 
-        self.logger.debug(f"Retrieved {len(workouts)} HealthKit workouts out of {total_count} total")
+        self.logger.debug(f"Retrieved {len(records)} health records out of {total_count} total")
 
-        return workouts, total_count
+        return records, total_count
 
     @handle_exceptions
-    async def _get_workout_with_summary(self, db_session: DbSession, workout_id: UUID) -> tuple[Workout | None, dict]:
-        """
-        Get a single workout with its summary statistics.
-        """
-        self.logger.debug(f"Fetching HealthKit workout {workout_id} with summary")
-
-        workout = self.get(db_session, workout_id, raise_404=True)
-        summary = self.crud.get_workout_summary(db_session, workout_id)
-
-        self.logger.debug(f"Retrieved HealthKit workout {workout_id} with summary data")
-
-        return workout, summary
-
-    @handle_exceptions
-    async def get_workouts_response(
+    async def get_records_response(
         self,
         db_session: DbSession,
-        query_params: WorkoutQueryParams,
+        query_params: HealthRecordQueryParams,
         user_id: str,
-    ) -> list[WorkoutResponse]:
-        """
-        Get HealthKit workouts formatted as API response.
+    ) -> list[HealthRecordResponse]:
+        records, _ = await self._get_records_with_filters(db_session, query_params, user_id)
 
-        Returns:
-            list[WorkoutResponse] ready for API
-        """
-        workouts, _ = await self._get_workouts_with_filters(db_session, query_params, user_id)
-
-        workout_responses = []
-        for workout in workouts:
-            statistics = await workout_statistic_service.get_workout_statistics(db_session, user_id, workout.id)
-
-            workout_response = WorkoutResponse(
-                id=workout.id,
-                type=workout.type,
-                duration_seconds=workout.duration_seconds,
-                source_name=workout.source_name,
-                start_datetime=workout.start_datetime,
-                end_datetime=workout.end_datetime,
-                statistics=statistics,
+        return [
+            HealthRecordResponse(
+                id=record.id,
+                user_id=record.user_id,
+                provider_id=record.provider_id,
+                category=record.category,
+                type=record.type,
+                source_name=record.source_name,
+                device_id=record.device_id,
+                duration_seconds=record.duration_seconds,
+                start_datetime=record.start_datetime,
+                end_datetime=record.end_datetime,
+                heart_rate_min=record.heart_rate_min,
+                heart_rate_max=record.heart_rate_max,
+                heart_rate_avg=record.heart_rate_avg,
+                steps_min=record.steps_min,
+                steps_max=record.steps_max,
+                steps_avg=record.steps_avg,
             )
-            workout_responses.append(workout_response)
+            for record in records
+        ]
 
-        return workout_responses
 
-
-workout_service = WorkoutService(log=getLogger(__name__))
+health_record_service = HealthRecordService(log=getLogger(__name__))
+# Backwards compatible alias until routes are renamed
+workout_service = health_record_service

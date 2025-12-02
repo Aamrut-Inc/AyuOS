@@ -1,3 +1,5 @@
+import type { HealthDataParams } from '../api/types';
+
 export const queryKeys = {
   auth: {
     all: ['auth'] as const,
@@ -67,8 +69,8 @@ export const queryKeys = {
     providers: () => [...queryKeys.health.all, 'providers'] as const,
     connections: (userId: string) =>
       [...queryKeys.health.all, 'connections', userId] as const,
-    heartRate: (userId: string, days: number) =>
-      [...queryKeys.health.all, 'heartRate', userId, days] as const,
+    heartRate: (userId: string, deviceId: string, days: number) =>
+      [...queryKeys.health.all, 'heartRate', userId, deviceId, days] as const,
     sleep: (userId: string, days: number) =>
       [...queryKeys.health.all, 'sleep', userId, days] as const,
     activity: (userId: string, days: number) =>
@@ -77,16 +79,10 @@ export const queryKeys = {
       [...queryKeys.health.all, 'summary', userId, period] as const,
     heartRateList: (
       userId: string,
-      params?: { start_date?: string; end_date?: string; limit?: number }
+      params?: HealthDataParams
     ) => [...queryKeys.health.all, 'heartRateList', userId, params] as const,
-    workouts: (
-      userId: string,
-      params?: { start_date?: string; end_date?: string; limit?: number }
-    ) => [...queryKeys.health.all, 'workouts', userId, params] as const,
-    records: (
-      userId: string,
-      params?: { start_date?: string; end_date?: string; limit?: number }
-    ) => [...queryKeys.health.all, 'records', userId, params] as const,
+    workouts: (userId: string, params?: HealthDataParams) =>
+      [...queryKeys.health.all, 'workouts', userId, params] as const,
   },
 
   connections: {

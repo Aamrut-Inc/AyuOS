@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Mapped
 
 from app.database import BaseDbModel
-from app.mappings import OneToMany, PrimaryKey, Unique, datetime_tz, str_100, str_255, email
+from app.mappings import PrimaryKey, Unique, datetime_tz, str_100, str_255, email
 
 
 class User(BaseDbModel):
@@ -18,6 +18,3 @@ class User(BaseDbModel):
     email: Mapped[email | None]
 
     external_user_id: Mapped[Unique[str_255] | None]
-
-    workouts: Mapped[OneToMany["Workout"]]
-    workout_statistics: Mapped[OneToMany["WorkoutStatistic"]]

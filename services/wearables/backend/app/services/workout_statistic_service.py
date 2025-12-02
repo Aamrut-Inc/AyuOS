@@ -1,105 +1,74 @@
 from logging import Logger, getLogger
-from uuid import UUID
 
 from app.database import DbSession
-from app.models import WorkoutStatistic
-from app.repositories import WorkoutStatisticRepository
-from app.schemas import WorkoutStatisticCreate, WorkoutStatisticResponse, WorkoutStatisticUpdate
-from app.services.services import AppService
+from app.models import HeartRateSample, StepSample
+from app.repositories import HeartRateSampleRepository, StepSampleRepository
+from app.schemas import HeartRateSampleCreate, HeartRateSampleResponse, StepSampleCreate, StepSampleResponse, TimeSeriesQueryParams
 from app.utils.exceptions import handle_exceptions
 
 
-class WorkoutStatisticService(
-    AppService[WorkoutStatisticRepository, WorkoutStatistic, WorkoutStatisticCreate, WorkoutStatisticUpdate],
-):
-    """Service for workout statistics business logic."""
+class TimeSeriesService:
+    """Coordinated access to heart-rate and step time series samples."""
 
-    def __init__(
-        self,
-        log: Logger,
-        **kwargs,
-    ):
-        super().__init__(crud_model=WorkoutStatisticRepository, model=WorkoutStatistic, log=log, **kwargs)
+    def __init__(self, log: Logger):
+        self.logger = log
+        self.heart_rate_repo = HeartRateSampleRepository(HeartRateSample)
+        self.step_repo = StepSampleRepository(StepSample)
+
+    def create_heart_rate_sample(self, db_session: DbSession, sample: HeartRateSampleCreate) -> HeartRateSample:
+        created = self.heart_rate_repo.create(db_session, sample)
+        self.logger.debug(f"Stored heart rate sample {created.id}")
+        return created
+
+    def create_step_sample(self, db_session: DbSession, sample: StepSampleCreate) -> StepSample:
+        created = self.step_repo.create(db_session, sample)
+        self.logger.debug(f"Stored step sample {created.id}")
+        return created
+
+    def bulk_create_heart_rate_samples(self, db_session: DbSession, samples: list[HeartRateSampleCreate]) -> None:
+        for sample in samples:
+            self.create_heart_rate_sample(db_session, sample)
+
+    def bulk_create_step_samples(self, db_session: DbSession, samples: list[StepSampleCreate]) -> None:
+        for sample in samples:
+            self.create_step_sample(db_session, sample)
 
     @handle_exceptions
-    async def get_workout_statistics(
+    async def get_user_heart_rate_series(
         self,
         db_session: DbSession,
-        user_id: str,
-        workout_id: UUID,
-    ) -> list[WorkoutStatisticResponse]:
-        """
-        Get workout statistics.
-        """
-        statistics = self.crud.get_workout_statistics(db_session, user_id, workout_id)
+        _user_id: str,
+        params: TimeSeriesQueryParams,
+    ) -> list[HeartRateSampleResponse]:
+        samples = self.heart_rate_repo.get_samples(db_session, params)
         return [
-            WorkoutStatisticResponse(
-                id=stat.id,
-                user_id=stat.user_id,
-                workout_id=stat.workout_id,
-                type=stat.type,
-                start_datetime=stat.start_datetime,
-                end_datetime=stat.end_datetime,
-                min=stat.min,
-                max=stat.max,
-                avg=stat.avg,
-                unit=stat.unit,
+            HeartRateSampleResponse(
+                id=sample.id,
+                device_id=sample.device_id,
+                recorded_at=sample.recorded_at,
+                value=sample.value,
             )
-            for stat in statistics
+            for sample in samples
         ]
 
     @handle_exceptions
-    async def get_workout_heart_rate_statistics(
+    async def get_user_step_series(
         self,
         db_session: DbSession,
-        user_id: str,
-        workout_id: UUID,
-    ) -> list[WorkoutStatisticResponse]:
-        """
-        Get heart rate statistics.
-        """
-        statistics = self.crud.get_workout_heart_rate_statistics(db_session, user_id, workout_id)
+        _user_id: str,
+        params: TimeSeriesQueryParams,
+    ) -> list[StepSampleResponse]:
+        samples = self.step_repo.get_samples(db_session, params)
         return [
-            WorkoutStatisticResponse(
-                id=stat.id,
-                user_id=stat.user_id,
-                workout_id=stat.workout_id,
-                type=stat.type,
-                start_datetime=stat.start_datetime,
-                end_datetime=stat.end_datetime,
-                min=stat.min,
-                max=stat.max,
-                avg=stat.avg,
-                unit=stat.unit,
+            StepSampleResponse(
+                id=sample.id,
+                device_id=sample.device_id,
+                recorded_at=sample.recorded_at,
+                value=sample.value,
             )
-            for stat in statistics
-        ]
-
-    @handle_exceptions
-    async def get_user_heart_rate_statistics(
-        self,
-        db_session: DbSession,
-        user_id: str,
-    ) -> list[WorkoutStatisticResponse]:
-        """
-        Get user heart rate statistics.
-        """
-        statistics = self.crud.get_user_heart_rate_statistics(db_session, user_id)
-        return [
-            WorkoutStatisticResponse(
-                id=stat.id,
-                user_id=stat.user_id,
-                workout_id=stat.workout_id,
-                type=stat.type,
-                start_datetime=stat.start_datetime,
-                end_datetime=stat.end_datetime,
-                min=stat.min,
-                max=stat.max,
-                avg=stat.avg,
-                unit=stat.unit,
-            )
-            for stat in statistics
+            for sample in samples
         ]
 
 
-workout_statistic_service = WorkoutStatisticService(log=getLogger(__name__))
+time_series_service = TimeSeriesService(log=getLogger(__name__))
+workout_statistic_service = time_series_service

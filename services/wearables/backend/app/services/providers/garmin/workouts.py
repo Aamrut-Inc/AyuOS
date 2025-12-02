@@ -4,14 +4,9 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import (
-    GarminActivityJSON,
-    WorkoutCreate,
-    WorkoutStatisticCreate,
-)
+from app.schemas import GarminActivityJSON, HealthRecordCreate
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
-from app.services.workout_statistic_service import workout_statistic_service
 
 
 class GarminWorkouts(BaseWorkoutsTemplate):
@@ -95,8 +90,9 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: GarminActivityJSON,
         user_id: UUID,
-    ) -> WorkoutCreate:
-        """Normalize Garmin activity to WorkoutCreate."""
+        metrics: dict[str, Decimal | None],
+    ) -> HealthRecordCreate:
+        """Normalize Garmin activity to HealthRecordCreate."""
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates(
@@ -105,81 +101,51 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         )
         duration_seconds = raw_workout.durationInSeconds
 
-        return WorkoutCreate(
+        return HealthRecordCreate(
             id=workout_id,
             provider_id=raw_workout.summaryId,
             user_id=user_id,
             type=raw_workout.activityType,
             duration_seconds=Decimal(duration_seconds),
             source_name=raw_workout.deviceName,
+            device_id=None,
             start_datetime=start_date,
             end_datetime=end_date,
+            **metrics,
         )
 
-    def _normalize_workout_statistics(
-        self,
-        raw_workout: GarminActivityJSON,
-        user_id: UUID,
-        workout_id: UUID,
-    ) -> list[WorkoutStatisticCreate]:
-        """Normalize Garmin activity statistics to WorkoutStatisticCreate."""
-        workout_statistics = []
+    def _build_metrics(self, raw_workout: GarminActivityJSON) -> dict[str, Decimal | None]:
+        heart_rate_avg = (
+            Decimal(str(raw_workout.averageHeartRateInBeatsPerMinute))
+            if raw_workout.averageHeartRateInBeatsPerMinute is not None
+            else None
+        )
+        heart_rate_max = (
+            Decimal(str(raw_workout.maxHeartRateInBeatsPerMinute))
+            if raw_workout.maxHeartRateInBeatsPerMinute is not None
+            else None
+        )
 
-        units = {
-            "distanceInMeters": "m",
-            "steps": "count",
-            "activeKilocalories": "kcal",
+        steps_value = Decimal(str(raw_workout.steps)) if raw_workout.steps is not None else None
+
+        return {
+            "heart_rate_min": heart_rate_avg,
+            "heart_rate_max": heart_rate_max,
+            "heart_rate_avg": heart_rate_avg,
+            "steps_min": steps_value,
+            "steps_max": steps_value,
+            "steps_avg": steps_value,
         }
-
-        start_date, end_date = self._extract_dates(
-            raw_workout.startTimeInSeconds,
-            raw_workout.startTimeInSeconds + raw_workout.durationInSeconds,
-        )
-
-        for field in ["distanceInMeters", "steps", "activeKilocalories"]:
-            value = getattr(raw_workout, field)
-            workout_statistics.append(
-                WorkoutStatisticCreate(
-                    id=uuid4(),
-                    user_id=user_id,
-                    workout_id=workout_id,
-                    type=field,
-                    start_datetime=start_date,
-                    end_datetime=end_date,
-                    min=None,
-                    max=None,
-                    avg=value,
-                    unit=units[field],
-                ),
-            )
-
-        workout_statistics.append(
-            WorkoutStatisticCreate(
-                id=uuid4(),
-                user_id=user_id,
-                workout_id=workout_id,
-                type="heartRate",
-                start_datetime=start_date,
-                end_datetime=end_date,
-                min=None,  # doesnt exist for garmin
-                max=raw_workout.maxHeartRateInBeatsPerMinute,
-                avg=raw_workout.averageHeartRateInBeatsPerMinute,
-                unit="bpm",
-            ),
-        )
-
-        return workout_statistics
 
     def _build_bundles(
         self,
         raw: list[GarminActivityJSON],
         user_id: UUID,
-    ) -> Iterable[tuple[WorkoutCreate, list[WorkoutStatisticCreate]]]:
-        """Build bundles of WorkoutCreate and WorkoutStatisticCreate."""
+    ) -> Iterable[HealthRecordCreate]:
+        """Build health record payloads for Garmin activities."""
         for raw_workout in raw:
-            workout = self._normalize_workout(raw_workout, user_id)
-            statistics = self._normalize_workout_statistics(raw_workout, user_id, workout.id)
-            yield workout, statistics
+            metrics = self._build_metrics(raw_workout)
+            yield self._normalize_workout(raw_workout, user_id, metrics)
 
     def load_data(
         self,
@@ -191,10 +157,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         workouts = self.get_workouts_from_api(db, user_id, **kwargs)
         activities = [GarminActivityJSON(**activity) for activity in workouts]
 
-        for workout_row, workout_statistics in self._build_bundles(activities, user_id):
-            workout_service.create(db, workout_row)
-            for stat in workout_statistics:
-                workout_statistic_service.create(db, stat)
+        for health_record in self._build_bundles(activities, user_id):
+            workout_service.create(db, health_record)
 
         return True
 

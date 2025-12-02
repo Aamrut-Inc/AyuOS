@@ -6,9 +6,8 @@ import type {
   HealthDataSummary,
   Provider,
   UserConnection,
-  HeartRateListResponse,
-  WorkoutListResponse,
-  RecordListResponse,
+  HeartRateSampleResponse,
+  HealthRecordResponse,
   HealthDataParams,
 } from '../types';
 
@@ -42,11 +41,31 @@ export const healthService = {
 
   async getHeartRateData(
     userId: string,
+    deviceId: string,
     days: number = 7
   ): Promise<HeartRateData[]> {
-    return apiClient.get<HeartRateData[]>(`/v1/users/${userId}/heart-rate`, {
-      params: { days },
-    });
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(end.getDate() - days);
+
+    const samples = await apiClient.get<HeartRateSampleResponse[]>(
+      `/v1/users/${userId}/heart-rate`,
+      {
+        params: {
+          start_datetime: start.toISOString(),
+          end_datetime: end.toISOString(),
+          device_id: deviceId,
+        },
+      }
+    );
+
+    return samples.map((sample) => ({
+      id: sample.id,
+      userId,
+      timestamp: sample.recorded_at,
+      value: Number(sample.value),
+      source: sample.device_id ?? 'unknown',
+    }));
   },
 
   async getSleepData(userId: string, days: number = 7): Promise<SleepData[]> {
@@ -88,8 +107,8 @@ export const healthService = {
   async getHeartRateList(
     userId: string,
     params?: HealthDataParams
-  ): Promise<HeartRateListResponse> {
-    return apiClient.get<HeartRateListResponse>(
+  ): Promise<HeartRateSampleResponse[]> {
+    return apiClient.get<HeartRateSampleResponse[]>(
       `/v1/users/${userId}/heart-rate`,
       { params }
     );
@@ -98,18 +117,12 @@ export const healthService = {
   async getWorkouts(
     userId: string,
     params?: HealthDataParams
-  ): Promise<WorkoutListResponse> {
-    return apiClient.get<WorkoutListResponse>(`/v1/users/${userId}/workouts`, {
-      params,
-    });
-  },
-
-  async getRecords(
-    userId: string,
-    params?: HealthDataParams
-  ): Promise<RecordListResponse> {
-    return apiClient.get<RecordListResponse>(`/v1/users/${userId}/records`, {
-      params,
-    });
+  ): Promise<HealthRecordResponse[]> {
+    return apiClient.get<HealthRecordResponse[]>(
+      `/v1/users/${userId}/workouts`,
+      {
+        params,
+      }
+    );
   },
 };
