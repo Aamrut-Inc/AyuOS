@@ -861,7 +861,6 @@ dependencies = [
     { name = "celery" },
     { name = "cryptography" },
     { name = "email-validator" },
-    { name = "faker" },
     { name = "fastapi" },
     { name = "fastapi-cli" },
     { name = "flower" },
@@ -885,6 +884,7 @@ code-quality = [
     { name = "ty" },
 ]
 dev = [
+    { name = "faker" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -898,7 +898,6 @@ requires-dist = [
     { name = "celery", specifier = ">=5.5.3" },
     { name = "cryptography", specifier = ">=45.0.4" },
     { name = "email-validator", specifier = ">=2.2.0" },
-    { name = "faker", specifier = ">=33.1.0" },
     { name = "fastapi", specifier = ">=0.120.4" },
     { name = "fastapi-cli", specifier = ">=0.0.8" },
     { name = "flower", specifier = ">=2.0.1" },
@@ -922,6 +921,7 @@ code-quality = [
     { name = "ty", specifier = ">=0.0.1a25" },
 ]
 dev = [
+    { name = "faker", specifier = ">=33.1.0" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
     { name = "pytest-cov", specifier = ">=6.2.1" },
