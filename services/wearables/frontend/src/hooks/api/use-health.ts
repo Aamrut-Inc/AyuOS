@@ -23,7 +23,11 @@ export function useUserConnections(userId: string) {
 }
 
 // Get heart rate data
-export function useHeartRateData(userId: string, deviceId: string, days: number = 7) {
+export function useHeartRateData(
+  userId: string,
+  deviceId: string,
+  days: number = 7
+) {
   return useQuery({
     queryKey: queryKeys.health.heartRate(userId, deviceId, days),
     queryFn: () => healthService.getHeartRateData(userId, deviceId, days),
@@ -158,4 +162,3 @@ export function useUserWorkouts(userId: string, params?: HealthDataParams) {
     enabled: !!userId,
   });
 }
-

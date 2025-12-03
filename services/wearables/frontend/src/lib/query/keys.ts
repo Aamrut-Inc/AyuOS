@@ -77,10 +77,8 @@ export const queryKeys = {
       [...queryKeys.health.all, 'activity', userId, days] as const,
     summary: (userId: string, period?: string) =>
       [...queryKeys.health.all, 'summary', userId, period] as const,
-    heartRateList: (
-      userId: string,
-      params?: HealthDataParams
-    ) => [...queryKeys.health.all, 'heartRateList', userId, params] as const,
+    heartRateList: (userId: string, params?: HealthDataParams) =>
+      [...queryKeys.health.all, 'heartRateList', userId, params] as const,
     workouts: (userId: string, params?: HealthDataParams) =>
       [...queryKeys.health.all, 'workouts', userId, params] as const,
   },
