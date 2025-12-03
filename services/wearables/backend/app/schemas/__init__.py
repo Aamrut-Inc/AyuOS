@@ -49,6 +49,11 @@ from .oauth import (
 from .polar.exercise_import import (
     ExerciseJSON as PolarExerciseJSON,
 )
+from .provider_setting import (
+    BulkProviderSettingsUpdate,
+    ProviderSettingRead,
+    ProviderSettingUpdate,
+)
 from .response import UploadDataResponse
 from .suunto.workout_import import (
     HeartRateJSON as SuuntoHeartRateJSON,
@@ -108,6 +113,9 @@ __all__ = [
     "UserConnectionRead",
     "UserConnectionUpdate",
     "AuthorizationURLResponse",
+    "ProviderSettingRead",
+    "ProviderSettingUpdate",
+    "BulkProviderSettingsUpdate",
     "RootJSON",
     "WorkoutCreate",
     "WorkoutUpdate",

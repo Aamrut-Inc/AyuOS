@@ -31,3 +31,18 @@ class BaseProviderStrategy(ABC):
     def api_base_url(self) -> str:
         """Returns the base URL for the provider's API."""
         pass
+
+    @property
+    def display_name(self) -> str:
+        """Returns the display name of the provider (e.g., 'Garmin', 'Apple Health')."""
+        return self.name.capitalize()
+
+    @property
+    def has_cloud_api(self) -> bool:
+        """Returns True if provider uses cloud OAuth API."""
+        return self.oauth is not None
+
+    @property
+    def icon_url(self) -> str:
+        """Returns the URL path to the provider's icon."""
+        return f"/static/provider-icons/{self.name}.svg"
