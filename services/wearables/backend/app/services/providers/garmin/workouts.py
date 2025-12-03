@@ -4,7 +4,7 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import GarminActivityJSON, HealthRecordCreate
+from app.schemas import GarminActivityJSON, HealthRecordCreate, HealthRecordMetrics
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -90,7 +90,6 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: GarminActivityJSON,
         user_id: UUID,
-        metrics: dict[str, Decimal | None],
     ) -> HealthRecordCreate:
         """Normalize Garmin activity to HealthRecordCreate."""
         workout_id = uuid4()
@@ -100,6 +99,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             raw_workout.startTimeInSeconds + raw_workout.durationInSeconds,
         )
         duration_seconds = raw_workout.durationInSeconds
+
+        metrics = self._build_metrics(raw_workout)
 
         return HealthRecordCreate(
             id=workout_id,
@@ -114,7 +115,7 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             **metrics,
         )
 
-    def _build_metrics(self, raw_workout: GarminActivityJSON) -> dict[str, Decimal | None]:
+    def _build_metrics(self, raw_workout: GarminActivityJSON) -> HealthRecordMetrics:
         heart_rate_avg = (
             Decimal(str(raw_workout.averageHeartRateInBeatsPerMinute))
             if raw_workout.averageHeartRateInBeatsPerMinute is not None
@@ -144,8 +145,7 @@ class GarminWorkouts(BaseWorkoutsTemplate):
     ) -> Iterable[HealthRecordCreate]:
         """Build health record payloads for Garmin activities."""
         for raw_workout in raw:
-            metrics = self._build_metrics(raw_workout)
-            yield self._normalize_workout(raw_workout, user_id, metrics)
+            yield self._normalize_workout(raw_workout, user_id)
 
     def load_data(
         self,

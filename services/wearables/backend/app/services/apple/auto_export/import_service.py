@@ -6,7 +6,14 @@ from typing import Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import AEWorkoutJSON, HealthRecordCreate, HeartRateSampleCreate, RootJSON, UploadDataResponse
+from app.schemas import (
+    AEWorkoutJSON,
+    HealthRecordCreate,
+    HealthRecordMetrics,
+    HeartRateSampleCreate,
+    RootJSON,
+    UploadDataResponse,
+)
 from app.services.workout_service import workout_service
 from app.services.workout_statistic_service import time_series_service
 from app.utils.exceptions import handle_exceptions
@@ -29,7 +36,7 @@ class ImportService:
     def _dec(self, x: float | int | None) -> Decimal | None:
         return None if x is None else Decimal(str(x))
 
-    def _compute_metrics(self, workout: AEWorkoutJSON) -> dict[str, Decimal | None]:
+    def _compute_metrics(self, workout: AEWorkoutJSON) -> HealthRecordMetrics:
         hr_entries = workout.heartRateData or []
 
         hr_min_candidates = [self._dec(entry.min) for entry in hr_entries if entry.min is not None]

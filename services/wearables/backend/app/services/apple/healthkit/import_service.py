@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from app.database import DbSession
 from app.schemas import (
     HealthRecordCreate,
+    HealthRecordMetrics,
     HeartRateSampleCreate,
     HKRecordJSON,
     HKWorkoutJSON,
@@ -96,7 +97,7 @@ class ImportService:
 
         yield heart_rate_samples, step_samples
 
-    def _extract_metrics_from_workout_stats(self, stats: list | None) -> dict[str, Decimal | None]:
+    def _extract_metrics_from_workout_stats(self, stats: list | None) -> HealthRecordMetrics:
         heart_rate_values: list[Decimal] = []
         step_values: list[Decimal] = []
 

@@ -4,7 +4,7 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import HealthRecordCreate, SuuntoWorkoutJSON
+from app.schemas import HealthRecordCreate, HealthRecordMetrics, SuuntoWorkoutJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -72,7 +72,6 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: SuuntoWorkoutJSON,
         user_id: UUID,
-        metrics: dict[str, Decimal | None],
     ) -> HealthRecordCreate:
         """Normalize Suunto workout to HealthRecordCreate."""
         workout_id = uuid4()
@@ -83,6 +82,8 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         source_name = raw_workout.gear.name if raw_workout.gear else "Unknown"
 
         device_id = raw_workout.gear.serialNumber if raw_workout.gear else None
+
+        metrics = self._build_metrics(raw_workout)
 
         return HealthRecordCreate(
             id=workout_id,
@@ -97,7 +98,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             **metrics,
         )
 
-    def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> dict[str, Decimal | None]:
+    def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> HealthRecordMetrics:
         hr_data = raw_workout.hrdata
         heart_rate_avg = Decimal(str(hr_data.avg)) if hr_data and hr_data.avg is not None else None
         heart_rate_max = Decimal(str(hr_data.max)) if hr_data and hr_data.max is not None else None
@@ -119,8 +120,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
     ) -> Iterable[HealthRecordCreate]:
         """Build health record payloads for Suunto workouts."""
         for raw_workout in raw:
-            metrics = self._build_metrics(raw_workout)
-            yield self._normalize_workout(raw_workout, user_id, metrics)
+            yield self._normalize_workout(raw_workout, user_id)
 
     def load_data(
         self,

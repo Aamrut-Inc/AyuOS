@@ -35,6 +35,7 @@ from .garmin.activity_import import (
 )
 from .health_record import (
     HealthRecordCreate,
+    HealthRecordMetrics,
     HealthRecordQueryParams,
     HealthRecordResponse,
     HealthRecordUpdate,
@@ -113,6 +114,7 @@ __all__ = [
     "HealthRecordUpdate",
     "HealthRecordResponse",
     "HealthRecordQueryParams",
+    "HealthRecordMetrics",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
     "StepSampleCreate",

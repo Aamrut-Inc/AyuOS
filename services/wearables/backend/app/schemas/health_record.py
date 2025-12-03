@@ -2,12 +2,23 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.schemas.common import BaseQueryParams
+
+
+class HealthRecordMetrics(TypedDict, total=False):
+    """Optional workout metrics collected from providers."""
+
+    heart_rate_min: Decimal | None
+    heart_rate_max: Decimal | None
+    heart_rate_avg: Decimal | None
+    steps_min: Decimal | None
+    steps_max: Decimal | None
+    steps_avg: Decimal | None
 
 
 class HealthRecordCreate(BaseModel):

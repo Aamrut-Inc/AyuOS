@@ -2,12 +2,12 @@ from datetime import datetime
 from decimal import Decimal
 from logging import Logger
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Generator, cast
 from uuid import UUID, uuid4
 from xml.etree import ElementTree as ET
 
 from app.config import settings
-from app.schemas import HealthRecordCreate, HeartRateSampleCreate, StepSampleCreate
+from app.schemas import HealthRecordCreate, HealthRecordMetrics, HeartRateSampleCreate, StepSampleCreate
 
 
 class XMLService:
@@ -88,7 +88,7 @@ class XMLService:
         self,
         document: dict[str, Any],
         user_id: str,
-        metrics: dict[str, Decimal | None] | None = None,
+        metrics: HealthRecordMetrics | None = None,
     ) -> HealthRecordCreate:
         document = self._parse_date_fields(document)
 
@@ -96,7 +96,9 @@ class XMLService:
 
         duration_seconds = Decimal(str((document["endDate"] - document["startDate"]).total_seconds()))
 
-        payload = dict(
+        metric_payload = metrics if metrics is not None else cast(HealthRecordMetrics, {})
+
+        return HealthRecordCreate(
             id=uuid4(),
             provider_id=None,
             user_id=UUID(user_id),
@@ -106,12 +108,10 @@ class XMLService:
             device_id=document.get("device"),
             start_datetime=document["startDate"],
             end_datetime=document["endDate"],
+            **metric_payload,
         )
-        if metrics:
-            payload.update(metrics)
-        return HealthRecordCreate(**payload)
 
-    def _init_metrics(self) -> dict[str, Decimal | None]:
+    def _init_metrics(self) -> HealthRecordMetrics:
         return {
             "heart_rate_min": None,
             "heart_rate_max": None,
@@ -129,7 +129,7 @@ class XMLService:
         except (ValueError, ArithmeticError):
             return None
 
-    def _update_metrics_from_stat(self, metrics: dict[str, Decimal | None], statistic: dict[str, Any]) -> None:
+    def _update_metrics_from_stat(self, metrics: HealthRecordMetrics, statistic: dict[str, Any]) -> None:
         stat_type = statistic.get("type", "")
         if not stat_type:
             return

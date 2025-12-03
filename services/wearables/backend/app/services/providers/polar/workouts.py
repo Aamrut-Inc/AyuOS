@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 import isodate
 
 from app.database import DbSession
-from app.schemas import HealthRecordCreate, PolarExerciseJSON
+from app.schemas import HealthRecordCreate, HealthRecordMetrics, PolarExerciseJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -62,7 +62,6 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: PolarExerciseJSON,
         user_id: UUID,
-        metrics: dict[str, Decimal | None],
     ) -> HealthRecordCreate:
         """Normalize Polar exercise to HealthRecordCreate."""
         workout_id = uuid4()
@@ -73,6 +72,8 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             raw_workout.duration,
         )
         duration_seconds = (end_date - start_date).total_seconds()
+
+        metrics = self._build_metrics(raw_workout)
 
         return HealthRecordCreate(
             id=workout_id,
@@ -87,7 +88,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             **metrics,
         )
 
-    def _build_metrics(self, raw_workout: PolarExerciseJSON) -> dict[str, Decimal | None]:
+    def _build_metrics(self, raw_workout: PolarExerciseJSON) -> HealthRecordMetrics:
         hr_avg = Decimal(str(raw_workout.heart_rate.average)) if raw_workout.heart_rate.average is not None else None
         hr_max = Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
 
@@ -107,8 +108,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
     ) -> Iterable[HealthRecordCreate]:
         """Build health record payloads for Polar exercises."""
         for raw_workout in raw:
-            metrics = self._build_metrics(raw_workout)
-            yield self._normalize_workout(raw_workout, user_id, metrics)
+            yield self._normalize_workout(raw_workout, user_id)
 
     def load_data(
         self,
