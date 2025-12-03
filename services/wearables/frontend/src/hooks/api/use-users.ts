@@ -65,7 +65,8 @@ export function useUpdateUser() {
               ? data.last_name
               : previousUser.last_name,
           email: data.email !== undefined ? data.email : previousUser.email,
-          client_user_id: data.client_user_id ?? previousUser.client_user_id,
+          external_user_id:
+            data.external_user_id ?? previousUser.external_user_id,
         };
         queryClient.setQueryData<UserRead>(
           queryKeys.users.detail(id),

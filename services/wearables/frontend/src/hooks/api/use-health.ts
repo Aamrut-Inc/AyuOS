@@ -1,159 +1,30 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { healthService } from '@/lib/api/services/health.service';
+import { useQuery } from '@tanstack/react-query';
+import {
+  healthService,
+  type WorkoutsParams,
+} from '@/lib/api/services/health.service';
 import { queryKeys } from '@/lib/query/keys';
-import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/errors/handler';
-import type { HealthDataParams } from '@/lib/api/types';
 
-// Get available providers
-export function useProviders() {
+/**
+ * Get heart rate data for a user
+ * Uses GET /api/v1/users/{user_id}/heart-rate
+ */
+export function useHeartRate(userId: string) {
   return useQuery({
-    queryKey: queryKeys.health.providers(),
-    queryFn: () => healthService.getProviders(),
-  });
-}
-
-// Get user connections
-export function useUserConnections(userId: string) {
-  return useQuery({
-    queryKey: queryKeys.health.connections(userId),
-    queryFn: () => healthService.getUserConnections(userId),
+    queryKey: queryKeys.health.heartRate(userId),
+    queryFn: () => healthService.getHeartRate(userId),
     enabled: !!userId,
   });
 }
 
-// Get heart rate data
-export function useHeartRateData(userId: string, days: number = 7) {
-  return useQuery({
-    queryKey: queryKeys.health.heartRate(userId, days),
-    queryFn: () => healthService.getHeartRateData(userId, days),
-    enabled: !!userId,
-  });
-}
-
-// Get sleep data
-export function useSleepData(userId: string, days: number = 7) {
-  return useQuery({
-    queryKey: queryKeys.health.sleep(userId, days),
-    queryFn: () => healthService.getSleepData(userId, days),
-    enabled: !!userId,
-  });
-}
-
-// Get activity data
-export function useActivityData(userId: string, days: number = 7) {
-  return useQuery({
-    queryKey: queryKeys.health.activity(userId, days),
-    queryFn: () => healthService.getActivityData(userId, days),
-    enabled: !!userId,
-  });
-}
-
-// Get health summary
-export function useHealthSummary(userId: string, period: string = '7d') {
-  return useQuery({
-    queryKey: queryKeys.health.summary(userId, period),
-    queryFn: () => healthService.getHealthSummary(userId, period),
-    enabled: !!userId,
-  });
-}
-
-// Generate connection link
-export function useGenerateConnectionLink() {
-  return useMutation({
-    mutationFn: ({
-      userId,
-      providerId,
-    }: {
-      userId: string;
-      providerId: string;
-    }) => healthService.generateConnectionLink(userId, providerId),
-    onSuccess: () => {
-      toast.success('Connection link generated successfully');
-    },
-    onError: (error) => {
-      toast.error(
-        `Failed to generate connection link: ${getErrorMessage(error)}`
-      );
-    },
-  });
-}
-
-// Disconnect provider
-export function useDisconnectProvider() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      userId,
-      connectionId,
-    }: {
-      userId: string;
-      connectionId: string;
-    }) => healthService.disconnectProvider(userId, connectionId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.health.connections(variables.userId),
-      });
-      toast.success('Provider disconnected successfully');
-    },
-    onError: (error) => {
-      toast.error(`Failed to disconnect provider: ${getErrorMessage(error)}`);
-    },
-  });
-}
-
-// Sync user data
-export function useSyncUserData() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (userId: string) => healthService.syncUserData(userId),
-    onSuccess: (_, userId) => {
-      // Invalidate all health-related queries for this user
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.health.connections(userId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.health.summary(userId),
-      });
-      // Invalidate specific health data types
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return (
-            Array.isArray(key) && key[0] === 'health' && key.includes(userId)
-          );
-        },
-      });
-      toast.success('Data sync initiated');
-    },
-    onError: (error) => {
-      toast.error(`Failed to sync data: ${getErrorMessage(error)}`);
-    },
-  });
-}
-
-export function useUserHeartRate(userId: string, params?: HealthDataParams) {
-  return useQuery({
-    queryKey: queryKeys.health.heartRateList(userId, params),
-    queryFn: () => healthService.getHeartRateList(userId, params),
-    enabled: !!userId,
-  });
-}
-
-export function useUserWorkouts(userId: string, params?: HealthDataParams) {
+/**
+ * Get workouts for a user
+ * Uses GET /api/v1/users/{user_id}/workouts
+ */
+export function useWorkouts(userId: string, params?: WorkoutsParams) {
   return useQuery({
     queryKey: queryKeys.health.workouts(userId, params),
     queryFn: () => healthService.getWorkouts(userId, params),
-    enabled: !!userId,
-  });
-}
-
-export function useUserRecords(userId: string, params?: HealthDataParams) {
-  return useQuery({
-    queryKey: queryKeys.health.records(userId, params),
-    queryFn: () => healthService.getRecords(userId, params),
     enabled: !!userId,
   });
 }

@@ -9,16 +9,17 @@ import {
   Check,
   ChevronDown,
   Users as UsersIcon,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { useUsers, useDeleteUser, useCreateUser } from '@/hooks/api/use-users';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import type { UserCreate } from '@/lib/api/types';
 
-type SearchField = 'all' | 'id' | 'email' | 'name' | 'client_user_id';
+type SearchField = 'all' | 'id' | 'email' | 'name' | 'external_user_id';
 
 const initialFormState: UserCreate = {
-  client_user_id: '',
+  external_user_id: '',
   first_name: '',
   last_name: '',
   email: '',
@@ -34,6 +35,7 @@ function UsersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedPairLink, setCopiedPairLink] = useState<string | null>(null);
   const [formData, setFormData] = useState<UserCreate>(initialFormState);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -57,15 +59,17 @@ function UsersPage() {
           return user.email?.toLowerCase().includes(searchLower);
         case 'name':
           return fullName.includes(searchLower);
-        case 'client_user_id':
-          return user.client_user_id.toLowerCase().includes(searchLower);
+        case 'external_user_id':
+          return (
+            user.external_user_id?.toLowerCase().includes(searchLower) ?? false
+          );
         case 'all':
         default:
           return (
             user.id.toLowerCase().includes(searchLower) ||
             user.email?.toLowerCase().includes(searchLower) ||
             fullName.includes(searchLower) ||
-            user.client_user_id.toLowerCase().includes(searchLower)
+            user.external_user_id?.toLowerCase().includes(searchLower)
           );
       }
     });
@@ -78,13 +82,20 @@ function UsersPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleCopyPairLink = async (userId: string) => {
+    const pairLink = `${window.location.origin}/users/${userId}/pair`;
+    await navigator.clipboard.writeText(pairLink);
+    setCopiedPairLink(userId);
+    toast.success('Pairing link copied to clipboard');
+    setTimeout(() => setCopiedPairLink(null), 2000);
+  };
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.client_user_id.trim()) {
-      errors.client_user_id = 'Client User ID is required';
-    } else if (formData.client_user_id.length > 255) {
-      errors.client_user_id = 'Client User ID must be 255 characters or less';
+    if (formData.external_user_id && formData.external_user_id.length > 255) {
+      errors.external_user_id =
+        'External User ID must be 255 characters or less';
     }
 
     if (formData.first_name && formData.first_name.length > 100) {
@@ -107,7 +118,7 @@ function UsersPage() {
     if (!validateForm()) return;
 
     const payload: UserCreate = {
-      client_user_id: formData.client_user_id.trim(),
+      external_user_id: formData.external_user_id?.trim() || null,
       first_name: formData.first_name?.trim() || null,
       last_name: formData.last_name?.trim() || null,
       email: formData.email?.trim() || null,
@@ -138,8 +149,7 @@ function UsersPage() {
     }
   };
 
-  const truncateId = (id: string | null | undefined) => {
-    if (!id) return '—';
+  const truncateId = (id: string) => {
     if (id.length <= 12) return id;
     return `${id.slice(0, 8)}...${id.slice(-4)}`;
   };
@@ -231,7 +241,7 @@ function UsersPage() {
               >
                 <option value="all">All fields</option>
                 <option value="id">User ID</option>
-                <option value="client_user_id">Client User ID</option>
+                <option value="external_user_id">External User ID</option>
                 <option value="email">Email</option>
                 <option value="name">Name</option>
               </select>
@@ -266,6 +276,9 @@ function UsersPage() {
                 <tr className="border-b border-zinc-800 text-left">
                   <th className="px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                     User ID
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    External User ID
                   </th>
                   <th className="px-4 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
                     Name
@@ -304,6 +317,13 @@ function UsersPage() {
                         </button>
                       </div>
                     </td>
+                    <td className="px-4 py-3">
+                      <code className="font-mono text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded">
+                        {user.external_user_id
+                          ? truncateId(user.external_user_id)
+                          : '—'}
+                      </code>
+                    </td>
                     <td className="px-4 py-3 text-sm text-zinc-300">
                       {user.first_name || user.last_name ? (
                         <span>
@@ -332,6 +352,17 @@ function UsersPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Link>
+                        <button
+                          onClick={() => handleCopyPairLink(user.id)}
+                          className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
+                          title="Copy pairing link"
+                        >
+                          {copiedPairLink === user.id ? (
+                            <Check className="h-4 w-4 text-emerald-500" />
+                          ) : (
+                            <LinkIcon className="h-4 w-4" />
+                          )}
+                        </button>
                         <button
                           onClick={() => setDeleteUserId(user.id)}
                           disabled={deleteUser.isPending}
@@ -365,21 +396,24 @@ function UsersPage() {
             <div className="p-6 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-zinc-300">
-                  Client User ID <span className="text-red-500">*</span>
+                  External User ID
                 </label>
                 <input
                   type="text"
                   placeholder="e.g., user_12345 or external system ID"
-                  value={formData.client_user_id}
+                  value={formData.external_user_id || ''}
                   onChange={(e) =>
-                    setFormData({ ...formData, client_user_id: e.target.value })
+                    setFormData({
+                      ...formData,
+                      external_user_id: e.target.value,
+                    })
                   }
                   maxLength={255}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                 />
-                {formErrors.client_user_id && (
+                {formErrors.external_user_id && (
                   <p className="text-xs text-red-500">
-                    {formErrors.client_user_id}
+                    {formErrors.external_user_id}
                   </p>
                 )}
                 <p className="text-[10px] text-zinc-600">

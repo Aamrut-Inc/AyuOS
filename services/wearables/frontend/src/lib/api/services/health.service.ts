@@ -1,115 +1,47 @@
 import { apiClient } from '../client';
-import type {
-  HeartRateData,
-  SleepData,
-  ActivityData,
-  HealthDataSummary,
-  Provider,
-  UserConnection,
-  HeartRateListResponse,
-  WorkoutListResponse,
-  RecordListResponse,
-  HealthDataParams,
-} from '../types';
+import type { WorkoutStatisticResponse, WorkoutResponse } from '../types';
+
+export interface WorkoutsParams {
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+  sort_order?: 'asc' | 'desc';
+  workout_type?: string;
+  source_name?: string;
+  min_duration?: number;
+  max_duration?: number;
+  sort_by?:
+    | 'start_datetime'
+    | 'end_datetime'
+    | 'duration_seconds'
+    | 'type'
+    | 'source_name';
+  [key: string]: string | number | undefined;
+}
 
 export const healthService = {
-  async getProviders(): Promise<Provider[]> {
-    return apiClient.get<Provider[]>('/v1/providers');
-  },
-
-  async getUserConnections(userId: string): Promise<UserConnection[]> {
-    return apiClient.get<UserConnection[]>(`/v1/users/${userId}/connections`);
-  },
-
-  async generateConnectionLink(
-    userId: string,
-    providerId: string
-  ): Promise<{ url: string; expiresAt: string }> {
-    return apiClient.post<{ url: string; expiresAt: string }>(
-      `/v1/users/${userId}/connections/generate-link`,
-      { providerId }
+  /**
+   * Get heart rate data for a user
+   * GET /api/v1/users/{user_id}/heart-rate
+   */
+  async getHeartRate(userId: string): Promise<WorkoutStatisticResponse[]> {
+    return apiClient.get<WorkoutStatisticResponse[]>(
+      `/api/v1/users/${userId}/heart-rate`
     );
   },
 
-  async disconnectProvider(
-    userId: string,
-    connectionId: string
-  ): Promise<void> {
-    return apiClient.delete<void>(
-      `/v1/users/${userId}/connections/${connectionId}`
-    );
-  },
-
-  async getHeartRateData(
-    userId: string,
-    days: number = 7
-  ): Promise<HeartRateData[]> {
-    return apiClient.get<HeartRateData[]>(`/v1/users/${userId}/heart-rate`, {
-      params: { days },
-    });
-  },
-
-  async getSleepData(userId: string, days: number = 7): Promise<SleepData[]> {
-    return apiClient.get<SleepData[]>(`/v1/users/${userId}/sleep`, {
-      params: { days },
-    });
-  },
-
-  async getActivityData(
-    userId: string,
-    days: number = 7
-  ): Promise<ActivityData[]> {
-    return apiClient.get<ActivityData[]>(`/v1/users/${userId}/activity`, {
-      params: { days },
-    });
-  },
-
-  async getHealthSummary(
-    userId: string,
-    period: string = '7d'
-  ): Promise<HealthDataSummary> {
-    return apiClient.get<HealthDataSummary>(
-      `/v1/users/${userId}/health-summary`,
-      {
-        params: { period },
-      }
-    );
-  },
-
-  async syncUserData(
-    userId: string
-  ): Promise<{ message: string; jobId: string }> {
-    return apiClient.post<{ message: string; jobId: string }>(
-      `/v1/users/${userId}/sync`,
-      {}
-    );
-  },
-
-  async getHeartRateList(
-    userId: string,
-    params?: HealthDataParams
-  ): Promise<HeartRateListResponse> {
-    return apiClient.get<HeartRateListResponse>(
-      `/v1/users/${userId}/heart-rate`,
-      { params }
-    );
-  },
-
+  /**
+   * Get workouts for a user
+   * GET /api/v1/users/{user_id}/workouts
+   */
   async getWorkouts(
     userId: string,
-    params?: HealthDataParams
-  ): Promise<WorkoutListResponse> {
-    return apiClient.get<WorkoutListResponse>(`/v1/users/${userId}/workouts`, {
-      params,
-    });
-  },
-
-  async getRecords(
-    userId: string,
-    params?: HealthDataParams
-  ): Promise<RecordListResponse> {
-    return apiClient.get<RecordListResponse>(`/v1/users/${userId}/records`, {
-      params,
-    });
+    params?: WorkoutsParams
+  ): Promise<WorkoutResponse[]> {
+    return apiClient.get<WorkoutResponse[]>(
+      `/api/v1/users/${userId}/workouts`,
+      { params }
+    );
   },
 };

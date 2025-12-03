@@ -22,7 +22,10 @@ import { Route as AuthenticatedHealthInsightsRouteImport } from './routes/_authe
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCredentialsRouteImport } from './routes/_authenticated/credentials'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
+import { Route as UsersUserIdPairRouteImport } from './routes/users/$userId/pair'
 import { Route as AuthenticatedUsersUserIdRouteImport } from './routes/_authenticated/users/$userId'
+import { Route as UsersUserIdPairSuccessRouteImport } from './routes/users/$userId/pair.success'
+import { Route as UsersUserIdPairErrorRouteImport } from './routes/users/$userId/pair.error'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -90,12 +93,27 @@ const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedUsersRoute,
 } as any)
+const UsersUserIdPairRoute = UsersUserIdPairRouteImport.update({
+  id: '/users/$userId/pair',
+  path: '/users/$userId/pair',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedUsersUserIdRoute =
   AuthenticatedUsersUserIdRouteImport.update({
     id: '/$userId',
     path: '/$userId',
     getParentRoute: () => AuthenticatedUsersRoute,
   } as any)
+const UsersUserIdPairSuccessRoute = UsersUserIdPairSuccessRouteImport.update({
+  id: '/success',
+  path: '/success',
+  getParentRoute: () => UsersUserIdPairRoute,
+} as any)
+const UsersUserIdPairErrorRoute = UsersUserIdPairErrorRouteImport.update({
+  id: '/error',
+  path: '/error',
+  getParentRoute: () => UsersUserIdPairRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,7 +128,10 @@ export interface FileRoutesByFullPath {
   '/users': typeof AuthenticatedUsersRouteWithChildren
   '/widget/connect': typeof WidgetConnectRoute
   '/users/$userId': typeof AuthenticatedUsersUserIdRoute
+  '/users/$userId/pair': typeof UsersUserIdPairRouteWithChildren
   '/users/': typeof AuthenticatedUsersIndexRoute
+  '/users/$userId/pair/error': typeof UsersUserIdPairErrorRoute
+  '/users/$userId/pair/success': typeof UsersUserIdPairSuccessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -124,7 +145,10 @@ export interface FileRoutesByTo {
   '/pricing': typeof AuthenticatedPricingRoute
   '/widget/connect': typeof WidgetConnectRoute
   '/users/$userId': typeof AuthenticatedUsersUserIdRoute
+  '/users/$userId/pair': typeof UsersUserIdPairRouteWithChildren
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/users/$userId/pair/error': typeof UsersUserIdPairErrorRoute
+  '/users/$userId/pair/success': typeof UsersUserIdPairSuccessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -141,7 +165,10 @@ export interface FileRoutesById {
   '/_authenticated/users': typeof AuthenticatedUsersRouteWithChildren
   '/widget/connect': typeof WidgetConnectRoute
   '/_authenticated/users/$userId': typeof AuthenticatedUsersUserIdRoute
+  '/users/$userId/pair': typeof UsersUserIdPairRouteWithChildren
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/users/$userId/pair/error': typeof UsersUserIdPairErrorRoute
+  '/users/$userId/pair/success': typeof UsersUserIdPairSuccessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,7 +185,10 @@ export interface FileRouteTypes {
     | '/users'
     | '/widget/connect'
     | '/users/$userId'
+    | '/users/$userId/pair'
     | '/users/'
+    | '/users/$userId/pair/error'
+    | '/users/$userId/pair/success'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -172,7 +202,10 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/widget/connect'
     | '/users/$userId'
+    | '/users/$userId/pair'
     | '/users'
+    | '/users/$userId/pair/error'
+    | '/users/$userId/pair/success'
   id:
     | '__root__'
     | '/'
@@ -188,7 +221,10 @@ export interface FileRouteTypes {
     | '/_authenticated/users'
     | '/widget/connect'
     | '/_authenticated/users/$userId'
+    | '/users/$userId/pair'
     | '/_authenticated/users/'
+    | '/users/$userId/pair/error'
+    | '/users/$userId/pair/success'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -199,6 +235,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   WidgetConnectRoute: typeof WidgetConnectRoute
+  UsersUserIdPairRoute: typeof UsersUserIdPairRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -294,12 +331,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsersIndexRouteImport
       parentRoute: typeof AuthenticatedUsersRoute
     }
+    '/users/$userId/pair': {
+      id: '/users/$userId/pair'
+      path: '/users/$userId/pair'
+      fullPath: '/users/$userId/pair'
+      preLoaderRoute: typeof UsersUserIdPairRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/users/$userId': {
       id: '/_authenticated/users/$userId'
       path: '/$userId'
       fullPath: '/users/$userId'
       preLoaderRoute: typeof AuthenticatedUsersUserIdRouteImport
       parentRoute: typeof AuthenticatedUsersRoute
+    }
+    '/users/$userId/pair/success': {
+      id: '/users/$userId/pair/success'
+      path: '/success'
+      fullPath: '/users/$userId/pair/success'
+      preLoaderRoute: typeof UsersUserIdPairSuccessRouteImport
+      parentRoute: typeof UsersUserIdPairRoute
+    }
+    '/users/$userId/pair/error': {
+      id: '/users/$userId/pair/error'
+      path: '/error'
+      fullPath: '/users/$userId/pair/error'
+      preLoaderRoute: typeof UsersUserIdPairErrorRouteImport
+      parentRoute: typeof UsersUserIdPairRoute
     }
   }
 }
@@ -337,6 +395,20 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface UsersUserIdPairRouteChildren {
+  UsersUserIdPairErrorRoute: typeof UsersUserIdPairErrorRoute
+  UsersUserIdPairSuccessRoute: typeof UsersUserIdPairSuccessRoute
+}
+
+const UsersUserIdPairRouteChildren: UsersUserIdPairRouteChildren = {
+  UsersUserIdPairErrorRoute: UsersUserIdPairErrorRoute,
+  UsersUserIdPairSuccessRoute: UsersUserIdPairSuccessRoute,
+}
+
+const UsersUserIdPairRouteWithChildren = UsersUserIdPairRoute._addFileChildren(
+  UsersUserIdPairRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
@@ -345,6 +417,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   WidgetConnectRoute: WidgetConnectRoute,
+  UsersUserIdPairRoute: UsersUserIdPairRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

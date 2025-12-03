@@ -1,34 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import {
-  Plus,
-  Eye,
-  EyeOff,
-  Copy,
-  Trash2,
-  Key,
-  Pencil,
-  RefreshCw,
-} from 'lucide-react';
+import { Plus, Eye, EyeOff, Copy, Trash2, Key } from 'lucide-react';
 import {
   useApiKeys,
   useCreateApiKey,
-  useUpdateApiKey,
   useDeleteApiKey,
-  useRotateApiKey,
 } from '@/hooks/api/use-credentials';
-import type { ApiKeyCreate, ApiKeyUpdate, ApiKey } from '@/lib/api/types';
 import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 export const Route = createFileRoute('/_authenticated/credentials')({
   component: CredentialsPage,
@@ -36,81 +14,35 @@ export const Route = createFileRoute('/_authenticated/credentials')({
 
 function CredentialsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isRotateDialogOpen, setIsRotateDialogOpen] = useState(false);
-  const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
-  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
-  const [formData, setFormData] = useState<ApiKeyCreate>({
-    name: '',
-  });
-  const [editFormData, setEditFormData] = useState<ApiKeyUpdate>({
-    name: '',
-  });
+  const [keyName, setKeyName] = useState('');
 
   const { data: apiKeys, isLoading, error, refetch } = useApiKeys();
   const createMutation = useCreateApiKey();
-  const updateMutation = useUpdateApiKey();
   const deleteMutation = useDeleteApiKey();
-  const rotateMutation = useRotateApiKey();
 
   const handleCreate = async () => {
-    if (!formData.name) {
+    if (!keyName.trim()) {
       toast.error('Please enter a key name');
       return;
     }
 
-    const newKey = await createMutation.mutateAsync(formData);
+    const newKey = await createMutation.mutateAsync({ name: keyName });
     setIsCreateDialogOpen(false);
-    setFormData({ name: '' });
+    setKeyName('');
+
+    toast.success('API key created successfully');
     setVisibleKeys((prev) => new Set(prev).add(newKey.id));
   };
 
-  const handleEdit = (key: ApiKey) => {
-    setEditingKey(key);
-    setEditFormData({ name: key.name });
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!editingKey || !editFormData.name) {
-      toast.error('Please enter a key name');
-      return;
+  const handleDelete = async (id: string) => {
+    if (
+      confirm(
+        'Are you sure you want to delete this API key? This action cannot be undone.'
+      )
+    ) {
+      await deleteMutation.mutateAsync(id);
     }
-
-    await updateMutation.mutateAsync({
-      id: editingKey.id,
-      data: editFormData,
-    });
-    setIsEditDialogOpen(false);
-    setEditingKey(null);
-    setEditFormData({ name: '' });
-  };
-
-  const openDeleteDialog = (id: string) => {
-    setSelectedKeyId(id);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDelete = async () => {
-    if (!selectedKeyId) return;
-    await deleteMutation.mutateAsync(selectedKeyId);
-    setIsDeleteDialogOpen(false);
-    setSelectedKeyId(null);
-  };
-
-  const openRotateDialog = (id: string) => {
-    setSelectedKeyId(id);
-    setIsRotateDialogOpen(true);
-  };
-
-  const handleRotate = async () => {
-    if (!selectedKeyId) return;
-    const newKey = await rotateMutation.mutateAsync(selectedKeyId);
-    setVisibleKeys((prev) => new Set(prev).add(newKey.id));
-    setIsRotateDialogOpen(false);
-    setSelectedKeyId(null);
   };
 
   const toggleKeyVisibility = (id: string) => {
@@ -125,9 +57,9 @@ function CredentialsPage() {
     });
   };
 
-  const copyToClipboard = (text: string, label: string) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
+    toast.success('Copied to clipboard');
   };
 
   const maskKey = (key: string) => {
@@ -136,7 +68,7 @@ function CredentialsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleDateString();
   };
 
   if (isLoading) {
@@ -145,7 +77,7 @@ function CredentialsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-medium text-white">API Credentials</h1>
           <p className="text-sm text-zinc-500 mt-1">
-            Manage your API keys for authentication
+            Manage your API keys and widget embed codes
           </p>
         </div>
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
@@ -180,11 +112,12 @@ function CredentialsPage() {
 
   return (
     <div className="p-8 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-medium text-white">API Credentials</h1>
           <p className="text-sm text-zinc-500 mt-1">
-            Manage your API keys for authentication
+            Manage your API keys and widget embed codes
           </p>
         </div>
         <button
@@ -196,11 +129,12 @@ function CredentialsPage() {
         </button>
       </div>
 
+      {/* API Keys Table */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-800">
           <h2 className="text-sm font-medium text-white">API Keys</h2>
           <p className="text-xs text-zinc-500 mt-1">
-            Use these keys to authenticate API requests
+            Use these keys to authenticate API requests and embed widgets
           </p>
         </div>
 
@@ -216,7 +150,7 @@ function CredentialsPage() {
                     Key
                   </th>
                   <th className="px-6 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                    Created At
+                    Created
                   </th>
                   <th className="px-6 py-3 text-xs font-medium text-zinc-500 uppercase tracking-wider text-right">
                     Actions
@@ -240,9 +174,6 @@ function CredentialsPage() {
                         <button
                           onClick={() => toggleKeyVisibility(key.id)}
                           className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                          title={
-                            visibleKeys.has(key.id) ? 'Hide key' : 'Show key'
-                          }
                         >
                           {visibleKeys.has(key.id) ? (
                             <EyeOff className="h-4 w-4" />
@@ -251,9 +182,8 @@ function CredentialsPage() {
                           )}
                         </button>
                         <button
-                          onClick={() => copyToClipboard(key.id, 'API key')}
+                          onClick={() => copyToClipboard(key.id)}
                           className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                          title="Copy key"
                         >
                           <Copy className="h-4 w-4" />
                         </button>
@@ -263,27 +193,11 @@ function CredentialsPage() {
                       {formatDate(key.created_at)}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end">
                         <button
-                          onClick={() => handleEdit(key)}
-                          className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
-                          title="Edit name"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => openRotateDialog(key.id)}
-                          disabled={rotateMutation.isPending}
-                          className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
-                          title="Rotate key"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => openDeleteDialog(key.id)}
+                          onClick={() => handleDelete(key.id)}
                           disabled={deleteMutation.isPending}
                           className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
-                          title="Delete key"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -312,6 +226,7 @@ function CredentialsPage() {
         )}
       </div>
 
+      {/* Create Dialog */}
       {isCreateDialogOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md shadow-2xl">
@@ -323,7 +238,7 @@ function CredentialsPage() {
                 Generate a new API key for your application
               </p>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-zinc-300">
                   Key Name
@@ -331,10 +246,8 @@ function CredentialsPage() {
                 <input
                   type="text"
                   placeholder="e.g., Production API Key"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
+                  value={keyName}
+                  onChange={(e) => setKeyName(e.target.value)}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
                 />
                 <p className="text-[10px] text-zinc-600">
@@ -344,7 +257,10 @@ function CredentialsPage() {
             </div>
             <div className="p-6 border-t border-zinc-800 flex justify-end gap-3">
               <button
-                onClick={() => setIsCreateDialogOpen(false)}
+                onClick={() => {
+                  setIsCreateDialogOpen(false);
+                  setKeyName('');
+                }}
                 disabled={createMutation.isPending}
                 className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
               >
@@ -361,127 +277,6 @@ function CredentialsPage() {
           </div>
         </div>
       )}
-
-      {isEditDialogOpen && editingKey && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md shadow-2xl">
-            <div className="p-6 border-b border-zinc-800">
-              <h2 className="text-lg font-medium text-white">Edit API Key</h2>
-              <p className="text-sm text-zinc-500 mt-1">
-                Update the name of your API key
-              </p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-300">
-                  Key Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Production API Key"
-                  value={editFormData.name || ''}
-                  onChange={(e) =>
-                    setEditFormData((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
-                />
-                <p className="text-[10px] text-zinc-600">
-                  A descriptive name to identify this key
-                </p>
-              </div>
-            </div>
-            <div className="p-6 border-t border-zinc-800 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setIsEditDialogOpen(false);
-                  setEditingKey(null);
-                  setEditFormData({ name: '' });
-                }}
-                disabled={updateMutation.isPending}
-                className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdate}
-                disabled={updateMutation.isPending}
-                className="px-4 py-2 bg-white text-black rounded-md text-sm font-medium hover:bg-zinc-200 transition-colors disabled:opacity-50"
-              >
-                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent className="bg-zinc-900 border-zinc-800">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
-              Delete API Key
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              Are you sure you want to delete this API key? This action cannot
-              be undone and any applications using this key will no longer be
-              able to authenticate.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className="bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-              onClick={() => setSelectedKeyId(null)}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 text-white hover:bg-red-700"
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete Key'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={isRotateDialogOpen}
-        onOpenChange={setIsRotateDialogOpen}
-      >
-        <AlertDialogContent className="bg-zinc-900 border-zinc-800">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
-              Rotate API Key
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              Are you sure you want to rotate this API key? The old key will be
-              invalidated immediately and a new key will be generated. Any
-              applications using the old key will need to be updated.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className="bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-              onClick={() => setSelectedKeyId(null)}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-amber-600 text-white hover:bg-amber-700"
-              onClick={handleRotate}
-              disabled={rotateMutation.isPending}
-            >
-              {rotateMutation.isPending ? 'Rotating...' : 'Rotate Key'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

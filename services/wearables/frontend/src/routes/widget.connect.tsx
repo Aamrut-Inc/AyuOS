@@ -1,19 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, ChevronRight, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useProviders } from '@/hooks/api/use-health';
-import { LoadingState } from '@/components/common/loading-spinner';
-import { ErrorState } from '@/components/common/error-state';
-import type { Provider } from '@/lib/api/types';
+import { WEARABLE_PROVIDERS } from '@/lib/constants/providers';
 
 export const Route = createFileRoute('/widget/connect')({
   component: ConnectWidgetPage,
@@ -27,14 +16,13 @@ function ConnectWidgetPage() {
     useState<ConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
-  const { data: providers, isLoading, error } = useProviders();
-
-  const handleConnect = async (provider: Provider) => {
-    if (!provider.isAvailable) {
+  const handleConnect = async (providerId: string, providerName: string) => {
+    const provider = WEARABLE_PROVIDERS.find((p) => p.id === providerId);
+    if (!provider?.isAvailable) {
       return;
     }
 
-    setSelectedProvider(provider.id);
+    setSelectedProvider(providerId);
     setConnectionState('connecting');
     setErrorMessage('');
 
@@ -50,8 +38,8 @@ function ConnectWidgetPage() {
         window.parent.postMessage(
           {
             type: 'wearable_connected',
-            provider: provider.id,
-            providerName: provider.name,
+            provider: providerId,
+            providerName: providerName,
           },
           '*'
         );
@@ -83,153 +71,119 @@ function ConnectWidgetPage() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <LoadingState message="Loading providers..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <ErrorState message="Failed to load providers" />
-      </div>
-    );
-  }
-
   if (connectionState === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="rounded-full bg-green-100 dark:bg-green-900 p-3">
-                  <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">Successfully Connected!</h2>
-                <p className="text-muted-foreground mt-2">
-                  Your device has been connected and will start syncing data
-                  shortly.
-                </p>
-              </div>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-6">
+        <div className="w-full max-w-md rounded-2xl bg-zinc-900/40 border border-white/5 p-10 text-center">
+          <div className="flex justify-center mb-6">
+            <div className="rounded-full bg-green-500/20 p-4">
+              <Check className="h-10 w-10 text-green-400" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <h2 className="text-2xl font-medium text-white mb-3">
+            Successfully Connected!
+          </h2>
+          <p className="text-zinc-400">
+            Your device has been connected and will start syncing data shortly.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (connectionState === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-destructive">
-              Connection Failed
-            </CardTitle>
-            <CardDescription>{errorMessage}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              className="w-full"
-              onClick={() => {
-                setConnectionState('idle');
-                setSelectedProvider(null);
-              }}
-            >
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-6">
+        <div className="w-full max-w-md rounded-2xl bg-zinc-900/40 border border-white/5 p-10 text-center">
+          <h2 className="text-2xl font-medium text-red-400 mb-3">
+            Connection Failed
+          </h2>
+          <p className="text-zinc-400 mb-8">{errorMessage}</p>
+          <Button
+            className="w-full bg-zinc-800 hover:bg-zinc-700 text-white border-0"
+            onClick={() => {
+              setConnectionState('idle');
+              setSelectedProvider(null);
+            }}
+          >
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-4xl mx-auto py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Connect Your Wearable</h1>
-          <p className="text-muted-foreground">
-            Choose a device or platform to connect and start tracking your
-            health data
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-zinc-950 text-zinc-200 selection:bg-white/20">
+      {/* Ambient Background Effect */}
+      <div
+        className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.1),rgba(255,255,255,0))] pointer-events-none"
+        aria-hidden="true"
+      />
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {providers?.map((provider) => (
-            <Card
+      {/* Header */}
+      <div className="relative z-10 text-center mb-14 space-y-3">
+        <h1 className="text-4xl font-medium text-white tracking-tight">
+          Connect a device
+        </h1>
+        <p className="text-lg text-zinc-400">Select your wearable platform</p>
+      </div>
+
+      {/* Grid Layout */}
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
+        {WEARABLE_PROVIDERS.map((provider) => {
+          const isConnecting =
+            selectedProvider === provider.id &&
+            connectionState === 'connecting';
+
+          return (
+            <button
               key={provider.id}
-              className={`cursor-pointer transition-all hover:shadow-lg ${!provider.isAvailable ? 'opacity-50' : ''} ${selectedProvider === provider.id && connectionState === 'connecting' ? 'border-primary' : ''}`}
-              onClick={() => handleConnect(provider)}
+              onClick={() => handleConnect(provider.id, provider.name)}
+              disabled={!provider.isAvailable || isConnecting}
+              className={`group relative flex flex-col items-center text-center p-10 rounded-2xl bg-zinc-900/40 border border-white/5 hover:bg-zinc-900/80 hover:border-white/10 transition-all duration-300 ease-out outline-none focus:ring-2 focus:ring-white/20 ${
+                !provider.isAvailable ? 'opacity-50 cursor-not-allowed' : ''
+              } ${isConnecting ? 'border-white/20' : ''}`}
             >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-2">
-                    <span className="text-2xl">{provider.name[0]}</span>
-                  </div>
-                  {!provider.isAvailable && (
-                    <Badge variant="secondary">Coming Soon</Badge>
-                  )}
-                </div>
-                <CardTitle className="text-xl">{provider.name}</CardTitle>
-                <CardDescription className="line-clamp-2">
-                  {provider.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-1 mb-4">
-                  {provider.features.slice(0, 3).map((feature) => (
-                    <Badge key={feature} variant="outline" className="text-xs">
-                      {feature}
-                    </Badge>
-                  ))}
-                  {provider.features.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{provider.features.length - 3} more
-                    </Badge>
-                  )}
-                </div>
-                <Button
-                  className="w-full"
-                  disabled={
-                    !provider.isAvailable ||
-                    (selectedProvider === provider.id &&
-                      connectionState === 'connecting')
-                  }
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleConnect(provider);
-                  }}
-                >
-                  {selectedProvider === provider.id &&
-                  connectionState === 'connecting' ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : !provider.isAvailable ? (
-                    'Coming Soon'
-                  ) : (
-                    'Connect'
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              <div className="mb-8 flex items-center justify-center h-20 w-20 bg-white rounded-2xl shadow-lg shadow-black/20 group-hover:scale-105 transition-transform duration-300">
+                <img
+                  src={provider.logoPath}
+                  alt={`${provider.name} logo`}
+                  className="w-14 h-14 object-contain"
+                />
+              </div>
 
-        <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>
-            Your data is encrypted and secure. We only access the health metrics
-            you explicitly authorize.
-          </p>
-        </div>
+              <h3 className="text-xl font-medium text-white mb-3">
+                {provider.name}
+              </h3>
+              <p className="text-base text-zinc-500 max-w-xs leading-relaxed">
+                {provider.description}
+              </p>
+
+              <div className="mt-8 flex items-center gap-1.5 text-base font-medium text-zinc-200 group-hover:text-white transition-colors">
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : !provider.isAvailable ? (
+                  'Coming Soon'
+                ) : (
+                  <>
+                    Connect
+                    <ChevronRight className="w-4 h-4 stroke-[1.5]" />
+                  </>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Footer Security */}
+      <div className="mt-20 flex items-center gap-2 text-zinc-500 text-base font-normal opacity-80 hover:opacity-100 transition-opacity">
+        <Lock className="w-4 h-4 stroke-[1.5]" />
+        <span>Your data is encrypted and secure</span>
       </div>
     </div>
   );
