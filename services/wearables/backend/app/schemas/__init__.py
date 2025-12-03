@@ -33,6 +33,12 @@ from .garmin.activity_import import (
 from .garmin.activity_import import (
     RootJSON as GarminRootJSON,
 )
+from .health_record import (
+    HealthRecordCreate,
+    HealthRecordQueryParams,
+    HealthRecordResponse,
+    HealthRecordUpdate,
+)
 from .oauth import (
     AuthenticationMethod,
     AuthorizationURLResponse,
@@ -58,25 +64,19 @@ from .suunto.workout_import import (
 from .suunto.workout_import import (
     WorkoutJSON as SuuntoWorkoutJSON,
 )
-from .user import (
-    UserCreate,
-    UserCreateInternal,
-    UserRead,
-    UserUpdate,
-    UserUpdateInternal,
-)
-from .health_record import (
-    HealthRecordCreate,
-    HealthRecordQueryParams,
-    HealthRecordResponse,
-    HealthRecordUpdate,
-)
 from .time_series import (
     HeartRateSampleCreate,
     HeartRateSampleResponse,
     StepSampleCreate,
     StepSampleResponse,
     TimeSeriesQueryParams,
+)
+from .user import (
+    UserCreate,
+    UserCreateInternal,
+    UserRead,
+    UserUpdate,
+    UserUpdateInternal,
 )
 
 __all__ = [

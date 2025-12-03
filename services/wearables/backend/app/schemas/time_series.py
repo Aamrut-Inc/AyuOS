@@ -39,4 +39,3 @@ class StepSampleCreate(_TimeSeriesSampleBase):
 
 class StepSampleResponse(_TimeSeriesSampleBase):
     """Response payload for step count samples."""
-

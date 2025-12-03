@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 
 from app.models import HealthRecord, User
+from app.repositories.health_record_repository import HealthRecordRepository
 from app.repositories.user_connection_repository import UserConnectionRepository
 from app.repositories.user_repository import UserRepository
-from app.repositories.health_record_repository import HealthRecordRepository
 
 
 class BaseProviderStrategy(ABC):

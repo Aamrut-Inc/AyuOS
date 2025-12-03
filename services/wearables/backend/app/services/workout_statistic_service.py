@@ -3,7 +3,13 @@ from logging import Logger, getLogger
 from app.database import DbSession
 from app.models import HeartRateSample, StepSample
 from app.repositories import HeartRateSampleRepository, StepSampleRepository
-from app.schemas import HeartRateSampleCreate, HeartRateSampleResponse, StepSampleCreate, StepSampleResponse, TimeSeriesQueryParams
+from app.schemas import (
+    HeartRateSampleCreate,
+    HeartRateSampleResponse,
+    StepSampleCreate,
+    StepSampleResponse,
+    TimeSeriesQueryParams,
+)
 from app.utils.exceptions import handle_exceptions
 
 

@@ -64,4 +64,3 @@ class HealthRecordRepository(
         query = query.offset(query_params.offset).limit(query_params.limit)
 
         return query.all(), total_count
-

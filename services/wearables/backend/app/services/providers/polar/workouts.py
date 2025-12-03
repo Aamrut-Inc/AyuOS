@@ -88,12 +88,8 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         )
 
     def _build_metrics(self, raw_workout: PolarExerciseJSON) -> dict[str, Decimal | None]:
-        hr_avg = (
-            Decimal(str(raw_workout.heart_rate.average)) if raw_workout.heart_rate.average is not None else None
-        )
-        hr_max = (
-            Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
-        )
+        hr_avg = Decimal(str(raw_workout.heart_rate.average)) if raw_workout.heart_rate.average is not None else None
+        hr_max = Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
 
         return {
             "heart_rate_min": hr_avg,

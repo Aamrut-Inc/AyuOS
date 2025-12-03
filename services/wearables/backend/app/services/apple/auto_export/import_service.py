@@ -6,7 +6,7 @@ from typing import Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import AEWorkoutJSON, HeartRateSampleCreate, HealthRecordCreate, RootJSON, UploadDataResponse
+from app.schemas import AEWorkoutJSON, HealthRecordCreate, HeartRateSampleCreate, RootJSON, UploadDataResponse
 from app.services.workout_service import workout_service
 from app.services.workout_statistic_service import time_series_service
 from app.utils.exceptions import handle_exceptions
@@ -38,9 +38,7 @@ class ImportService:
 
         heart_rate_min = min(hr_min_candidates) if hr_min_candidates else None
         heart_rate_max = max(hr_max_candidates) if hr_max_candidates else None
-        heart_rate_avg = (
-            sum(hr_avg_candidates) / Decimal(len(hr_avg_candidates)) if hr_avg_candidates else None
-        )
+        heart_rate_avg = sum(hr_avg_candidates) / Decimal(len(hr_avg_candidates)) if hr_avg_candidates else None
 
         return {
             "heart_rate_min": heart_rate_min,

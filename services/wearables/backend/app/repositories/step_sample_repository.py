@@ -29,4 +29,3 @@ class StepSampleRepository(CrudRepository[StepSample, StepSampleCreate, StepSamp
             query = query.filter(self.model.recorded_at <= params.end_datetime)
 
         return query.order_by(desc(self.model.recorded_at)).limit(1000).all()
-

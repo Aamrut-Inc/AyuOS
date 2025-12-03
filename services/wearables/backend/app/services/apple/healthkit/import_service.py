@@ -6,10 +6,10 @@ from uuid import UUID, uuid4
 
 from app.database import DbSession
 from app.schemas import (
+    HealthRecordCreate,
+    HeartRateSampleCreate,
     HKRecordJSON,
     HKWorkoutJSON,
-    HeartRateSampleCreate,
-    HealthRecordCreate,
     RootJSON,
     StepSampleCreate,
     UploadDataResponse,
