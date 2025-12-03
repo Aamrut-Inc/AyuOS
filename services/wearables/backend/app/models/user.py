@@ -1,10 +1,13 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Mapped, relationship
 
 from app.database import BaseDbModel
 from app.mappings import PrimaryKey, Unique, datetime_tz, str_100, str_255, email
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .personal_record import PersonalRecord
 
 
 class User(BaseDbModel):
@@ -18,3 +21,9 @@ class User(BaseDbModel):
     email: Mapped[email | None]
 
     external_user_id: Mapped[Unique[str_255] | None]
+
+    personal_record: Mapped["PersonalRecord | None"] = relationship(
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

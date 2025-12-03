@@ -4,7 +4,7 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import GarminActivityJSON, HealthRecordCreate, HealthRecordMetrics
+from app.schemas import EventRecordCreate, EventRecordMetrics, GarminActivityJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -90,8 +90,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: GarminActivityJSON,
         user_id: UUID,
-    ) -> HealthRecordCreate:
-        """Normalize Garmin activity to HealthRecordCreate."""
+    ) -> EventRecordCreate:
+        """Normalize Garmin activity to EventRecordCreate."""
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates(
@@ -102,7 +102,7 @@ class GarminWorkouts(BaseWorkoutsTemplate):
 
         metrics = self._build_metrics(raw_workout)
 
-        return HealthRecordCreate(
+        return EventRecordCreate(
             id=workout_id,
             provider_id=raw_workout.summaryId,
             user_id=user_id,
@@ -115,7 +115,7 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             **metrics,
         )
 
-    def _build_metrics(self, raw_workout: GarminActivityJSON) -> HealthRecordMetrics:
+    def _build_metrics(self, raw_workout: GarminActivityJSON) -> EventRecordMetrics:
         heart_rate_avg = (
             Decimal(str(raw_workout.averageHeartRateInBeatsPerMinute))
             if raw_workout.averageHeartRateInBeatsPerMinute is not None
@@ -142,8 +142,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         self,
         raw: list[GarminActivityJSON],
         user_id: UUID,
-    ) -> Iterable[HealthRecordCreate]:
-        """Build health record payloads for Garmin activities."""
+    ) -> Iterable[EventRecordCreate]:
+        """Build event record payloads for Garmin activities."""
         for raw_workout in raw:
             yield self._normalize_workout(raw_workout, user_id)
 
@@ -157,8 +157,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         workouts = self.get_workouts_from_api(db, user_id, **kwargs)
         activities = [GarminActivityJSON(**activity) for activity in workouts]
 
-        for health_record in self._build_bundles(activities, user_id):
-            workout_service.create(db, health_record)
+        for event_record in self._build_bundles(activities, user_id):
+            workout_service.create(db, event_record)
 
         return True
 

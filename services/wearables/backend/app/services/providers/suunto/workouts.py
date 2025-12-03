@@ -4,7 +4,7 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import HealthRecordCreate, HealthRecordMetrics, SuuntoWorkoutJSON
+from app.schemas import EventRecordCreate, EventRecordMetrics, SuuntoWorkoutJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -72,8 +72,8 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: SuuntoWorkoutJSON,
         user_id: UUID,
-    ) -> HealthRecordCreate:
-        """Normalize Suunto workout to HealthRecordCreate."""
+    ) -> EventRecordCreate:
+        """Normalize Suunto workout to EventRecordCreate."""
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates(raw_workout.startTime, raw_workout.stopTime)
@@ -85,7 +85,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
 
         metrics = self._build_metrics(raw_workout)
 
-        return HealthRecordCreate(
+        return EventRecordCreate(
             id=workout_id,
             provider_id=str(raw_workout.workoutId),
             user_id=user_id,
@@ -98,7 +98,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             **metrics,
         )
 
-    def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> HealthRecordMetrics:
+    def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> EventRecordMetrics:
         hr_data = raw_workout.hrdata
         heart_rate_avg = Decimal(str(hr_data.avg)) if hr_data and hr_data.avg is not None else None
         heart_rate_max = Decimal(str(hr_data.max)) if hr_data and hr_data.max is not None else None
@@ -117,8 +117,8 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         self,
         raw: list[SuuntoWorkoutJSON],
         user_id: UUID,
-    ) -> Iterable[HealthRecordCreate]:
-        """Build health record payloads for Suunto workouts."""
+    ) -> Iterable[EventRecordCreate]:
+        """Build event record payloads for Suunto workouts."""
         for raw_workout in raw:
             yield self._normalize_workout(raw_workout, user_id)
 

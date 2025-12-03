@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.schemas.health_record import HealthRecordCreate
+from app.schemas.event_record import EventRecordCreate
 
 
 class AppleSourceHandler(ABC):
     """Base interface for Apple Health data source handlers."""
 
     @abstractmethod
-    def normalize(self, data: Any) -> list[HealthRecordCreate]:
-        """Normalizes raw data from a specific Apple source into unified health records.
+    def normalize(self, data: Any) -> list[EventRecordCreate]:
+        """Normalizes raw data from a specific Apple source into unified event records.
 
         Args:
             data: The raw data payload.
 
         Returns:
-            list[HealthRecordCreate]: A list of normalized workout objects.
+            list[EventRecordCreate]: A list of normalized workout objects.
         """
         pass

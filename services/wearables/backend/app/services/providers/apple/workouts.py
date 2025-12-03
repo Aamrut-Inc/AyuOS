@@ -3,9 +3,9 @@ from typing import Any
 from uuid import UUID
 
 from app.database import DbSession
-from app.repositories.health_record_repository import HealthRecordRepository
+from app.repositories.event_record_repository import EventRecordRepository
 from app.repositories.user_connection_repository import UserConnectionRepository
-from app.schemas.health_record import HealthRecordCreate
+from app.schemas.event_record import EventRecordCreate
 from app.services.providers.apple.handlers.auto_export import AutoExportHandler
 from app.services.providers.apple.handlers.base import AppleSourceHandler
 from app.services.providers.apple.handlers.healthkit import HealthKitHandler
@@ -17,7 +17,7 @@ class AppleWorkouts(BaseWorkoutsTemplate):
 
     def __init__(
         self,
-        workout_repo: HealthRecordRepository,
+        workout_repo: EventRecordRepository,
         connection_repo: UserConnectionRepository,
     ):
         super().__init__(
@@ -47,7 +47,7 @@ class AppleWorkouts(BaseWorkoutsTemplate):
         """
         return []
 
-    def normalize_workout(self, raw_workout: Any) -> HealthRecordCreate:
+    def normalize_workout(self, raw_workout: Any) -> EventRecordCreate:
         """Apple payloads are normalized directly in handler classes."""
         raise NotImplementedError("Direct normalization not supported. Use process_push_data.")
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from app.models import HealthRecord, User
-from app.repositories.health_record_repository import HealthRecordRepository
+from app.models import EventRecord, User
+from app.repositories.event_record_repository import EventRecordRepository
 from app.repositories.user_connection_repository import UserConnectionRepository
 from app.repositories.user_repository import UserRepository
 
@@ -13,7 +13,7 @@ class BaseProviderStrategy(ABC):
         """Initialize shared repositories used by all provider components."""
         self.user_repo = UserRepository(User)
         self.connection_repo = UserConnectionRepository()
-        self.workout_repo = HealthRecordRepository(HealthRecord)
+        self.workout_repo = EventRecordRepository(EventRecord)
 
         # Components should be initialized by subclasses
         self.oauth = None

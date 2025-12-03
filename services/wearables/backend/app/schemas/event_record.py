@@ -10,8 +10,8 @@ from pydantic import BaseModel, Field
 from app.schemas.common import BaseQueryParams
 
 
-class HealthRecordMetrics(TypedDict, total=False):
-    """Optional workout metrics collected from providers."""
+class EventRecordMetrics(TypedDict, total=False):
+    """Optional workout or sleep metrics collected from providers."""
 
     heart_rate_min: Decimal | None
     heart_rate_max: Decimal | None
@@ -19,10 +19,25 @@ class HealthRecordMetrics(TypedDict, total=False):
     steps_min: Decimal | None
     steps_max: Decimal | None
     steps_avg: Decimal | None
+    max_speed: Decimal | None
+    max_watts: Decimal | None
+    moving_time_seconds: Decimal | None
+    total_elevation_gain: Decimal | None
+    average_speed: Decimal | None
+    average_watts: Decimal | None
+    elev_high: Decimal | None
+    elev_low: Decimal | None
+    sleep_total_duration_minutes: Decimal | None
+    sleep_time_in_bed_minutes: Decimal | None
+    sleep_efficiency_score: Decimal | None
+    sleep_deep_minutes: Decimal | None
+    sleep_rem_minutes: Decimal | None
+    sleep_light_minutes: Decimal | None
+    sleep_awake_minutes: Decimal | None
 
 
-class HealthRecordCreate(BaseModel):
-    """Schema for creating a health record entry."""
+class EventRecordCreate(BaseModel):
+    """Schema for creating an event record entry."""
 
     id: UUID
     provider_id: str | None = None
@@ -43,10 +58,25 @@ class HealthRecordCreate(BaseModel):
     steps_min: Decimal | None = None
     steps_max: Decimal | None = None
     steps_avg: Decimal | None = None
+    max_speed: Decimal | None = None
+    max_watts: Decimal | None = None
+    moving_time_seconds: Decimal | None = None
+    total_elevation_gain: Decimal | None = None
+    average_speed: Decimal | None = None
+    average_watts: Decimal | None = None
+    elev_high: Decimal | None = None
+    elev_low: Decimal | None = None
+    sleep_total_duration_minutes: Decimal | None = None
+    sleep_time_in_bed_minutes: Decimal | None = None
+    sleep_efficiency_score: Decimal | None = None
+    sleep_deep_minutes: Decimal | None = None
+    sleep_rem_minutes: Decimal | None = None
+    sleep_light_minutes: Decimal | None = None
+    sleep_awake_minutes: Decimal | None = None
 
 
-class HealthRecordUpdate(BaseModel):
-    """Schema for updating a health record."""
+class EventRecordUpdate(BaseModel):
+    """Schema for updating an event record."""
 
     category: str | None = None
     type: str | None = None
@@ -63,9 +93,24 @@ class HealthRecordUpdate(BaseModel):
     steps_min: Decimal | None = None
     steps_max: Decimal | None = None
     steps_avg: Decimal | None = None
+    max_speed: Decimal | None = None
+    max_watts: Decimal | None = None
+    moving_time_seconds: Decimal | None = None
+    total_elevation_gain: Decimal | None = None
+    average_speed: Decimal | None = None
+    average_watts: Decimal | None = None
+    elev_high: Decimal | None = None
+    elev_low: Decimal | None = None
+    sleep_total_duration_minutes: Decimal | None = None
+    sleep_time_in_bed_minutes: Decimal | None = None
+    sleep_efficiency_score: Decimal | None = None
+    sleep_deep_minutes: Decimal | None = None
+    sleep_rem_minutes: Decimal | None = None
+    sleep_light_minutes: Decimal | None = None
+    sleep_awake_minutes: Decimal | None = None
 
 
-class HealthRecordResponse(BaseModel):
+class EventRecordResponse(BaseModel):
     """Schema returned to API consumers."""
 
     id: UUID
@@ -84,10 +129,25 @@ class HealthRecordResponse(BaseModel):
     steps_min: Decimal | None
     steps_max: Decimal | None
     steps_avg: Decimal | None
+    max_speed: Decimal | None
+    max_watts: Decimal | None
+    moving_time_seconds: Decimal | None
+    total_elevation_gain: Decimal | None
+    average_speed: Decimal | None
+    average_watts: Decimal | None
+    elev_high: Decimal | None
+    elev_low: Decimal | None
+    sleep_total_duration_minutes: Decimal | None
+    sleep_time_in_bed_minutes: Decimal | None
+    sleep_efficiency_score: Decimal | None
+    sleep_deep_minutes: Decimal | None
+    sleep_rem_minutes: Decimal | None
+    sleep_light_minutes: Decimal | None
+    sleep_awake_minutes: Decimal | None
 
 
-class HealthRecordQueryParams(BaseQueryParams):
-    """Filtering and sorting parameters for health records."""
+class EventRecordQueryParams(BaseQueryParams):
+    """Filtering and sorting parameters for event records."""
 
     category: str | None = Field(
         "workout",

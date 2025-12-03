@@ -26,19 +26,19 @@ from .developer import (
     DeveloperUpdateInternal,
 )
 from .error_codes import ErrorCode
+from .event_record import (
+    EventRecordCreate,
+    EventRecordMetrics,
+    EventRecordQueryParams,
+    EventRecordResponse,
+    EventRecordUpdate,
+)
 from .filter_params import FilterParams
 from .garmin.activity_import import (
     ActivityJSON as GarminActivityJSON,
 )
 from .garmin.activity_import import (
     RootJSON as GarminRootJSON,
-)
-from .health_record import (
-    HealthRecordCreate,
-    HealthRecordMetrics,
-    HealthRecordQueryParams,
-    HealthRecordResponse,
-    HealthRecordUpdate,
 )
 from .oauth import (
     AuthenticationMethod,
@@ -51,6 +51,11 @@ from .oauth import (
     UserConnectionCreate,
     UserConnectionRead,
     UserConnectionUpdate,
+)
+from .personal_record import (
+    PersonalRecordCreate,
+    PersonalRecordResponse,
+    PersonalRecordUpdate,
 )
 from .polar.exercise_import import (
     ExerciseJSON as PolarExerciseJSON,
@@ -110,11 +115,11 @@ __all__ = [
     "UserConnectionUpdate",
     "AuthorizationURLResponse",
     "RootJSON",
-    "HealthRecordCreate",
-    "HealthRecordUpdate",
-    "HealthRecordResponse",
-    "HealthRecordQueryParams",
-    "HealthRecordMetrics",
+    "EventRecordCreate",
+    "EventRecordUpdate",
+    "EventRecordResponse",
+    "EventRecordQueryParams",
+    "EventRecordMetrics",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
     "StepSampleCreate",
@@ -125,6 +130,9 @@ __all__ = [
     "AEWorkoutJSON",
     "AEHeartRateEntryJSON",
     "AEActiveEnergyEntryJSON",
+    "PersonalRecordCreate",
+    "PersonalRecordUpdate",
+    "PersonalRecordResponse",
     # Suunto schemas
     "SuuntoRootJSON",
     "SuuntoWorkoutJSON",

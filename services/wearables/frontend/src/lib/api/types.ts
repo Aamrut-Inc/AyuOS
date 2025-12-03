@@ -323,7 +323,7 @@ export interface HeartRateValue {
   unit: string;
 }
 
-export interface HealthRecordResponse {
+export interface EventRecordResponse {
   id: string;
   user_id: string;
   provider_id: string | null;
@@ -340,6 +340,21 @@ export interface HealthRecordResponse {
   steps_min: number | string | null;
   steps_max: number | string | null;
   steps_avg: number | string | null;
+  max_speed: number | string | null;
+  max_watts: number | string | null;
+  moving_time_seconds: number | string | null;
+  total_elevation_gain: number | string | null;
+  average_speed: number | string | null;
+  average_watts: number | string | null;
+  elev_high: number | string | null;
+  elev_low: number | string | null;
+  sleep_total_duration_minutes: number | string | null;
+  sleep_time_in_bed_minutes: number | string | null;
+  sleep_efficiency_score: number | string | null;
+  sleep_deep_minutes: number | string | null;
+  sleep_rem_minutes: number | string | null;
+  sleep_light_minutes: number | string | null;
+  sleep_awake_minutes: number | string | null;
 }
 
 export interface HeartRateSampleResponse {

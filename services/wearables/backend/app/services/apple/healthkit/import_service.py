@@ -6,8 +6,8 @@ from uuid import UUID, uuid4
 
 from app.database import DbSession
 from app.schemas import (
-    HealthRecordCreate,
-    HealthRecordMetrics,
+    EventRecordCreate,
+    EventRecordMetrics,
     HeartRateSampleCreate,
     HKRecordJSON,
     HKWorkoutJSON,
@@ -32,7 +32,7 @@ class ImportService:
         self,
         raw: dict,
         user_id: str,
-    ) -> Iterable[HealthRecordCreate]:
+    ) -> Iterable[EventRecordCreate]:
         """
         Given the parsed JSON dict from HealthAutoExport, yield ImportBundle(s)
         ready to insert into your ORM session.
@@ -48,7 +48,7 @@ class ImportService:
 
             metrics = self._extract_metrics_from_workout_stats(wjson.workoutStatistics)
 
-            workout_create = HealthRecordCreate(
+            workout_create = EventRecordCreate(
                 id=uuid4(),
                 provider_id=provider_id,
                 user_id=UUID(user_id),
@@ -97,7 +97,7 @@ class ImportService:
 
         yield heart_rate_samples, step_samples
 
-    def _extract_metrics_from_workout_stats(self, stats: list | None) -> HealthRecordMetrics:
+    def _extract_metrics_from_workout_stats(self, stats: list | None) -> EventRecordMetrics:
         heart_rate_values: list[Decimal] = []
         step_values: list[Decimal] = []
 

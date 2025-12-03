@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from xml.etree import ElementTree as ET
 
 from app.config import settings
-from app.schemas import HealthRecordCreate, HealthRecordMetrics, HeartRateSampleCreate, StepSampleCreate
+from app.schemas import EventRecordCreate, EventRecordMetrics, HeartRateSampleCreate, StepSampleCreate
 
 
 class XMLService:
@@ -88,17 +88,17 @@ class XMLService:
         self,
         document: dict[str, Any],
         user_id: str,
-        metrics: HealthRecordMetrics | None = None,
-    ) -> HealthRecordCreate:
+        metrics: EventRecordMetrics | None = None,
+    ) -> EventRecordCreate:
         document = self._parse_date_fields(document)
 
         document["type"] = document.pop("workoutActivityType")
 
         duration_seconds = Decimal(str((document["endDate"] - document["startDate"]).total_seconds()))
 
-        metric_payload = metrics if metrics is not None else cast(HealthRecordMetrics, {})
+        metric_payload = metrics if metrics is not None else cast(EventRecordMetrics, {})
 
-        return HealthRecordCreate(
+        return EventRecordCreate(
             id=uuid4(),
             provider_id=None,
             user_id=UUID(user_id),
@@ -111,7 +111,7 @@ class XMLService:
             **metric_payload,
         )
 
-    def _init_metrics(self) -> HealthRecordMetrics:
+    def _init_metrics(self) -> EventRecordMetrics:
         return {
             "heart_rate_min": None,
             "heart_rate_max": None,
@@ -129,7 +129,7 @@ class XMLService:
         except (ValueError, ArithmeticError):
             return None
 
-    def _update_metrics_from_stat(self, metrics: HealthRecordMetrics, statistic: dict[str, Any]) -> None:
+    def _update_metrics_from_stat(self, metrics: EventRecordMetrics, statistic: dict[str, Any]) -> None:
         stat_type = statistic.get("type", "")
         if not stat_type:
             return
@@ -155,7 +155,7 @@ class XMLService:
         tuple[
             list[HeartRateSampleCreate],
             list[StepSampleCreate],
-            list[HealthRecordCreate],
+            list[EventRecordCreate],
         ],
         None,
         None,
@@ -169,7 +169,7 @@ class XMLService:
         """
         heart_rate_records: list[HeartRateSampleCreate] = []
         step_records: list[StepSampleCreate] = []
-        workouts: list[HealthRecordCreate] = []
+        workouts: list[EventRecordCreate] = []
 
         for event, elem in ET.iterparse(self.xml_path, events=("end",)):
             if elem.tag == "Record" and event == "end":

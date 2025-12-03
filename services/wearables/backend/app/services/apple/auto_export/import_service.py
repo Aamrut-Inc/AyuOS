@@ -8,8 +8,8 @@ from uuid import UUID, uuid4
 from app.database import DbSession
 from app.schemas import (
     AEWorkoutJSON,
-    HealthRecordCreate,
-    HealthRecordMetrics,
+    EventRecordCreate,
+    EventRecordMetrics,
     HeartRateSampleCreate,
     RootJSON,
     UploadDataResponse,
@@ -36,7 +36,7 @@ class ImportService:
     def _dec(self, x: float | int | None) -> Decimal | None:
         return None if x is None else Decimal(str(x))
 
-    def _compute_metrics(self, workout: AEWorkoutJSON) -> HealthRecordMetrics:
+    def _compute_metrics(self, workout: AEWorkoutJSON) -> EventRecordMetrics:
         hr_entries = workout.heartRateData or []
 
         hr_min_candidates = [self._dec(entry.min) for entry in hr_entries if entry.min is not None]
@@ -87,7 +87,7 @@ class ImportService:
         self,
         raw: dict,
         user_id: str,
-    ) -> Iterable[tuple[HealthRecordCreate, list[HeartRateSampleCreate]]]:
+    ) -> Iterable[tuple[EventRecordCreate, list[HeartRateSampleCreate]]]:
         """
         Given the parsed JSON dict from HealthAutoExport, yield ImportBundles
         ready to insert the database.
@@ -109,7 +109,7 @@ class ImportService:
 
             workout_type = wjson.name or "Unknown Workout"
 
-            workout_row = HealthRecordCreate(
+            workout_row = EventRecordCreate(
                 id=workout_id,
                 user_id=UUID(user_id),
                 type=workout_type,

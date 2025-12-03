@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 import isodate
 
 from app.database import DbSession
-from app.schemas import HealthRecordCreate, HealthRecordMetrics, PolarExerciseJSON
+from app.schemas import EventRecordCreate, EventRecordMetrics, PolarExerciseJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -62,8 +62,8 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         self,
         raw_workout: PolarExerciseJSON,
         user_id: UUID,
-    ) -> HealthRecordCreate:
-        """Normalize Polar exercise to HealthRecordCreate."""
+    ) -> EventRecordCreate:
+        """Normalize Polar exercise to EventRecordCreate."""
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates_with_offset(
@@ -75,7 +75,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
 
         metrics = self._build_metrics(raw_workout)
 
-        return HealthRecordCreate(
+        return EventRecordCreate(
             id=workout_id,
             provider_id=raw_workout.id,
             user_id=user_id,
@@ -88,7 +88,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             **metrics,
         )
 
-    def _build_metrics(self, raw_workout: PolarExerciseJSON) -> HealthRecordMetrics:
+    def _build_metrics(self, raw_workout: PolarExerciseJSON) -> EventRecordMetrics:
         hr_avg = Decimal(str(raw_workout.heart_rate.average)) if raw_workout.heart_rate.average is not None else None
         hr_max = Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
 
@@ -105,8 +105,8 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         self,
         raw: list[PolarExerciseJSON],
         user_id: UUID,
-    ) -> Iterable[HealthRecordCreate]:
-        """Build health record payloads for Polar exercises."""
+    ) -> Iterable[EventRecordCreate]:
+        """Build event record payloads for Polar exercises."""
         for raw_workout in raw:
             yield self._normalize_workout(raw_workout, user_id)
 

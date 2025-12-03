@@ -7,7 +7,7 @@ import type {
   Provider,
   UserConnection,
   HeartRateSampleResponse,
-  HealthRecordResponse,
+  EventRecordResponse,
   HealthDataParams,
 } from '../types';
 
@@ -117,8 +117,8 @@ export const healthService = {
   async getWorkouts(
     userId: string,
     params?: HealthDataParams
-  ): Promise<HealthRecordResponse[]> {
-    return apiClient.get<HealthRecordResponse[]>(
+  ): Promise<EventRecordResponse[]> {
+    return apiClient.get<EventRecordResponse[]>(
       `/v1/users/${userId}/workouts`,
       {
         params,
