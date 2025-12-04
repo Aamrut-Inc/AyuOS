@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from decimal import Decimal
 from pydantic import BaseModel
 
 
@@ -19,11 +19,9 @@ class BodyStateCreate(BodyStateBase):
     user_id: UUID
 
 
-class BodyStateUpdate(BodyStateBase):
-    ...
+class BodyStateUpdate(BodyStateBase): ...
 
 
 class BodyStateResponse(BodyStateBase):
     id: UUID
     user_id: UUID
-

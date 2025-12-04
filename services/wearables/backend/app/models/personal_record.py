@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Integer, UniqueConstraint
+from datetime import date
+
+from sqlalchemy import UniqueConstraint, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import BaseDbModel
@@ -24,7 +26,7 @@ class PersonalRecord(BaseDbModel):
     id: Mapped[PrimaryKey[UUID]]
     user_id: Mapped[FKUser]
 
-    age_years: Mapped[int | None] = mapped_column(Integer)
+    birth_date: Mapped[date | None] = mapped_column(Date)
     gender: Mapped[str_64 | None] = None
 
     user: Mapped["User"] = relationship(back_populates="personal_record")
