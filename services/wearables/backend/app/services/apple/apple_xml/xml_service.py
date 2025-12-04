@@ -71,19 +71,19 @@ class XMLService:
         document = self._parse_date_fields(document)
 
         metric_type = document.get("type", "")
-        value = Decimal(str(document["value"]))
+        value = Decimal(document["value"])
 
-        if "HeartRate" in metric_type:
+        if "HKQuantityTypeIdentifierHeartRate" in metric_type:
             return HeartRateSampleCreate(
                 id=uuid4(),
-                device_id=document.get("device"),
+                device_id=document["device"],
                 recorded_at=document["startDate"],
                 value=value,
             )
-        if "StepCount" in metric_type:
+        if "HKQuantityTypeIdentifierStepCount" in metric_type:
             return StepSampleCreate(
                 id=uuid4(),
-                device_id=document.get("device"),
+                device_id=document["device"],
                 recorded_at=document["startDate"],
                 value=value,
             )
@@ -101,7 +101,7 @@ class XMLService:
         document["type"] = document.pop("workoutActivityType")
 
         workout_id = uuid4()
-        duration_seconds = Decimal(str((document["endDate"] - document["startDate"]).total_seconds()))
+        duration_seconds = Decimal((document["endDate"] - document["startDate"]).total_seconds())
 
         record = EventRecordCreate(
             id=workout_id,
@@ -110,7 +110,7 @@ class XMLService:
             type=document["type"],
             duration_seconds=duration_seconds,
             source_name=document["sourceName"],
-            device_id=document.get("device"),
+            device_id=document["device"],
             start_datetime=document["startDate"],
             end_datetime=document["endDate"],
         )
