@@ -59,4 +59,3 @@ class TimeSeriesService(
 
 
 time_series_service = TimeSeriesService(log=getLogger(__name__))
-workout_statistic_service = time_series_service

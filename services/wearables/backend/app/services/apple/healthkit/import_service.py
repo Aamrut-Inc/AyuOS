@@ -17,7 +17,7 @@ from app.schemas import (
     UploadDataResponse,
 )
 from app.services.event_record_service import event_record_service
-from app.services.workout_statistic_service import time_series_service
+from app.services.time_series_service import time_series_service
 
 
 class ImportService:
