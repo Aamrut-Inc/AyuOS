@@ -5,8 +5,8 @@ from uuid import UUID, uuid4
 
 from app.database import DbSession
 from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, SuuntoWorkoutJSON
-from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.event_record_service import event_record_service
+from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 
 
 class SuuntoWorkouts(BaseWorkoutsTemplate):
@@ -67,7 +67,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         start_date = datetime.fromtimestamp(start_timestamp / 1000)
         end_date = datetime.fromtimestamp(end_timestamp / 1000)
         return start_date, end_date
-   
+
     def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> EventRecordMetrics:
         hr_data = raw_workout.hrdata
         heart_rate_avg = Decimal(str(hr_data.avg)) if hr_data and hr_data.avg is not None else None

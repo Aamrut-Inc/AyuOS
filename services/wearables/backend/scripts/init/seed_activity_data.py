@@ -10,7 +10,7 @@ from faker import Faker
 from app.database import SessionLocal
 from app.schemas.event_record import EventRecordCreate
 from app.schemas.user import UserCreate
-from app.services import user_service, event_record_service
+from app.services import event_record_service, user_service
 
 fake = Faker()
 

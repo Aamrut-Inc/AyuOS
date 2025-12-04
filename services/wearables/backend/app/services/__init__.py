@@ -5,10 +5,10 @@ from .apple.apple_xml.presigned_url_service import import_service as pre_url_ser
 from .apple.auto_export.import_service import import_service as ae_import_service
 from .apple.healthkit.import_service import import_service as hk_import_service
 from .developer_service import developer_service
-from .services import AppService
-from .user_service import user_service
 from .event_record_service import event_record_service
+from .services import AppService
 from .time_series_service import time_series_service
+from .user_service import user_service
 
 __all__ = [
     "AppService",

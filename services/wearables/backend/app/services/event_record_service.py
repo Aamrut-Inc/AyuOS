@@ -2,13 +2,13 @@ from logging import Logger, getLogger
 
 from app.database import DbSession
 from app.models import EventRecord, EventRecordDetail
-from app.repositories import EventRecordRepository, EventRecordDetailRepository
+from app.repositories import EventRecordDetailRepository, EventRecordRepository
 from app.schemas import (
     EventRecordCreate,
+    EventRecordDetailCreate,
     EventRecordQueryParams,
     EventRecordResponse,
     EventRecordUpdate,
-    EventRecordDetailCreate,
 )
 from app.services.services import AppService
 from app.utils.exceptions import handle_exceptions

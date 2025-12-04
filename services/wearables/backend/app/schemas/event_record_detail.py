@@ -6,27 +6,27 @@ from pydantic import BaseModel
 
 class EventRecordDetailBase(BaseModel):
     """Base schema for event record detail."""
-    
+
     heart_rate_min: Decimal | None = None
     heart_rate_max: Decimal | None = None
     heart_rate_avg: Decimal | None = None
-    
+
     steps_min: Decimal | None = None
     steps_max: Decimal | None = None
     steps_avg: Decimal | None = None
-    
+
     max_speed: Decimal | None = None
     max_watts: Decimal | None = None
-    
+
     average_speed: Decimal | None = None
     average_watts: Decimal | None = None
-    
+
     moving_time_seconds: Decimal | None = None
     total_elevation_gain: Decimal | None = None
-    
+
     elev_high: Decimal | None = None
     elev_low: Decimal | None = None
-    
+
     sleep_total_duration_minutes: Decimal | None = None
     sleep_time_in_bed_minutes: Decimal | None = None
     sleep_efficiency_score: Decimal | None = None
@@ -38,7 +38,7 @@ class EventRecordDetailBase(BaseModel):
 
 class EventRecordDetailCreate(EventRecordDetailBase):
     """Schema for creating an event record detail entry."""
-    
+
     record_id: UUID
 
 
@@ -48,5 +48,5 @@ class EventRecordDetailUpdate(EventRecordDetailBase):
 
 class EventRecordDetailResponse(EventRecordDetailBase):
     """Schema returned to API consumers."""
-    
+
     record_id: UUID

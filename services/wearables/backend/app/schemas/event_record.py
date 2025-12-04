@@ -39,15 +39,14 @@ class EventRecordBase(BaseModel):
 
     category: str = Field("workout", description="High-level category such as workout or sleep")
     type: str | None = Field(None, description="Provider-specific subtype, e.g. running")
-    
+
     source_name: str = Field(description="Source/app name")
     device_id: str | None = Field(None, description="Optional device identifier")
-    
+
     duration_seconds: Decimal | None = None
     start_datetime: datetime
     end_datetime: datetime
-    
-    
+
 
 class EventRecordCreate(EventRecordBase):
     """Schema for creating an event record entry."""
@@ -67,7 +66,7 @@ class EventRecordResponse(EventRecordBase):
     id: UUID
     user_id: UUID
     provider_id: str | None
-    
+
 
 class EventRecordQueryParams(BaseQueryParams):
     """Filtering and sorting parameters for event records."""
@@ -88,7 +87,8 @@ class EventRecordQueryParams(BaseQueryParams):
             "duration_seconds",
             "type",
             "source_name",
-        ] | None
+        ]
+        | None
     ) = Field(
         "start_datetime",
         description="Sort field",

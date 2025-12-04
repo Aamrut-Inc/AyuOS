@@ -38,9 +38,4 @@ class EventRecordDetailRepository(
 
     def get_by_record_id(self, db_session: DbSession, record_id: UUID) -> EventRecordDetail | None:
         """Get detail by its associated event record ID."""
-        return (
-            db_session.query(EventRecordDetail)
-            .filter(EventRecordDetail.record_id == record_id)
-            .one_or_none()
-        )
-
+        return db_session.query(EventRecordDetail).filter(EventRecordDetail.record_id == record_id).one_or_none()

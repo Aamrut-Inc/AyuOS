@@ -7,8 +7,8 @@ import isodate
 
 from app.database import DbSession
 from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, PolarExerciseJSON
-from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.event_record_service import event_record_service
+from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 
 
 class PolarWorkouts(BaseWorkoutsTemplate):
