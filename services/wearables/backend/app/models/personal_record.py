@@ -7,7 +7,7 @@ from sqlalchemy import Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import BaseDbModel
-from app.mappings import FKUser, PrimaryKey, numeric_10_3, str_64
+from app.mappings import FKUser, PrimaryKey, str_64
 
 if TYPE_CHECKING:  # pragma: no cover
     from .user import User
@@ -25,11 +25,7 @@ class PersonalRecord(BaseDbModel):
     user_id: Mapped[FKUser]
 
     age_years: Mapped[int | None] = mapped_column(Integer)
-    height_cm: Mapped[numeric_10_3 | None] = None
-    weight_kg: Mapped[numeric_10_3 | None] = None
     gender: Mapped[str_64 | None] = None
-    body_fat_percentage: Mapped[numeric_10_3 | None] = None
-    resting_heart_rate: Mapped[numeric_10_3 | None] = None
 
     user: Mapped["User"] = relationship(back_populates="personal_record")
 

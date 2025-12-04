@@ -27,3 +27,4 @@ class User(BaseDbModel):
         uselist=False,
         cascade="all, delete-orphan",
     )
+

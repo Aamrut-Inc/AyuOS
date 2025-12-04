@@ -3,7 +3,7 @@ from sqlalchemy import desc
 from app.database import DbSession
 from app.models import DataPointSeries
 from app.repositories.repositories import CrudRepository
-from app.schemas import TimeSeriesQueryParams, TimeSeriesSampleCreate, SeriesType
+from app.schemas import SeriesType, TimeSeriesQueryParams, TimeSeriesSampleCreate
 
 
 class DataPointSeriesRepository(
@@ -34,4 +34,3 @@ class DataPointSeriesRepository(
             query = query.filter(self.model.recorded_at <= params.end_datetime)
 
         return query.order_by(desc(self.model.recorded_at)).limit(1000).all()
-
