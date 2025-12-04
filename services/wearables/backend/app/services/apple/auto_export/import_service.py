@@ -15,7 +15,7 @@ from app.schemas import (
     RootJSON,
     UploadDataResponse,
 )
-from app.services.workout_service import workout_service
+from app.services.event_record_service import event_record_service
 from app.services.workout_statistic_service import time_series_service
 from app.utils.exceptions import handle_exceptions
 
@@ -25,7 +25,7 @@ APPLE_DT_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 class ImportService:
     def __init__(self, log: Logger):
         self.log = log
-        self.workout_service = workout_service
+        self.event_record_service = event_record_service
         self.time_series_service = time_series_service
 
     def _dt(self, s: str) -> datetime:
@@ -129,8 +129,8 @@ class ImportService:
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
         for record, detail, hr_samples in self._build_import_bundles(raw, user_id):
-            self.workout_service.create(db_session, record)
-            self.workout_service.create_detail(db_session, detail)
+            self.event_record_service.create(db_session, record)
+            self.event_record_service.create_detail(db_session, detail)
 
             if hr_samples:
                 self.time_series_service.bulk_create_samples(db_session, hr_samples)

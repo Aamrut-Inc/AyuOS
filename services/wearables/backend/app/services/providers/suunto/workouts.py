@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from app.database import DbSession
 from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, SuuntoWorkoutJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
-from app.services.workout_service import workout_service
+from app.services.event_record_service import event_record_service
 
 
 class SuuntoWorkouts(BaseWorkoutsTemplate):
@@ -141,8 +141,8 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         workouts = [SuuntoWorkoutJSON(**w) for w in workouts_data]
 
         for record, details in self._build_bundles(workouts, user_id):
-            workout_service.create(db, record)
-            workout_service.create_detail(db, details)
+            event_record_service.create(db, record)
+            event_record_service.create_detail(db, details)
 
         return True
 

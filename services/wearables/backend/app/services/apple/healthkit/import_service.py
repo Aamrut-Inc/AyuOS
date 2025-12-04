@@ -16,14 +16,14 @@ from app.schemas import (
     StepSampleCreate,
     UploadDataResponse,
 )
-from app.services.workout_service import workout_service
+from app.services.event_record_service import event_record_service
 from app.services.workout_statistic_service import time_series_service
 
 
 class ImportService:
     def __init__(self, log: Logger):
         self.log = log
-        self.workout_service = workout_service
+        self.event_record_service = event_record_service
         self.time_series_service = time_series_service
 
     def _dec(self, value: float | int | Decimal | None) -> Decimal | None:
@@ -141,8 +141,8 @@ class ImportService:
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
         for record, detail in self._build_workout_bundles(raw, user_id):
-            self.workout_service.create(db_session, record)
-            self.workout_service.create_detail(db_session, detail)
+            self.event_record_service.create(db_session, record)
+            self.event_record_service.create_detail(db_session, detail)
 
         for heart_rate_records, step_records in self._build_statistic_bundles(raw, user_id):
             if heart_rate_records:

@@ -54,4 +54,3 @@ class EventRecordService(
 
 
 event_record_service = EventRecordService(log=getLogger(__name__))
-workout_service = event_record_service

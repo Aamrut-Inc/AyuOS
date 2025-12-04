@@ -10,7 +10,7 @@ from faker import Faker
 from app.database import SessionLocal
 from app.schemas.event_record import EventRecordCreate
 from app.schemas.user import UserCreate
-from app.services import user_service, workout_service
+from app.services import user_service, event_record_service
 
 fake = Faker()
 
@@ -98,7 +98,7 @@ def seed_activity_data() -> None:
             # Create 100 workouts for this user
             for workout_num in range(1, 101):
                 workout = generate_workout(user.id, fake)
-                workout_service.create(db, workout)
+                event_record_service.create(db, workout)
                 workouts_created += 1
 
                 if workout_num % 25 == 0:
