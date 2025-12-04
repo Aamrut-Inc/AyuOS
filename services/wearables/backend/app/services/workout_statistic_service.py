@@ -1,35 +1,44 @@
 from logging import Logger, getLogger
 
 from app.database import DbSession
-from app.models import HeartRateSample, StepSample
-from app.repositories import HeartRateSampleRepository, StepSampleRepository
+from app.models import DataPointSeries
+from app.repositories import DataPointSeriesRepository
 from app.schemas import (
     HeartRateSampleCreate,
     HeartRateSampleResponse,
+    SeriesType,
     StepSampleCreate,
     StepSampleResponse,
     TimeSeriesQueryParams,
+    TimeSeriesSampleCreate,
 )
 from app.utils.exceptions import handle_exceptions
 
 
 class TimeSeriesService:
-    """Coordinated access to heart-rate and step time series samples."""
+    """Coordinated access to unified device time series samples."""
+
+    HEART_RATE_TYPE = SeriesType.heart_rate
+    STEP_TYPE = SeriesType.steps
 
     def __init__(self, log: Logger):
         self.logger = log
-        self.heart_rate_repo = HeartRateSampleRepository(HeartRateSample)
-        self.step_repo = StepSampleRepository(StepSample)
+        self.repo = DataPointSeriesRepository(DataPointSeries)
 
-    def create_heart_rate_sample(self, db_session: DbSession, sample: HeartRateSampleCreate) -> HeartRateSample:
-        created = self.heart_rate_repo.create(db_session, sample)
-        self.logger.debug(f"Stored heart rate sample {created.id}")
+    def _create_sample(self, db_session: DbSession, sample: TimeSeriesSampleCreate) -> DataPointSeries:
+        created = self.repo.create(db_session, sample)
+        self.logger.debug(
+            "Stored %s data point %s",
+            sample.series_type,
+            created.id,
+        )
         return created
 
-    def create_step_sample(self, db_session: DbSession, sample: StepSampleCreate) -> StepSample:
-        created = self.step_repo.create(db_session, sample)
-        self.logger.debug(f"Stored step sample {created.id}")
-        return created
+    def create_heart_rate_sample(self, db_session: DbSession, sample: HeartRateSampleCreate) -> DataPointSeries:
+        return self._create_sample(db_session, sample)
+
+    def create_step_sample(self, db_session: DbSession, sample: StepSampleCreate) -> DataPointSeries:
+        return self._create_sample(db_session, sample)
 
     def bulk_create_heart_rate_samples(self, db_session: DbSession, samples: list[HeartRateSampleCreate]) -> None:
         for sample in samples:
@@ -46,13 +55,14 @@ class TimeSeriesService:
         _user_id: str,
         params: TimeSeriesQueryParams,
     ) -> list[HeartRateSampleResponse]:
-        samples = self.heart_rate_repo.get_samples(db_session, params)
+        samples = self.repo.get_samples(db_session, params, self.HEART_RATE_TYPE)
         return [
             HeartRateSampleResponse(
                 id=sample.id,
                 device_id=sample.device_id,
                 recorded_at=sample.recorded_at,
                 value=sample.value,
+                series_type=self.HEART_RATE_TYPE,
             )
             for sample in samples
         ]
@@ -64,13 +74,14 @@ class TimeSeriesService:
         _user_id: str,
         params: TimeSeriesQueryParams,
     ) -> list[StepSampleResponse]:
-        samples = self.step_repo.get_samples(db_session, params)
+        samples = self.repo.get_samples(db_session, params, self.STEP_TYPE)
         return [
             StepSampleResponse(
                 id=sample.id,
                 device_id=sample.device_id,
                 recorded_at=sample.recorded_at,
                 value=sample.value,
+                series_type=self.STEP_TYPE,
             )
             for sample in samples
         ]

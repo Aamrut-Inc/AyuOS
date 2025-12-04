@@ -73,9 +73,12 @@ from .suunto.workout_import import (
 from .time_series import (
     HeartRateSampleCreate,
     HeartRateSampleResponse,
+    SeriesType,
     StepSampleCreate,
     StepSampleResponse,
     TimeSeriesQueryParams,
+    TimeSeriesSampleCreate,
+    TimeSeriesSampleResponse,
 )
 from .user import (
     UserCreate,
@@ -122,6 +125,9 @@ __all__ = [
     "EventRecordMetrics",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
+    "TimeSeriesSampleCreate",
+    "TimeSeriesSampleResponse",
+    "SeriesType",
     "StepSampleCreate",
     "StepSampleResponse",
     "TimeSeriesQueryParams",

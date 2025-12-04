@@ -1,21 +1,26 @@
 from sqlalchemy import desc
 
 from app.database import DbSession
-from app.models import HeartRateSample
+from app.models import DataPointSeries
 from app.repositories.repositories import CrudRepository
-from app.schemas import HeartRateSampleCreate, TimeSeriesQueryParams
+from app.schemas import TimeSeriesQueryParams, TimeSeriesSampleCreate, SeriesType
 
 
-class HeartRateSampleRepository(CrudRepository[HeartRateSample, HeartRateSampleCreate, HeartRateSampleCreate]):
-    def __init__(self, model: type[HeartRateSample]):
+class DataPointSeriesRepository(
+    CrudRepository[DataPointSeries, TimeSeriesSampleCreate, TimeSeriesSampleCreate],
+):
+    """Repository for unified device data point series."""
+
+    def __init__(self, model: type[DataPointSeries]):
         super().__init__(model)
 
     def get_samples(
         self,
         db_session: DbSession,
         params: TimeSeriesQueryParams,
-    ) -> list[HeartRateSample]:
-        query = db_session.query(self.model)
+        series_type: SeriesType,
+    ) -> list[DataPointSeries]:
+        query = db_session.query(self.model).filter(self.model.series_type == series_type)
 
         if params.device_id:
             query = query.filter(self.model.device_id == params.device_id)
@@ -29,3 +34,4 @@ class HeartRateSampleRepository(CrudRepository[HeartRateSample, HeartRateSampleC
             query = query.filter(self.model.recorded_at <= params.end_datetime)
 
         return query.order_by(desc(self.model.recorded_at)).limit(1000).all()
+

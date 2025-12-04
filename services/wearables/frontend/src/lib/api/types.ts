@@ -362,6 +362,7 @@ export interface HeartRateSampleResponse {
   device_id: string | null;
   recorded_at: string;
   value: number | string;
+  series_type: 'heart_rate';
 }
 
 export interface HealthDataParams {
