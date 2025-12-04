@@ -99,8 +99,8 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['record_id'], ['event_record_detail.record_id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('record_id')
     )
-    op.drop_table('workout')
     op.drop_table('workoutstatistic')
+    op.drop_table('workout')
     # ### end Alembic commands ###
 
 
