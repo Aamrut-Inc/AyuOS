@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal, TypedDict
@@ -36,115 +34,40 @@ class EventRecordMetrics(TypedDict, total=False):
     sleep_awake_minutes: Decimal | None
 
 
-class EventRecordCreate(BaseModel):
+class EventRecordBase(BaseModel):
+    """Base schema for event record."""
+
+    category: str = Field("workout", description="High-level category such as workout or sleep")
+    type: str | None = Field(None, description="Provider-specific subtype, e.g. running")
+    
+    source_name: str = Field(description="Source/app name")
+    device_id: str | None = Field(None, description="Optional device identifier")
+    
+    duration_seconds: Decimal | None = None
+    start_datetime: datetime
+    end_datetime: datetime
+    
+    
+
+class EventRecordCreate(EventRecordBase):
     """Schema for creating an event record entry."""
 
     id: UUID
     provider_id: str | None = None
     user_id: UUID
 
-    category: str = Field("workout", description="High-level category such as workout or sleep")
-    type: str | None = Field(None, description="Provider-specific subtype, e.g. running")
-    source_name: str
-    device_id: str | None = Field(None, description="Optional device identifier")
 
-    duration_seconds: Decimal | None = None
-    start_datetime: datetime
-    end_datetime: datetime
-
-    heart_rate_min: Decimal | None = None
-    heart_rate_max: Decimal | None = None
-    heart_rate_avg: Decimal | None = None
-    steps_min: Decimal | None = None
-    steps_max: Decimal | None = None
-    steps_avg: Decimal | None = None
-    max_speed: Decimal | None = None
-    max_watts: Decimal | None = None
-    moving_time_seconds: Decimal | None = None
-    total_elevation_gain: Decimal | None = None
-    average_speed: Decimal | None = None
-    average_watts: Decimal | None = None
-    elev_high: Decimal | None = None
-    elev_low: Decimal | None = None
-    sleep_total_duration_minutes: Decimal | None = None
-    sleep_time_in_bed_minutes: Decimal | None = None
-    sleep_efficiency_score: Decimal | None = None
-    sleep_deep_minutes: Decimal | None = None
-    sleep_rem_minutes: Decimal | None = None
-    sleep_light_minutes: Decimal | None = None
-    sleep_awake_minutes: Decimal | None = None
-
-
-class EventRecordUpdate(BaseModel):
+class EventRecordUpdate(EventRecordBase):
     """Schema for updating an event record."""
 
-    category: str | None = None
-    type: str | None = None
-    source_name: str | None = None
-    device_id: str | None = None
 
-    duration_seconds: Decimal | None = None
-    start_datetime: datetime | None = None
-    end_datetime: datetime | None = None
-
-    heart_rate_min: Decimal | None = None
-    heart_rate_max: Decimal | None = None
-    heart_rate_avg: Decimal | None = None
-    steps_min: Decimal | None = None
-    steps_max: Decimal | None = None
-    steps_avg: Decimal | None = None
-    max_speed: Decimal | None = None
-    max_watts: Decimal | None = None
-    moving_time_seconds: Decimal | None = None
-    total_elevation_gain: Decimal | None = None
-    average_speed: Decimal | None = None
-    average_watts: Decimal | None = None
-    elev_high: Decimal | None = None
-    elev_low: Decimal | None = None
-    sleep_total_duration_minutes: Decimal | None = None
-    sleep_time_in_bed_minutes: Decimal | None = None
-    sleep_efficiency_score: Decimal | None = None
-    sleep_deep_minutes: Decimal | None = None
-    sleep_rem_minutes: Decimal | None = None
-    sleep_light_minutes: Decimal | None = None
-    sleep_awake_minutes: Decimal | None = None
-
-
-class EventRecordResponse(BaseModel):
+class EventRecordResponse(EventRecordBase):
     """Schema returned to API consumers."""
 
     id: UUID
     user_id: UUID
     provider_id: str | None
-    category: str
-    type: str | None
-    source_name: str
-    device_id: str | None
-    duration_seconds: Decimal | None
-    start_datetime: datetime
-    end_datetime: datetime
-    heart_rate_min: Decimal | None
-    heart_rate_max: Decimal | None
-    heart_rate_avg: Decimal | None
-    steps_min: Decimal | None
-    steps_max: Decimal | None
-    steps_avg: Decimal | None
-    max_speed: Decimal | None
-    max_watts: Decimal | None
-    moving_time_seconds: Decimal | None
-    total_elevation_gain: Decimal | None
-    average_speed: Decimal | None
-    average_watts: Decimal | None
-    elev_high: Decimal | None
-    elev_low: Decimal | None
-    sleep_total_duration_minutes: Decimal | None
-    sleep_time_in_bed_minutes: Decimal | None
-    sleep_efficiency_score: Decimal | None
-    sleep_deep_minutes: Decimal | None
-    sleep_rem_minutes: Decimal | None
-    sleep_light_minutes: Decimal | None
-    sleep_awake_minutes: Decimal | None
-
+    
 
 class EventRecordQueryParams(BaseQueryParams):
     """Filtering and sorting parameters for event records."""
@@ -165,8 +88,7 @@ class EventRecordQueryParams(BaseQueryParams):
             "duration_seconds",
             "type",
             "source_name",
-        ]
-        | None
+        ] | None
     ) = Field(
         "start_datetime",
         description="Sort field",

@@ -35,7 +35,6 @@ class EventRecord(BaseDbModel):
         uselist=False,
         cascade="all, delete-orphan",
     )
-
     _WORKOUT_DETAIL_FIELDS = {
         "heart_rate_min",
         "heart_rate_max",
@@ -248,3 +247,4 @@ class EventRecord(BaseDbModel):
     sleep_rem_minutes = _sleep_metric_property("sleep_rem_minutes")
     sleep_light_minutes = _sleep_metric_property("sleep_light_minutes")
     sleep_awake_minutes = _sleep_metric_property("sleep_awake_minutes")
+

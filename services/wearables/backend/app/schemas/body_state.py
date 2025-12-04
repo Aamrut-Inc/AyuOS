@@ -1,17 +1,14 @@
-from __future__ import annotations
-
 from decimal import Decimal
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
 
 
 class BodyStateBase(BaseModel):
-    height_cm: Optional[Decimal] = None
-    weight_kg: Optional[Decimal] = None
-    body_fat_percentage: Optional[Decimal] = None
-    resting_heart_rate: Optional[Decimal] = None
+    height_cm: Decimal | None = None
+    weight_kg: Decimal | None = None
+    body_fat_percentage: Decimal | None = None
+    resting_heart_rate: Decimal | None = None
 
 
 class BodyStateCreate(BodyStateBase):
@@ -19,7 +16,8 @@ class BodyStateCreate(BodyStateBase):
     user_id: UUID
 
 
-class BodyStateUpdate(BodyStateBase): ...
+class BodyStateUpdate(BodyStateBase):
+    pass
 
 
 class BodyStateResponse(BodyStateBase):
