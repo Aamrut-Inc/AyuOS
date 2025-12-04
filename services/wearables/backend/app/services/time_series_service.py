@@ -4,8 +4,10 @@ from app.database import DbSession
 from app.models import DataPointSeries
 from app.repositories import DataPointSeriesRepository
 from app.schemas import (
+    HeartRateSampleCreate,
     HeartRateSampleResponse,
     SeriesType,
+    StepSampleCreate,
     StepSampleResponse,
     TimeSeriesQueryParams,
     TimeSeriesSampleCreate,
@@ -23,10 +25,14 @@ class TimeSeriesService(
     HEART_RATE_TYPE = SeriesType.heart_rate
     STEP_TYPE = SeriesType.steps
 
-    def __init__(self, log: Logger, **kwargs):
-        super().__init__(crud_model=DataPointSeriesRepository, model=DataPointSeries, log=log, **kwargs)
+    def __init__(self, log: Logger):
+        super().__init__(crud_model=DataPointSeriesRepository, model=DataPointSeries, log=log)
 
-    def bulk_create_samples(self, db_session: DbSession, samples: list[TimeSeriesSampleCreate]) -> None:
+    def bulk_create_samples(
+        self,
+        db_session: DbSession,
+        samples: list[TimeSeriesSampleCreate] | list[HeartRateSampleCreate] | list[StepSampleCreate],
+    ) -> None:
         for sample in samples:
             self.crud.create(db_session, sample)
 

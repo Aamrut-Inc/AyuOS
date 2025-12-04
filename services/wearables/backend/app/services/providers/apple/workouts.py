@@ -6,6 +6,7 @@ from app.database import DbSession
 from app.repositories.event_record_repository import EventRecordRepository
 from app.repositories.user_connection_repository import UserConnectionRepository
 from app.schemas.event_record import EventRecordCreate
+from app.schemas.event_record_detail import EventRecordDetailCreate
 from app.services.providers.apple.handlers.auto_export import AutoExportHandler
 from app.services.providers.apple.handlers.base import AppleSourceHandler
 from app.services.providers.apple.handlers.healthkit import HealthKitHandler
@@ -47,7 +48,11 @@ class AppleWorkouts(BaseWorkoutsTemplate):
         """
         return []
 
-    def normalize_workout(self, raw_workout: Any) -> EventRecordCreate:
+    def _normalize_workout(
+        self,
+        raw_workout: Any,
+        user_id: UUID,
+    ) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
         """Apple payloads are normalized directly in handler classes."""
         raise NotImplementedError("Direct normalization not supported. Use process_push_data.")
 
@@ -70,12 +75,12 @@ class AppleWorkouts(BaseWorkoutsTemplate):
         if not handler:
             raise ValueError(f"Unknown Apple Health source: {source_type}")
 
-        normalized_workouts = handler.normalize(payload)
+        normalized_data = handler.normalize(payload)
 
-        for workout in normalized_workouts:
+        for record, detail in normalized_data:
             # We can reuse the internal save method from the template
-            # Note: We need to ensure user_id is set on the workout object
-            workout.user_id = user_id
-            self._save_workout(db, workout)
+            # Note: We need to ensure user_id is set on the record object
+            record.user_id = user_id
+            self._save_workout(db, record, detail)
 
     # Deprecated methods removed in favor of handlers

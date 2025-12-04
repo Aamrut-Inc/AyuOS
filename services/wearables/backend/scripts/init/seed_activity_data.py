@@ -9,6 +9,7 @@ from faker import Faker
 
 from app.database import SessionLocal
 from app.schemas.event_record import EventRecordCreate
+from app.schemas.event_record_detail import EventRecordDetailCreate
 from app.schemas.user import UserCreate
 from app.services import event_record_service, user_service
 
@@ -44,7 +45,10 @@ SOURCE_NAMES = [
 ]
 
 
-def generate_workout(user_id: UUID, fake_instance: Faker) -> EventRecordCreate:
+def generate_workout(
+    user_id: UUID,
+    fake_instance: Faker,
+) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
     """Generate a single workout with random data."""
     # Generate start datetime within last 6 months
     start_datetime = fake_instance.date_time_between(start_date="-6M", end_date="now", tzinfo=timezone.utc)
@@ -58,8 +62,10 @@ def generate_workout(user_id: UUID, fake_instance: Faker) -> EventRecordCreate:
     steps = Decimal(fake_instance.random_int(min=500, max=20000))
     heart_rate = Decimal(fake_instance.random_int(min=90, max=170))
 
-    return EventRecordCreate(
-        id=uuid4(),
+    workout_id = uuid4()
+
+    record = EventRecordCreate(
+        id=workout_id,
         provider_id=str(uuid4()) if fake_instance.boolean(chance_of_getting_true=70) else None,
         user_id=user_id,
         type=fake_instance.random.choice(WORKOUT_TYPES),
@@ -67,6 +73,10 @@ def generate_workout(user_id: UUID, fake_instance: Faker) -> EventRecordCreate:
         source_name=fake_instance.random.choice(SOURCE_NAMES),
         start_datetime=start_datetime,
         end_datetime=end_datetime,
+    )
+
+    detail = EventRecordDetailCreate(
+        record_id=workout_id,
         heart_rate_min=heart_rate,
         heart_rate_max=heart_rate,
         heart_rate_avg=heart_rate,
@@ -74,6 +84,8 @@ def generate_workout(user_id: UUID, fake_instance: Faker) -> EventRecordCreate:
         steps_max=steps,
         steps_avg=steps,
     )
+
+    return record, detail
 
 
 def seed_activity_data() -> None:
@@ -97,8 +109,9 @@ def seed_activity_data() -> None:
 
             # Create 100 workouts for this user
             for workout_num in range(1, 101):
-                workout = generate_workout(user.id, fake)
-                event_record_service.create(db, workout)
+                record, detail = generate_workout(user.id, fake)
+                event_record_service.create(db, record)
+                event_record_service.create_detail(db, detail)
                 workouts_created += 1
 
                 if workout_num % 25 == 0:

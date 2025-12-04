@@ -1,4 +1,5 @@
-from datetime import date, datetime
+from datetime import date as date_type
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, NewType, TypeVar
 from uuid import UUID
@@ -23,7 +24,7 @@ type ManyToOne[T] = T
 
 # Custom types
 datetime_tz = Annotated[datetime, mapped_column(DateTime(timezone=True))]
-date = Annotated[date, mapped_column(Date)]
+date_col = Annotated[date_type, mapped_column(Date)]
 
 # it's mapped in database.py, because it didn't work with PrimaryKey/Unique
 email = NewType("email", str)
