@@ -101,7 +101,7 @@ class XMLService:
         document["type"] = document.pop("workoutActivityType")
 
         workout_id = uuid4()
-        duration_seconds = Decimal((document["endDate"] - document["startDate"]).total_seconds())
+        duration_seconds = Decimal(str((document["endDate"] - document["startDate"]).total_seconds()))
 
         record = EventRecordCreate(
             id=workout_id,
