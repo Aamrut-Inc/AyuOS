@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Index
@@ -8,11 +6,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import BaseDbModel
 from app.mappings import FKUser, PrimaryKey, datetime_tz, numeric_10_3, str_64, str_100
-
-if TYPE_CHECKING:  # pragma: no cover
-    from .event_record_detail import EventRecordDetail
-    from .sleep_details import SleepDetails
-    from .workout_details import WorkoutDetails
 
 
 class EventRecord(BaseDbModel):

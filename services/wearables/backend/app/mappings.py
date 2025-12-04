@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, NewType, TypeVar
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Numeric
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import mapped_column
 
 T = TypeVar("T")
@@ -23,6 +23,7 @@ type ManyToOne[T] = T
 
 # Custom types
 datetime_tz = Annotated[datetime, mapped_column(DateTime(timezone=True))]
+date = Annotated[date, mapped_column(Date)]
 
 # it's mapped in database.py, because it didn't work with PrimaryKey/Unique
 email = NewType("email", str)
@@ -39,4 +40,11 @@ numeric_15_5 = Annotated[Decimal, mapped_column(Numeric(15, 5))]
 # Custom foreign keys
 FKDeveloper = Annotated[UUID, mapped_column(ForeignKey("developer.id", ondelete="SET NULL"))]
 FKUser = Annotated[UUID, mapped_column(ForeignKey("user.id", ondelete="CASCADE"))]
-FKEventRecord = Annotated[UUID, mapped_column(ForeignKey("event_record.id", ondelete="CASCADE"))]
+FKEventRecord = Annotated[
+    UUID,
+    mapped_column(ForeignKey("event_record.id", ondelete="CASCADE"), primary_key=True),
+]
+FKEventRecordDetail = Annotated[
+    UUID,
+    mapped_column(ForeignKey("event_record_detail.record_id", ondelete="CASCADE")),
+]

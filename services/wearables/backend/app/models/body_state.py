@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 from uuid import UUID
 
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped
 
 from app.database import BaseDbModel
 from app.mappings import FKUser, PrimaryKey, numeric_10_3

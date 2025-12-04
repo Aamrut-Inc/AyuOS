@@ -1,14 +1,9 @@
-from typing import Optional, TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.orm import Mapped, relationship
 
 from app.database import BaseDbModel
 from app.mappings import PrimaryKey, Unique, datetime_tz, str_100, str_255, email
-
-if TYPE_CHECKING:  # pragma: no cover
-    from .personal_record import PersonalRecord
-
 
 class User(BaseDbModel):
     """Data owner model"""
