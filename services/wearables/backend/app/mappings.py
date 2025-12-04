@@ -46,5 +46,5 @@ FKEventRecord = Annotated[
 ]
 FKEventRecordDetail = Annotated[
     UUID,
-    mapped_column(ForeignKey("event_record_detail.record_id", ondelete="CASCADE")),
+    mapped_column(ForeignKey("event_record_detail.record_id", ondelete="CASCADE"), primary_key=True),
 ]

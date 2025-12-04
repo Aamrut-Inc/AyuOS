@@ -3,11 +3,11 @@ from sqlalchemy import desc
 from app.database import DbSession
 from app.models import DataPointSeries
 from app.repositories.repositories import CrudRepository
-from app.schemas import SeriesType, TimeSeriesQueryParams, TimeSeriesSampleCreate
+from app.schemas import SeriesType, TimeSeriesQueryParams, TimeSeriesSampleCreate, TimeSeriesSampleUpdate
 
 
 class DataPointSeriesRepository(
-    CrudRepository[DataPointSeries, TimeSeriesSampleCreate, TimeSeriesSampleCreate],
+    CrudRepository[DataPointSeries, TimeSeriesSampleCreate, TimeSeriesSampleUpdate],
 ):
     """Repository for unified device data point series."""
 

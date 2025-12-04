@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from app.database import DbSession
 from app.schemas import (
     EventRecordCreate,
+    EventRecordDetailCreate,
     EventRecordMetrics,
     HeartRateSampleCreate,
     HKRecordJSON,
@@ -20,7 +21,7 @@ from app.services.workout_statistic_service import time_series_service
 
 
 class ImportService:
-    def __init__(self, log: Logger, **kwargs):
+    def __init__(self, log: Logger):
         self.log = log
         self.workout_service = workout_service
         self.time_series_service = time_series_service
@@ -32,24 +33,25 @@ class ImportService:
         self,
         raw: dict,
         user_id: str,
-    ) -> Iterable[EventRecordCreate]:
+    ) -> Iterable[tuple[EventRecordCreate, EventRecordDetailCreate]]:
         """
-        Given the parsed JSON dict from HealthAutoExport, yield ImportBundle(s)
-        ready to insert into your ORM session.
+        Given the parsed JSON dict from HealthAutoExport, yield tuples of
+        (EventRecordCreate, EventRecordDetailCreate) ready to insert into your ORM session.
         """
         root = RootJSON(**raw)
         workouts_raw = root.data.get("workouts", [])
         for w in workouts_raw:
             wjson = HKWorkoutJSON(**w)
 
+            workout_id = uuid4()
             provider_id = wjson.uuid if wjson.uuid else None
 
             duration_seconds = (wjson.endDate - wjson.startDate).total_seconds()
 
             metrics = self._extract_metrics_from_workout_stats(wjson.workoutStatistics)
 
-            workout_create = EventRecordCreate(
-                id=uuid4(),
+            record = EventRecordCreate(
+                id=workout_id,
                 provider_id=provider_id,
                 user_id=UUID(user_id),
                 type=wjson.type or "Unknown",
@@ -57,10 +59,14 @@ class ImportService:
                 source_name=wjson.sourceName or "Apple Health",
                 start_datetime=wjson.startDate,
                 end_datetime=wjson.endDate,
+            )
+
+            detail = EventRecordDetailCreate(
+                record_id=workout_id,
                 **metrics,
             )
 
-            yield workout_create
+            yield record, detail
 
     def _build_statistic_bundles(
         self,
@@ -76,7 +82,8 @@ class ImportService:
             rjson = HKRecordJSON(**r)
             value = Decimal(str(rjson.value))
 
-            if rjson.type and "HeartRate" in rjson.type:
+            record_type = rjson.type or ""
+            if "HeartRate" in record_type:
                 heart_rate_samples.append(
                     HeartRateSampleCreate(
                         id=uuid4(),
@@ -85,7 +92,7 @@ class ImportService:
                         value=value,
                     ),
                 )
-            elif rjson.type and "StepCount" in rjson.type:
+            elif "StepCount" in record_type:
                 step_samples.append(
                     StepSampleCreate(
                         id=uuid4(),
@@ -133,14 +140,15 @@ class ImportService:
         }
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
-        for workout_row in self._build_workout_bundles(raw, user_id):
-            self.workout_service.create(db_session, workout_row)
+        for record, detail in self._build_workout_bundles(raw, user_id):
+            self.workout_service.create(db_session, record)
+            self.workout_service.create_detail(db_session, detail)
 
         for heart_rate_records, step_records in self._build_statistic_bundles(raw, user_id):
             if heart_rate_records:
-                self.time_series_service.bulk_create_heart_rate_samples(db_session, heart_rate_records)
+                self.time_series_service.bulk_create_samples(db_session, heart_rate_records)
             if step_records:
-                self.time_series_service.bulk_create_step_samples(db_session, step_records)
+                self.time_series_service.bulk_create_samples(db_session, step_records)
 
         return True
 

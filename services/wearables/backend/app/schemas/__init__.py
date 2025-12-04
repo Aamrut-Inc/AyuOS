@@ -38,6 +38,11 @@ from .event_record import (
     EventRecordResponse,
     EventRecordUpdate,
 )
+from .event_record_detail import (
+    EventRecordDetailCreate,
+    EventRecordDetailResponse,
+    EventRecordDetailUpdate,
+)
 from .filter_params import FilterParams
 from .garmin.activity_import import (
     ActivityJSON as GarminActivityJSON,
@@ -84,6 +89,7 @@ from .time_series import (
     TimeSeriesQueryParams,
     TimeSeriesSampleCreate,
     TimeSeriesSampleResponse,
+    TimeSeriesSampleUpdate,
 )
 from .user import (
     UserCreate,
@@ -128,10 +134,14 @@ __all__ = [
     "EventRecordResponse",
     "EventRecordQueryParams",
     "EventRecordMetrics",
+    "EventRecordDetailCreate",
+    "EventRecordDetailResponse",
+    "EventRecordDetailUpdate",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
     "TimeSeriesSampleCreate",
     "TimeSeriesSampleResponse",
+    "TimeSeriesSampleUpdate",
     "SeriesType",
     "StepSampleCreate",
     "StepSampleResponse",

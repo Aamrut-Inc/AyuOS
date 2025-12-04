@@ -65,9 +65,10 @@ def _import_xml_data(db: Session, xml_path: str, user_id: str) -> None:
     xml_service = XMLService(Path(xml_path), getLogger(__name__))
 
     for heart_rate_records, step_records, workouts in xml_service.parse_xml(user_id):
-        for workout in workouts:
-            workout_service.create(db, workout)
+        for record, detail in workouts:
+            workout_service.create(db, record)
+            workout_service.create_detail(db, detail)
         if heart_rate_records:
-            workout_statistic_service.bulk_create_heart_rate_samples(db, heart_rate_records)
+            workout_statistic_service.bulk_create_samples(db, heart_rate_records)
         if step_records:
-            workout_statistic_service.bulk_create_step_samples(db, step_records)
+            workout_statistic_service.bulk_create_samples(db, step_records)

@@ -14,7 +14,6 @@ class SeriesType(str, Enum):
 
 
 class TimeSeriesSampleBase(BaseModel):
-    id: UUID
     device_id: str | None = None
     recorded_at: datetime
     value: Decimal | float | int
@@ -24,9 +23,17 @@ class TimeSeriesSampleBase(BaseModel):
 class TimeSeriesSampleCreate(TimeSeriesSampleBase):
     """Generic create payload for data point series."""
 
+    id: UUID
+
+
+class TimeSeriesSampleUpdate(TimeSeriesSampleBase):
+    """Generic update payload for data point series."""
+
 
 class TimeSeriesSampleResponse(TimeSeriesSampleBase):
     """Generic response payload for data point series."""
+
+    id: UUID
 
 
 class HeartRateSampleCreate(TimeSeriesSampleCreate):

@@ -4,7 +4,7 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import EventRecordCreate, EventRecordMetrics, SuuntoWorkoutJSON
+from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, SuuntoWorkoutJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -67,37 +67,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         start_date = datetime.fromtimestamp(start_timestamp / 1000)
         end_date = datetime.fromtimestamp(end_timestamp / 1000)
         return start_date, end_date
-
-    def _normalize_workout(
-        self,
-        raw_workout: SuuntoWorkoutJSON,
-        user_id: UUID,
-    ) -> EventRecordCreate:
-        """Normalize Suunto workout to EventRecordCreate."""
-        workout_id = uuid4()
-
-        start_date, end_date = self._extract_dates(raw_workout.startTime, raw_workout.stopTime)
-        duration_seconds = raw_workout.totalTime
-
-        source_name = raw_workout.gear.name if raw_workout.gear else "Unknown"
-
-        device_id = raw_workout.gear.serialNumber if raw_workout.gear else None
-
-        metrics = self._build_metrics(raw_workout)
-
-        return EventRecordCreate(
-            id=workout_id,
-            provider_id=str(raw_workout.workoutId),
-            user_id=user_id,
-            type="Unknown",
-            duration_seconds=Decimal(duration_seconds),
-            source_name=source_name,
-            device_id=device_id,
-            start_datetime=start_date,
-            end_datetime=end_date,
-            **metrics,
-        )
-
+   
     def _build_metrics(self, raw_workout: SuuntoWorkoutJSON) -> EventRecordMetrics:
         hr_data = raw_workout.hrdata
         heart_rate_avg = Decimal(str(hr_data.avg)) if hr_data and hr_data.avg is not None else None
@@ -113,14 +83,51 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             "steps_avg": steps_value,
         }
 
+    def _normalize_workout(
+        self,
+        raw_workout: SuuntoWorkoutJSON,
+        user_id: UUID,
+    ) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
+        """Normalize Suunto workout to EventRecordCreate."""
+        workout_id = uuid4()
+
+        start_date, end_date = self._extract_dates(raw_workout.startTime, raw_workout.stopTime)
+        duration_seconds = raw_workout.totalTime
+
+        source_name = raw_workout.gear.name if raw_workout.gear else "Unknown"
+
+        device_id = raw_workout.gear.serialNumber if raw_workout.gear else None
+
+        metrics = self._build_metrics(raw_workout)
+
+        workout_create = EventRecordCreate(
+            id=workout_id,
+            provider_id=str(raw_workout.workoutId),
+            user_id=user_id,
+            type="Unknown",
+            duration_seconds=Decimal(duration_seconds),
+            source_name=source_name,
+            device_id=device_id,
+            start_datetime=start_date,
+            end_datetime=end_date,
+        )
+
+        workout_detail_create = EventRecordDetailCreate(
+            record_id=workout_id,
+            **metrics,
+        )
+
+        return workout_create, workout_detail_create
+
     def _build_bundles(
         self,
         raw: list[SuuntoWorkoutJSON],
         user_id: UUID,
-    ) -> Iterable[EventRecordCreate]:
+    ) -> Iterable[tuple[EventRecordCreate, EventRecordDetailCreate]]:
         """Build event record payloads for Suunto workouts."""
         for raw_workout in raw:
-            yield self._normalize_workout(raw_workout, user_id)
+            record, details = self._normalize_workout(raw_workout, user_id)
+            yield record, details
 
     def load_data(
         self,
@@ -133,8 +140,9 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         workouts_data = response.get("payload", [])
         workouts = [SuuntoWorkoutJSON(**w) for w in workouts_data]
 
-        for record in self._build_bundles(workouts, user_id):
+        for record, details in self._build_bundles(workouts, user_id):
             workout_service.create(db, record)
+            workout_service.create_detail(db, details)
 
         return True
 

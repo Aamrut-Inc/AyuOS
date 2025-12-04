@@ -4,7 +4,7 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import EventRecordCreate, EventRecordMetrics, GarminActivityJSON
+from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, GarminActivityJSON
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 from app.services.workout_service import workout_service
 
@@ -86,35 +86,6 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         end_date = datetime.fromtimestamp(end_timestamp)
         return start_date, end_date
 
-    def _normalize_workout(
-        self,
-        raw_workout: GarminActivityJSON,
-        user_id: UUID,
-    ) -> EventRecordCreate:
-        """Normalize Garmin activity to EventRecordCreate."""
-        workout_id = uuid4()
-
-        start_date, end_date = self._extract_dates(
-            raw_workout.startTimeInSeconds,
-            raw_workout.startTimeInSeconds + raw_workout.durationInSeconds,
-        )
-        duration_seconds = raw_workout.durationInSeconds
-
-        metrics = self._build_metrics(raw_workout)
-
-        return EventRecordCreate(
-            id=workout_id,
-            provider_id=raw_workout.summaryId,
-            user_id=user_id,
-            type=raw_workout.activityType,
-            duration_seconds=Decimal(duration_seconds),
-            source_name=raw_workout.deviceName,
-            device_id=None,
-            start_datetime=start_date,
-            end_datetime=end_date,
-            **metrics,
-        )
-
     def _build_metrics(self, raw_workout: GarminActivityJSON) -> EventRecordMetrics:
         heart_rate_avg = (
             Decimal(str(raw_workout.averageHeartRateInBeatsPerMinute))
@@ -138,11 +109,46 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             "steps_avg": steps_value,
         }
 
+    def _normalize_workout(
+        self,
+        raw_workout: GarminActivityJSON,
+        user_id: UUID,
+    ) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
+        """Normalize Garmin activity to EventRecordCreate and EventRecordDetailCreate."""
+        workout_id = uuid4()
+
+        start_date, end_date = self._extract_dates(
+            raw_workout.startTimeInSeconds,
+            raw_workout.startTimeInSeconds + raw_workout.durationInSeconds,
+        )
+        duration_seconds = raw_workout.durationInSeconds
+
+        metrics = self._build_metrics(raw_workout)
+
+        record = EventRecordCreate(
+            id=workout_id,
+            provider_id=raw_workout.summaryId,
+            user_id=user_id,
+            type=raw_workout.activityType,
+            duration_seconds=Decimal(duration_seconds),
+            source_name=raw_workout.deviceName,
+            device_id=None,
+            start_datetime=start_date,
+            end_datetime=end_date,
+        )
+
+        detail = EventRecordDetailCreate(
+            record_id=workout_id,
+            **metrics,
+        )
+
+        return record, detail
+
     def _build_bundles(
         self,
         raw: list[GarminActivityJSON],
         user_id: UUID,
-    ) -> Iterable[EventRecordCreate]:
+    ) -> Iterable[tuple[EventRecordCreate, EventRecordDetailCreate]]:
         """Build event record payloads for Garmin activities."""
         for raw_workout in raw:
             yield self._normalize_workout(raw_workout, user_id)
@@ -157,8 +163,9 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         workouts = self.get_workouts_from_api(db, user_id, **kwargs)
         activities = [GarminActivityJSON(**activity) for activity in workouts]
 
-        for event_record in self._build_bundles(activities, user_id):
-            workout_service.create(db, event_record)
+        for record, detail in self._build_bundles(activities, user_id):
+            workout_service.create(db, record)
+            workout_service.create_detail(db, detail)
 
         return True
 

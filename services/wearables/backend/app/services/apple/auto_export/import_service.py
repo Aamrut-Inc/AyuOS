@@ -9,6 +9,7 @@ from app.database import DbSession
 from app.schemas import (
     AEWorkoutJSON,
     EventRecordCreate,
+    EventRecordDetailCreate,
     EventRecordMetrics,
     HeartRateSampleCreate,
     RootJSON,
@@ -22,7 +23,7 @@ APPLE_DT_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 
 
 class ImportService:
-    def __init__(self, log: Logger, **kwargs):
+    def __init__(self, log: Logger):
         self.log = log
         self.workout_service = workout_service
         self.time_series_service = time_series_service
@@ -87,7 +88,7 @@ class ImportService:
         self,
         raw: dict,
         user_id: str,
-    ) -> Iterable[tuple[EventRecordCreate, list[HeartRateSampleCreate]]]:
+    ) -> Iterable[tuple[EventRecordCreate, EventRecordDetailCreate, list[HeartRateSampleCreate]]]:
         """
         Given the parsed JSON dict from HealthAutoExport, yield ImportBundles
         ready to insert the database.
@@ -109,7 +110,7 @@ class ImportService:
 
             workout_type = wjson.name or "Unknown Workout"
 
-            workout_row = EventRecordCreate(
+            record = EventRecordCreate(
                 id=workout_id,
                 user_id=UUID(user_id),
                 type=workout_type,
@@ -117,17 +118,22 @@ class ImportService:
                 source_name="Auto Export",
                 start_datetime=start_date,
                 end_datetime=end_date,
+            )
+
+            detail = EventRecordDetailCreate(
+                record_id=workout_id,
                 **metrics,
             )
 
-            yield workout_row, hr_samples
+            yield record, detail, hr_samples
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
-        for workout_row, hr_samples in self._build_import_bundles(raw, user_id):
-            self.workout_service.create(db_session, workout_row)
+        for record, detail, hr_samples in self._build_import_bundles(raw, user_id):
+            self.workout_service.create(db_session, record)
+            self.workout_service.create_detail(db_session, detail)
 
             if hr_samples:
-                self.time_series_service.bulk_create_heart_rate_samples(db_session, hr_samples)
+                self.time_series_service.bulk_create_samples(db_session, hr_samples)
 
         return True
 

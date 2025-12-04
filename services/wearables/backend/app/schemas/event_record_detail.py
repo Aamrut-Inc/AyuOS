@@ -34,17 +34,14 @@ class EventRecordDetailBase(BaseModel):
     sleep_rem_minutes: Decimal | None = None
     sleep_light_minutes: Decimal | None = None
     sleep_awake_minutes: Decimal | None = None
-    
+
 
 class EventRecordDetailCreate(EventRecordDetailBase):
     """Schema for creating an event record detail entry."""
     
-    id: UUID
-    user_id: UUID
-    provider_id: str | None = None
-    event_record_id: UUID
-    
-    
+    record_id: UUID
+
+
 class EventRecordDetailUpdate(EventRecordDetailBase):
     """Schema for updating an event record detail entry."""
 
@@ -52,7 +49,4 @@ class EventRecordDetailUpdate(EventRecordDetailBase):
 class EventRecordDetailResponse(EventRecordDetailBase):
     """Schema returned to API consumers."""
     
-    id: UUID
-    user_id: UUID
-    provider_id: str | None = None
-    event_record_id: UUID
+    record_id: UUID

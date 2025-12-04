@@ -2,12 +2,18 @@ from datetime import datetime
 from decimal import Decimal
 from logging import Logger
 from pathlib import Path
-from typing import Any, Generator, cast
+from typing import Any, Generator
 from uuid import UUID, uuid4
 from xml.etree import ElementTree as ET
 
 from app.config import settings
-from app.schemas import EventRecordCreate, EventRecordMetrics, HeartRateSampleCreate, StepSampleCreate
+from app.schemas import (
+    EventRecordCreate,
+    EventRecordDetailCreate,
+    EventRecordMetrics,
+    HeartRateSampleCreate,
+    StepSampleCreate,
+)
 
 
 class XMLService:
@@ -89,17 +95,16 @@ class XMLService:
         document: dict[str, Any],
         user_id: str,
         metrics: EventRecordMetrics | None = None,
-    ) -> EventRecordCreate:
+    ) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
         document = self._parse_date_fields(document)
 
         document["type"] = document.pop("workoutActivityType")
 
+        workout_id = uuid4()
         duration_seconds = Decimal(str((document["endDate"] - document["startDate"]).total_seconds()))
 
-        metric_payload = metrics if metrics is not None else cast(EventRecordMetrics, {})
-
-        return EventRecordCreate(
-            id=uuid4(),
+        record = EventRecordCreate(
+            id=workout_id,
             provider_id=None,
             user_id=UUID(user_id),
             type=document["type"],
@@ -108,8 +113,15 @@ class XMLService:
             device_id=document.get("device"),
             start_datetime=document["startDate"],
             end_datetime=document["endDate"],
-            **metric_payload,
         )
+
+        actual_metrics = metrics if metrics is not None else self._init_metrics()
+        detail = EventRecordDetailCreate(
+            record_id=workout_id,
+            **actual_metrics,
+        )
+
+        return record, detail
 
     def _init_metrics(self) -> EventRecordMetrics:
         return {
@@ -155,7 +167,7 @@ class XMLService:
         tuple[
             list[HeartRateSampleCreate],
             list[StepSampleCreate],
-            list[EventRecordCreate],
+            list[tuple[EventRecordCreate, EventRecordDetailCreate]],
         ],
         None,
         None,
@@ -169,7 +181,7 @@ class XMLService:
         """
         heart_rate_records: list[HeartRateSampleCreate] = []
         step_records: list[StepSampleCreate] = []
-        workouts: list[EventRecordCreate] = []
+        workouts: list[tuple[EventRecordCreate, EventRecordDetailCreate]] = []
 
         for event, elem in ET.iterparse(self.xml_path, events=("end",)):
             if elem.tag == "Record" and event == "end":
@@ -211,8 +223,8 @@ class XMLService:
                         continue
                     statistic = stat.attrib.copy()
                     self._update_metrics_from_stat(metrics, statistic)
-                workout_create = self._create_workout(workout, user_id, metrics)
-                workouts.append(workout_create)
+                workout_record, workout_detail = self._create_workout(workout, user_id, metrics)
+                workouts.append((workout_record, workout_detail))
                 elem.clear()
 
         # yield remaining records and workout pairs
