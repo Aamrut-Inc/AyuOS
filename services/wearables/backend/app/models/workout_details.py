@@ -18,6 +18,7 @@ class WorkoutDetails(EventRecordDetail):
     steps_min: Mapped[numeric_10_3 | None]
     steps_max: Mapped[numeric_10_3 | None]
     steps_avg: Mapped[numeric_10_3 | None]
+    steps_total: Mapped[numeric_10_3 | None]
 
     max_speed: Mapped[numeric_10_3 | None]
     max_watts: Mapped[numeric_10_3 | None]

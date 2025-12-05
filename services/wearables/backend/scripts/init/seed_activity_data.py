@@ -100,6 +100,7 @@ def generate_workout(
         steps_min=steps,
         steps_max=steps,
         steps_avg=steps,
+        steps_total=steps,
     )
 
     return record, detail

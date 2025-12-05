@@ -55,6 +55,7 @@ class ImportService:
             "steps_min": None,
             "steps_max": None,
             "steps_avg": None,
+            "steps_total": None,
         }
 
     def _get_records(

@@ -136,6 +136,7 @@ class ImportService:
 
         hr_min, hr_max, hr_avg = _compute(heart_rate_values)
         steps_min, steps_max, steps_avg = _compute(step_values)
+        steps_total = sum(step_values) if step_values else None
 
         return {
             "heart_rate_min": hr_min,
@@ -144,6 +145,7 @@ class ImportService:
             "steps_min": steps_min,
             "steps_max": steps_max,
             "steps_avg": steps_avg,
+            "steps_total": steps_total,
         }
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:

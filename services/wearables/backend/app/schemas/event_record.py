@@ -17,6 +17,7 @@ class EventRecordMetrics(TypedDict, total=False):
     steps_min: Decimal | None
     steps_max: Decimal | None
     steps_avg: Decimal | None
+    steps_total: Decimal | None
     max_speed: Decimal | None
     max_watts: Decimal | None
     moving_time_seconds: Decimal | None

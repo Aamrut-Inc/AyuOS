@@ -135,6 +135,7 @@ class XMLService:
             "steps_min": None,
             "steps_max": None,
             "steps_avg": None,
+            "steps_total": None,
         }
 
     def _decimal_from_stat(self, value: str | None) -> Decimal | None:
