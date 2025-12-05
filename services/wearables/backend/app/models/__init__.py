@@ -9,6 +9,7 @@ from .workout_details import WorkoutDetails
 from .personal_record import PersonalRecord
 from .data_point_series import DataPointSeries
 from .body_state import BodyState
+from .external_device_mapping import ExternalDeviceMapping
 
 __all__ = [
     "ApiKey",
@@ -22,4 +23,5 @@ __all__ = [
     "PersonalRecord",
     "DataPointSeries",
     "BodyState",
+    "ExternalDeviceMapping",
 ]

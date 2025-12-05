@@ -73,6 +73,11 @@ def generate_workout(
     heart_rate_avg = Decimal((float(heart_rate_min) + float(heart_rate_max)) / 2)
 
     workout_id = uuid4()
+    device_id = (
+        f"device_{fake_instance.random_int(min=1, max=5)}"
+        if fake_instance.boolean(chance_of_getting_true=50)
+        else None
+    )
 
     record = EventRecordCreate(
         id=workout_id,
@@ -82,6 +87,7 @@ def generate_workout(
         type=fake_instance.random.choice(WORKOUT_TYPES),
         duration_seconds=duration_seconds,
         source_name=fake_instance.random.choice(SOURCE_NAMES),
+        device_id=device_id,
         start_datetime=start_datetime,
         end_datetime=end_datetime,
     )
@@ -128,6 +134,11 @@ def generate_sleep(
     awake_minutes = Decimal(sleep_duration_minutes - int(deep_minutes) - int(rem_minutes) - int(light_minutes))
 
     sleep_id = uuid4()
+    device_id = (
+        f"device_{fake_instance.random_int(min=1, max=3)}"
+        if fake_instance.boolean(chance_of_getting_true=60)
+        else None
+    )
 
     record = EventRecordCreate(
         id=sleep_id,
@@ -137,6 +148,7 @@ def generate_sleep(
         type=None,
         duration_seconds=sleep_duration_seconds,
         source_name=fake_instance.random.choice(SOURCE_NAMES),
+        device_id=device_id,
         start_datetime=start_datetime,
         end_datetime=end_datetime,
     )
@@ -202,6 +214,9 @@ def generate_time_series_samples(
     workout_start: datetime,
     workout_end: datetime,
     fake_instance: Faker,
+    *,
+    user_id: UUID,
+    provider_id: str | None = None,
     device_id: str | None = None,
 ) -> list[TimeSeriesSampleCreate]:
     """Generate time series samples (heart rate and steps) for a workout period."""
@@ -215,6 +230,8 @@ def generate_time_series_samples(
             samples.append(
                 HeartRateSampleCreate(
                     id=uuid4(),
+                    user_id=user_id,
+                    provider_id=provider_id,
                     device_id=device_id,
                     recorded_at=current_time,
                     value=Decimal(fake_instance.random_int(min=90, max=180)),
@@ -227,6 +244,8 @@ def generate_time_series_samples(
             samples.append(
                 StepSampleCreate(
                     id=uuid4(),
+                    user_id=user_id,
+                    provider_id=provider_id,
                     device_id=device_id,
                     recorded_at=current_time,
                     value=Decimal(fake_instance.random_int(min=10, max=50)),
@@ -293,6 +312,8 @@ def seed_activity_data() -> None:
                         record.start_datetime,
                         record.end_datetime,
                         fake,
+                        user_id=user.id,
+                        provider_id=record.provider_id,
                         device_id=device_id,
                     )
                     if samples:

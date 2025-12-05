@@ -43,6 +43,11 @@ from .event_record_detail import (
     EventRecordDetailResponse,
     EventRecordDetailUpdate,
 )
+from .external_mapping import (
+    ExternalMappingCreate,
+    ExternalMappingResponse,
+    ExternalMappingUpdate,
+)
 from .filter_params import FilterParams
 from .garmin.activity_import import (
     ActivityJSON as GarminActivityJSON,
@@ -137,6 +142,9 @@ __all__ = [
     "EventRecordDetailCreate",
     "EventRecordDetailResponse",
     "EventRecordDetailUpdate",
+    "ExternalMappingCreate",
+    "ExternalMappingUpdate",
+    "ExternalMappingResponse",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
     "TimeSeriesSampleCreate",

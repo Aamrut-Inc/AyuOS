@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated, NewType, TypeVar
 from uuid import UUID
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, Boolean
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import mapped_column
 
 T = TypeVar("T")
@@ -49,4 +49,8 @@ FKEventRecord = Annotated[
 FKEventRecordDetail = Annotated[
     UUID,
     mapped_column(ForeignKey("event_record_detail.record_id", ondelete="CASCADE"), primary_key=True),
+]
+FKExternalMapping = Annotated[
+    UUID,
+    mapped_column(ForeignKey("external_device_mapping.id", ondelete="CASCADE")),
 ]
