@@ -37,6 +37,7 @@ from .event_record import (
     EventRecordQueryParams,
     EventRecordResponse,
     EventRecordUpdate,
+    WorkoutType,
 )
 from .event_record_detail import (
     EventRecordDetailCreate,
@@ -137,6 +138,7 @@ __all__ = [
     "EventRecordDetailCreate",
     "EventRecordDetailResponse",
     "EventRecordDetailUpdate",
+    "WorkoutType",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
     "TimeSeriesSampleCreate",
