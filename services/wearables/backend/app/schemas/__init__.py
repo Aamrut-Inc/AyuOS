@@ -71,11 +71,6 @@ from .polar.exercise_import import (
     ExerciseJSON as PolarExerciseJSON,
 )
 from .response import UploadDataResponse
-from .series_unit_mapping import (
-    SeriesUnitMappingCreate,
-    SeriesUnitMappingResponse,
-    SeriesUnitMappingUpdate,
-)
 from .suunto.workout_import import (
     HeartRateJSON as SuuntoHeartRateJSON,
 )
@@ -145,9 +140,6 @@ __all__ = [
     "ExternalMappingCreate",
     "ExternalMappingUpdate",
     "ExternalMappingResponse",
-    "SeriesUnitMappingCreate",
-    "SeriesUnitMappingUpdate",
-    "SeriesUnitMappingResponse",
     "HeartRateSampleCreate",
     "HeartRateSampleResponse",
     "TimeSeriesSampleCreate",

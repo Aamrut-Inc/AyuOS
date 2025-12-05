@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Index
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, relationship
 
 from app.database import BaseDbModel
 from app.mappings import FKExternalMapping, PrimaryKey, datetime_tz, numeric_10_3, str_64, str_100
+
+if TYPE_CHECKING:
+    from .event_record_detail import EventRecordDetail
 
 
 class EventRecord(BaseDbModel):
@@ -17,7 +21,7 @@ class EventRecord(BaseDbModel):
     id: Mapped[PrimaryKey[UUID]]
     external_mapping_id: Mapped[FKExternalMapping]
 
-    category: Mapped[str_64] = mapped_column(default="workout")
+    category: Mapped[str_64]
     type: Mapped[str_100 | None]
     source_name: Mapped[str_100]
 
@@ -28,7 +32,6 @@ class EventRecord(BaseDbModel):
 
     detail: Mapped["EventRecordDetail | None"] = relationship(
         "EventRecordDetail",
-        back_populates="record",
         uselist=False,
         cascade="all, delete-orphan",
     )

@@ -1,6 +1,7 @@
 from logging import Logger, getLogger
 from uuid import UUID
 
+from app.constants.series_types import get_series_type_from_id
 from app.database import DbSession
 from app.models import DataPointSeries, ExternalDeviceMapping
 from app.repositories import DataPointSeriesRepository
@@ -39,7 +40,7 @@ class TimeSeriesService(
             id=sample.id,
             recorded_at=sample.recorded_at,
             value=sample.value,
-            series_type=sample.series_type,
+            series_type=get_series_type_from_id(sample.series_type_id),
             external_mapping_id=sample.external_mapping_id,
             user_id=mapping.user_id if mapping else None,
             provider_id=mapping.provider_id if mapping else None,

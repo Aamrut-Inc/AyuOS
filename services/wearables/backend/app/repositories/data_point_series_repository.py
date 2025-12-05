@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import desc
 
+from app.constants.series_types import get_series_type_id
 from app.database import DbSession
 from app.models import DataPointSeries, ExternalDeviceMapping
 from app.repositories.external_mapping_repository import ExternalMappingRepository
@@ -29,7 +30,8 @@ class DataPointSeriesRepository(
 
         creation_data = creator.model_dump()
         creation_data["external_mapping_id"] = mapping.id
-        for redundant_key in ("user_id", "provider_id", "device_id", "external_mapping_id"):
+        creation_data["series_type_id"] = get_series_type_id(creator.series_type)
+        for redundant_key in ("user_id", "provider_id", "device_id", "external_mapping_id", "series_type"):
             creation_data.pop(redundant_key, None)
 
         creation = self.model(**creation_data)
@@ -51,7 +53,7 @@ class DataPointSeriesRepository(
                 ExternalDeviceMapping,
                 self.model.external_mapping_id == ExternalDeviceMapping.id,
             )
-            .filter(self.model.series_type == series_type)
+            .filter(self.model.series_type_id == get_series_type_id(series_type))
             .filter(ExternalDeviceMapping.user_id == user_id)
         )
 

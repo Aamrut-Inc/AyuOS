@@ -54,3 +54,7 @@ FKExternalMapping = Annotated[
     UUID,
     mapped_column(ForeignKey("external_device_mapping.id", ondelete="CASCADE")),
 ]
+FKSeriesTypeDefinition = Annotated[
+    int,
+    mapped_column(ForeignKey("series_type_definition.id", ondelete="RESTRICT")),
+]

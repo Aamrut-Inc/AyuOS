@@ -9,7 +9,7 @@ from .workout_details import WorkoutDetails
 from .personal_record import PersonalRecord
 from .data_point_series import DataPointSeries
 from .external_device_mapping import ExternalDeviceMapping
-from .series_unit_mapping import SeriesUnitMapping
+from .series_type_definition import SeriesTypeDefinition
 
 __all__ = [
     "ApiKey",
@@ -23,5 +23,5 @@ __all__ = [
     "PersonalRecord",
     "DataPointSeries",
     "ExternalDeviceMapping",
-    "SeriesUnitMapping",
+    "SeriesTypeDefinition",
 ]
