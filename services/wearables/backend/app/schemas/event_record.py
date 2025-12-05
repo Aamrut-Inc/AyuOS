@@ -1,11 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Literal, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.schemas.common import BaseQueryParams
+
+
+class WorkoutType(StrEnum):
+    RUNNING = "running"
+    WALKING = "walking"
+    CYCLING = "cycling"
+    SWIMMING = "swimming"
+    OTHER = "other"
 
 
 class EventRecordMetrics(TypedDict, total=False):
@@ -72,9 +81,9 @@ class EventRecordResponse(EventRecordBase):
     """Schema returned to API consumers."""
 
     id: UUID
-    user_id: UUID
+    user_id: UUID | None
     provider_id: str | None
-    external_mapping_id: UUID
+    external_mapping_id: UUID | None
 
 
 class EventRecordQueryParams(BaseQueryParams):

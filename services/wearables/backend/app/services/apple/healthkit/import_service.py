@@ -136,17 +136,17 @@ class ImportService:
 
         hr_min, hr_max, hr_avg = _compute(heart_rate_values)
         steps_min, steps_max, steps_avg = _compute(step_values)
-        steps_total = sum(step_values, Decimal("0")) if step_values else None
+        steps_total = Decimal(sum(step_values)) if step_values else None
 
-        return {
-            "heart_rate_min": int(hr_min) if hr_min is not None else None,
-            "heart_rate_max": int(hr_max) if hr_max is not None else None,
-            "heart_rate_avg": hr_avg,
-            "steps_min": int(steps_min) if steps_min is not None else None,
-            "steps_max": int(steps_max) if steps_max is not None else None,
-            "steps_avg": steps_avg,
-            "steps_total": int(steps_total) if steps_total is not None else None,
-        }
+        return EventRecordMetrics(
+            heart_rate_min=hr_min,
+            heart_rate_max=hr_max,
+            heart_rate_avg=hr_avg,
+            steps_min=steps_min,
+            steps_max=steps_max,
+            steps_avg=steps_avg,
+            steps_total=steps_total,
+        )
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:
         for record, detail in self._build_workout_bundles(raw, user_id):

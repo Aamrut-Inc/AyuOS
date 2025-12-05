@@ -4,7 +4,13 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, SuuntoWorkoutJSON
+from app.schemas import (
+    EventRecordCreate,
+    EventRecordDetailCreate,
+    EventRecordMetrics,
+    SuuntoWorkoutJSON,
+    WorkoutType,
+)
 from app.services.event_record_service import event_record_service
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 
@@ -85,6 +91,34 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             "steps_total": steps_count,
         }
 
+    def _get_workout_type(self, workout_id: int) -> WorkoutType:
+        """Get workout type from Suunto workout."""
+        match workout_id:
+            case 0:
+                return WorkoutType.WALKING
+            case 1:
+                return WorkoutType.RUNNING
+            case 2:
+                return WorkoutType.CYCLING
+            case 21:
+                return WorkoutType.SWIMMING
+            case _:
+                return WorkoutType.OTHER
+
+    def _get_workout_type(self, workout_id: int) -> WorkoutType:
+        """Get workout type from Suunto workout."""
+        match workout_id:
+            case 0:
+                return WorkoutType.WALKING
+            case 1:
+                return WorkoutType.RUNNING
+            case 2:
+                return WorkoutType.CYCLING
+            case 21:
+                return WorkoutType.SWIMMING
+            case _:
+                return WorkoutType.OTHER
+
     def _normalize_workout(
         self,
         raw_workout: SuuntoWorkoutJSON,
@@ -106,10 +140,10 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             id=workout_id,
             provider_id=str(raw_workout.workoutId),
             user_id=user_id,
-            type="Unknown",
-            duration_seconds=duration_seconds,
+            type=self._get_workout_type(raw_workout.workoutId).value,
             source_name=source_name,
             device_id=device_id,
+            duration_seconds=Decimal(duration_seconds),
             start_datetime=start_date,
             end_datetime=end_date,
         )

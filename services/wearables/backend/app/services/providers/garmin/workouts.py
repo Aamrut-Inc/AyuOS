@@ -4,7 +4,13 @@ from typing import Any, Iterable
 from uuid import UUID, uuid4
 
 from app.database import DbSession
-from app.schemas import EventRecordCreate, EventRecordDetailCreate, EventRecordMetrics, GarminActivityJSON
+from app.schemas import (
+    EventRecordCreate,
+    EventRecordDetailCreate,
+    EventRecordMetrics,
+    GarminActivityJSON,
+    WorkoutType,
+)
 from app.services.event_record_service import event_record_service
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
 
@@ -105,11 +111,25 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             "heart_rate_min": int(heart_rate_avg) if heart_rate_avg is not None else None,
             "heart_rate_max": int(heart_rate_max) if heart_rate_max is not None else None,
             "heart_rate_avg": heart_rate_avg,
-            "steps_min": steps_count,
-            "steps_max": steps_count,
-            "steps_avg": steps_avg,
-            "steps_total": steps_count,
+            "steps_min": steps_value,
+            "steps_max": steps_value,
+            "steps_avg": steps_value,
+            "steps_total": steps_value,
         }
+
+    def _get_workout_type(self, activity_type: str) -> WorkoutType:
+        """Get workout type from Garmin activity."""
+        match activity_type:
+            case "RUNNING":
+                return WorkoutType.RUNNING
+            case "WALKING":
+                return WorkoutType.WALKING
+            case "CYCLING":
+                return WorkoutType.CYCLING
+            case "SWIMMING":
+                return WorkoutType.SWIMMING
+            case _:
+                return WorkoutType.OTHER
 
     def _normalize_workout(
         self,
@@ -131,8 +151,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             id=workout_id,
             provider_id=raw_workout.summaryId,
             user_id=user_id,
-            type=raw_workout.activityType,
-            duration_seconds=duration_seconds,
+            type=self._get_workout_type(raw_workout.activityType).value,
+            duration_seconds=Decimal(duration_seconds),
             source_name=raw_workout.deviceName,
             device_id=None,
             start_datetime=start_date,
