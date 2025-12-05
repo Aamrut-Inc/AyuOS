@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated, NewType, TypeVar
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, Boolean
 from sqlalchemy.orm import mapped_column
 
 T = TypeVar("T")
@@ -25,6 +25,7 @@ type ManyToOne[T] = T
 # Custom types
 datetime_tz = Annotated[datetime, mapped_column(DateTime(timezone=True))]
 date_col = Annotated[date_type, mapped_column(Date)]
+bool_col = Annotated[bool, mapped_column(Boolean)]
 
 # it's mapped in database.py, because it didn't work with PrimaryKey/Unique
 email = NewType("email", str)
