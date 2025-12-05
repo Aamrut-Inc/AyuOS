@@ -30,11 +30,13 @@ bool_col = Annotated[bool, mapped_column(Boolean)]
 # it's mapped in database.py, because it didn't work with PrimaryKey/Unique
 email = NewType("email", str)
 str_10 = NewType("str_10", str)
+str_32 = NewType("str_32", str)
 str_50 = NewType("str_50", str)
 str_64 = NewType("str_64", str)
 str_100 = NewType("str_100", str)
 str_255 = NewType("str_255", str)
 
+numeric_5_2 = Annotated[Decimal, mapped_column(Numeric(5, 2))]
 numeric_10_3 = Annotated[Decimal, mapped_column(Numeric(10, 3))]
 numeric_10_2 = Annotated[Decimal, mapped_column(Numeric(10, 2))]
 numeric_15_5 = Annotated[Decimal, mapped_column(Numeric(15, 5))]

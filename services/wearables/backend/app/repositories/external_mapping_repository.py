@@ -1,7 +1,7 @@
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_
-from sqlalchemy.sql.elements import BooleanClauseList
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.database import DbSession
 from app.models import ExternalDeviceMapping
@@ -22,7 +22,7 @@ class ExternalMappingRepository(
         user_id: UUID,
         provider_id: str | None,
         device_id: str | None,
-    ) -> BooleanClauseList:
+    ) -> ColumnElement[bool]:
         return and_(
             self.model.user_id == user_id,
             self.model.provider_id == provider_id,
@@ -75,4 +75,3 @@ class ExternalMappingRepository(
             device_id=device_id,
         )
         return self.create(db_session, create_payload)
-

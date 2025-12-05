@@ -63,8 +63,8 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         hr_max = Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
 
         return {
-            "heart_rate_min": hr_avg,
-            "heart_rate_max": hr_max,
+            "heart_rate_min": int(hr_avg) if hr_avg is not None else None,
+            "heart_rate_max": int(hr_max) if hr_max is not None else None,
             "heart_rate_avg": hr_avg,
             "steps_min": None,
             "steps_max": None,
@@ -85,7 +85,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             raw_workout.start_time_utc_offset,
             raw_workout.duration,
         )
-        duration_seconds = (end_date - start_date).total_seconds()
+        duration_seconds = int((end_date - start_date).total_seconds())
 
         metrics = self._build_metrics(raw_workout)
 
@@ -94,7 +94,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             provider_id=raw_workout.id,
             user_id=user_id,
             type=raw_workout.sport,
-            duration_seconds=Decimal(duration_seconds),
+            duration_seconds=duration_seconds,
             source_name=raw_workout.device,
             device_id=raw_workout.device,
             start_datetime=start_date,

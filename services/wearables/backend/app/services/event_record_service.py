@@ -36,9 +36,9 @@ class EventRecordService(
             start_datetime=record.start_datetime,
             end_datetime=record.end_datetime,
             external_mapping_id=record.external_mapping_id,
-            user_id=mapping.user_id if mapping else None,
-            provider_id=mapping.provider_id if mapping else None,
-            device_id=mapping.device_id if mapping else None,
+            user_id=mapping.user_id,
+            provider_id=mapping.provider_id,
+            device_id=mapping.device_id,
         )
 
     def create_detail(self, db_session: DbSession, detail: EventRecordDetailCreate) -> EventRecordDetail:

@@ -47,7 +47,7 @@ class ImportService:
             workout_id = uuid4()
             provider_id = wjson.uuid if wjson.uuid else None
 
-            duration_seconds = (wjson.endDate - wjson.startDate).total_seconds()
+            duration_seconds = int((wjson.endDate - wjson.startDate).total_seconds())
 
             metrics = self._extract_metrics_from_workout_stats(wjson.workoutStatistics)
 
@@ -56,7 +56,7 @@ class ImportService:
                 provider_id=provider_id,
                 user_id=user_uuid,
                 type=wjson.type or "Unknown",
-                duration_seconds=Decimal(duration_seconds),
+                duration_seconds=duration_seconds,
                 source_name=wjson.sourceName or "Apple Health",
                 device_id=wjson.sourceName or None,
                 start_datetime=wjson.startDate,
@@ -131,21 +131,21 @@ class ImportService:
                 return None, None, None
             min_v = min(values)
             max_v = max(values)
-            avg_v = sum(values) / Decimal(len(values))
+            avg_v = sum(values, Decimal("0")) / Decimal(len(values))
             return min_v, max_v, avg_v
 
         hr_min, hr_max, hr_avg = _compute(heart_rate_values)
         steps_min, steps_max, steps_avg = _compute(step_values)
-        steps_total = sum(step_values) if step_values else None
+        steps_total = sum(step_values, Decimal("0")) if step_values else None
 
         return {
-            "heart_rate_min": hr_min,
-            "heart_rate_max": hr_max,
+            "heart_rate_min": int(hr_min) if hr_min is not None else None,
+            "heart_rate_max": int(hr_max) if hr_max is not None else None,
             "heart_rate_avg": hr_avg,
-            "steps_min": steps_min,
-            "steps_max": steps_max,
+            "steps_min": int(steps_min) if steps_min is not None else None,
+            "steps_max": int(steps_max) if steps_max is not None else None,
             "steps_avg": steps_avg,
-            "steps_total": steps_total,
+            "steps_total": int(steps_total) if steps_total is not None else None,
         }
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:

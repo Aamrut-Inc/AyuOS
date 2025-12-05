@@ -11,28 +11,28 @@ from app.schemas.common import BaseQueryParams
 class EventRecordMetrics(TypedDict, total=False):
     """Optional workout or sleep metrics collected from providers."""
 
-    heart_rate_min: Decimal | None
-    heart_rate_max: Decimal | None
+    heart_rate_min: int | None
+    heart_rate_max: int | None
     heart_rate_avg: Decimal | None
-    steps_min: Decimal | None
-    steps_max: Decimal | None
+    steps_min: int | None
+    steps_max: int | None
     steps_avg: Decimal | None
-    steps_total: Decimal | None
+    steps_total: int | None
     max_speed: Decimal | None
     max_watts: Decimal | None
-    moving_time_seconds: Decimal | None
+    moving_time_seconds: int | None
     total_elevation_gain: Decimal | None
     average_speed: Decimal | None
     average_watts: Decimal | None
     elev_high: Decimal | None
     elev_low: Decimal | None
-    sleep_total_duration_minutes: Decimal | None
-    sleep_time_in_bed_minutes: Decimal | None
+    sleep_total_duration_minutes: int | None
+    sleep_time_in_bed_minutes: int | None
     sleep_efficiency_score: Decimal | None
-    sleep_deep_minutes: Decimal | None
-    sleep_rem_minutes: Decimal | None
-    sleep_light_minutes: Decimal | None
-    sleep_awake_minutes: Decimal | None
+    sleep_deep_minutes: int | None
+    sleep_rem_minutes: int | None
+    sleep_light_minutes: int | None
+    sleep_awake_minutes: int | None
 
 
 class EventRecordBase(BaseModel):
@@ -47,7 +47,7 @@ class EventRecordBase(BaseModel):
         description="Optional device identifier used to resolve the external mapping",
     )
 
-    duration_seconds: Decimal | None = None
+    duration_seconds: int | None = None
     start_datetime: datetime
     end_datetime: datetime
 

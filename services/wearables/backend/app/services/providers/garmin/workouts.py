@@ -98,16 +98,17 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             else None
         )
 
-        steps_value = Decimal(str(raw_workout.steps)) if raw_workout.steps is not None else None
+        steps_count = int(raw_workout.steps) if raw_workout.steps is not None else None
+        steps_avg = Decimal(raw_workout.steps) if raw_workout.steps is not None else None
 
         return {
-            "heart_rate_min": heart_rate_avg,
-            "heart_rate_max": heart_rate_max,
+            "heart_rate_min": int(heart_rate_avg) if heart_rate_avg is not None else None,
+            "heart_rate_max": int(heart_rate_max) if heart_rate_max is not None else None,
             "heart_rate_avg": heart_rate_avg,
-            "steps_min": steps_value,
-            "steps_max": steps_value,
-            "steps_avg": steps_value,
-            "steps_total": steps_value,
+            "steps_min": steps_count,
+            "steps_max": steps_count,
+            "steps_avg": steps_avg,
+            "steps_total": steps_count,
         }
 
     def _normalize_workout(
@@ -131,7 +132,7 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             provider_id=raw_workout.summaryId,
             user_id=user_id,
             type=raw_workout.activityType,
-            duration_seconds=Decimal(duration_seconds),
+            duration_seconds=duration_seconds,
             source_name=raw_workout.deviceName,
             device_id=None,
             start_datetime=start_date,

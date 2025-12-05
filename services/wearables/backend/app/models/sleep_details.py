@@ -1,4 +1,4 @@
-from app.mappings import FKEventRecordDetail, numeric_10_3
+from app.mappings import FKEventRecordDetail, numeric_5_2
 from sqlalchemy.orm import Mapped
 from .event_record_detail import EventRecordDetail
 
@@ -11,11 +11,11 @@ class SleepDetails(EventRecordDetail):
 
     record_id: Mapped[FKEventRecordDetail]
 
-    sleep_total_duration_minutes: Mapped[numeric_10_3 | None]
-    sleep_time_in_bed_minutes: Mapped[numeric_10_3 | None]
-    sleep_efficiency_score: Mapped[numeric_10_3 | None]
-    sleep_deep_minutes: Mapped[numeric_10_3 | None]
-    sleep_rem_minutes: Mapped[numeric_10_3 | None]
-    sleep_light_minutes: Mapped[numeric_10_3 | None]
-    sleep_awake_minutes: Mapped[numeric_10_3 | None]
+    sleep_total_duration_minutes: Mapped[int | None]
+    sleep_time_in_bed_minutes: Mapped[int | None]
+    sleep_efficiency_score: Mapped[numeric_5_2 | None]
+    sleep_deep_minutes: Mapped[int | None]
+    sleep_rem_minutes: Mapped[int | None]
+    sleep_light_minutes: Mapped[int | None]
+    sleep_awake_minutes: Mapped[int | None]
 

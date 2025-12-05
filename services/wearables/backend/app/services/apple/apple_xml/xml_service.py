@@ -105,7 +105,7 @@ class XMLService:
         document["type"] = document.pop("workoutActivityType")
 
         workout_id = uuid4()
-        duration_seconds = Decimal(str((document["endDate"] - document["startDate"]).total_seconds()))
+        duration_seconds = int((document["endDate"] - document["startDate"]).total_seconds())
 
         record = EventRecordCreate(
             id=workout_id,
@@ -157,13 +157,19 @@ class XMLService:
         avg_value = self._decimal_from_stat(statistic.get("average"))
 
         if "heart" in lowered:
-            metrics["heart_rate_min"] = min_value or metrics["heart_rate_min"]
-            metrics["heart_rate_max"] = max_value or metrics["heart_rate_max"]
-            metrics["heart_rate_avg"] = avg_value or metrics["heart_rate_avg"]
+            if min_value is not None:
+                metrics["heart_rate_min"] = int(min_value)
+            if max_value is not None:
+                metrics["heart_rate_max"] = int(max_value)
+            if avg_value is not None:
+                metrics["heart_rate_avg"] = avg_value
         elif "step" in lowered:
-            metrics["steps_min"] = min_value or metrics["steps_min"]
-            metrics["steps_max"] = max_value or metrics["steps_max"]
-            metrics["steps_avg"] = avg_value or metrics["steps_avg"]
+            if min_value is not None:
+                metrics["steps_min"] = int(min_value)
+            if max_value is not None:
+                metrics["steps_max"] = int(max_value)
+            if avg_value is not None:
+                metrics["steps_avg"] = avg_value
 
     def parse_xml(
         self,

@@ -1,4 +1,3 @@
-from decimal import Decimal
 from uuid import UUID
 
 import isodate
@@ -45,12 +44,9 @@ class EventRecordRepository(
         query_params: EventRecordQueryParams,
         user_id: str,
     ) -> tuple[list[tuple[EventRecord, ExternalDeviceMapping]], int]:
-        query: Query = (
-            db_session.query(EventRecord, ExternalDeviceMapping)
-            .join(
-                ExternalDeviceMapping,
-                EventRecord.external_mapping_id == ExternalDeviceMapping.id,
-            )
+        query: Query = db_session.query(EventRecord, ExternalDeviceMapping).join(
+            ExternalDeviceMapping,
+            EventRecord.external_mapping_id == ExternalDeviceMapping.id,
         )
 
         filters = [ExternalDeviceMapping.user_id == UUID(user_id)]
@@ -82,10 +78,10 @@ class EventRecordRepository(
             filters.append(EventRecord.end_datetime <= end_dt)
 
         if query_params.min_duration is not None:
-            filters.append(EventRecord.duration_seconds >= Decimal(query_params.min_duration))
+            filters.append(EventRecord.duration_seconds >= query_params.min_duration)
 
         if query_params.max_duration is not None:
-            filters.append(EventRecord.duration_seconds <= Decimal(query_params.max_duration))
+            filters.append(EventRecord.duration_seconds <= query_params.max_duration)
 
         if filters:
             query = query.filter(and_(*filters))

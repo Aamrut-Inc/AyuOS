@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Mapped, relationship
 
 from app.database import BaseDbModel
-from app.mappings import FKUser, PrimaryKey, Unique, date_col, bool_col, str_64
+from app.mappings import FKUser, PrimaryKey, Unique, date_col, bool_col, str_32
 
 class PersonalRecord(BaseDbModel):
     """Slow-changing physical attributes linked to a user."""
@@ -16,7 +16,7 @@ class PersonalRecord(BaseDbModel):
 
     birth_date: Mapped[date_col | None]
     sex: Mapped[bool_col | None]
-    gender: Mapped[str_64 | None]
+    gender: Mapped[str_32 | None]
 
     user: Mapped["User"] = relationship(back_populates="personal_record")
 

@@ -1,4 +1,5 @@
 from logging import Logger, getLogger
+from typing import TypeVar
 from uuid import UUID
 
 from app.constants.series_types import get_series_type_from_id
@@ -18,6 +19,8 @@ from app.schemas import (
 from app.services.services import AppService
 from app.utils.exceptions import handle_exceptions
 
+ResponseModel = TypeVar("ResponseModel", HeartRateSampleResponse, StepSampleResponse)
+
 
 class TimeSeriesService(
     AppService[DataPointSeriesRepository, DataPointSeries, TimeSeriesSampleCreate, TimeSeriesSampleUpdate],
@@ -34,17 +37,17 @@ class TimeSeriesService(
         self,
         sample: DataPointSeries,
         mapping: ExternalDeviceMapping,
-        response_model: type[HeartRateSampleResponse] | type[StepSampleResponse],
-    ) -> HeartRateSampleResponse | StepSampleResponse:
+        response_model: type[ResponseModel],
+    ) -> ResponseModel:
         return response_model(
             id=sample.id,
             recorded_at=sample.recorded_at,
             value=sample.value,
             series_type=get_series_type_from_id(sample.series_type_id),
             external_mapping_id=sample.external_mapping_id,
-            user_id=mapping.user_id if mapping else None,
-            provider_id=mapping.provider_id if mapping else None,
-            device_id=mapping.device_id if mapping else None,
+            user_id=mapping.user_id,
+            provider_id=mapping.provider_id,
+            device_id=mapping.device_id,
         )
 
     def bulk_create_samples(

@@ -46,11 +46,13 @@ class ImportService:
 
         heart_rate_min = min(hr_min_candidates) if hr_min_candidates else None
         heart_rate_max = max(hr_max_candidates) if hr_max_candidates else None
-        heart_rate_avg = sum(hr_avg_candidates) / Decimal(len(hr_avg_candidates)) if hr_avg_candidates else None
+        heart_rate_avg = (
+            sum(hr_avg_candidates, Decimal("0")) / Decimal(len(hr_avg_candidates)) if hr_avg_candidates else None
+        )
 
         return {
-            "heart_rate_min": heart_rate_min,
-            "heart_rate_max": heart_rate_max,
+            "heart_rate_min": int(heart_rate_min) if heart_rate_min is not None else None,
+            "heart_rate_max": int(heart_rate_max) if heart_rate_max is not None else None,
             "heart_rate_avg": heart_rate_avg,
             "steps_min": None,
             "steps_max": None,
@@ -108,7 +110,7 @@ class ImportService:
 
             start_date = self._dt(wjson.start)
             end_date = self._dt(wjson.end)
-            duration_seconds = Decimal(str((end_date - start_date).total_seconds()))
+            duration_seconds = int((end_date - start_date).total_seconds())
 
             metrics = self._compute_metrics(wjson)
             hr_samples = self._get_records(wjson, user_uuid, wjson.id)

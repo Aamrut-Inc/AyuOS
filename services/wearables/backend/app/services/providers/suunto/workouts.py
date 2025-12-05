@@ -72,16 +72,17 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         hr_data = raw_workout.hrdata
         heart_rate_avg = Decimal(str(hr_data.avg)) if hr_data and hr_data.avg is not None else None
         heart_rate_max = Decimal(str(hr_data.max)) if hr_data and hr_data.max is not None else None
-        steps_value = Decimal(str(raw_workout.stepCount)) if raw_workout.stepCount is not None else None
+        steps_count = int(raw_workout.stepCount) if raw_workout.stepCount is not None else None
+        steps_avg = Decimal(str(raw_workout.stepCount)) if raw_workout.stepCount is not None else None
 
         return {
-            "heart_rate_min": heart_rate_avg,
-            "heart_rate_max": heart_rate_max,
+            "heart_rate_min": int(heart_rate_avg) if heart_rate_avg is not None else None,
+            "heart_rate_max": int(heart_rate_max) if heart_rate_max is not None else None,
             "heart_rate_avg": heart_rate_avg,
-            "steps_min": steps_value,
-            "steps_max": steps_value,
-            "steps_avg": steps_value,
-            "steps_total": steps_value,
+            "steps_min": steps_count,
+            "steps_max": steps_count,
+            "steps_avg": steps_avg,
+            "steps_total": steps_count,
         }
 
     def _normalize_workout(
@@ -106,7 +107,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             provider_id=str(raw_workout.workoutId),
             user_id=user_id,
             type="Unknown",
-            duration_seconds=Decimal(duration_seconds),
+            duration_seconds=duration_seconds,
             source_name=source_name,
             device_id=device_id,
             start_datetime=start_date,

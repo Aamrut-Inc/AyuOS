@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Index
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped
 
 from app.database import BaseDbModel
-from app.mappings import FKExternalMapping, FKSeriesTypeDefinition, ManyToOne, PrimaryKey, datetime_tz, numeric_10_3
-
-if TYPE_CHECKING:
-    from .series_type_definition import SeriesTypeDefinition
+from app.mappings import FKExternalMapping, FKSeriesTypeDefinition, PrimaryKey, datetime_tz, numeric_10_3
 
 
 class DataPointSeries(BaseDbModel):
@@ -24,5 +20,4 @@ class DataPointSeries(BaseDbModel):
     recorded_at: Mapped[datetime_tz]
     value: Mapped[numeric_10_3]
     series_type_id: Mapped[FKSeriesTypeDefinition]
-    series_type_definition: Mapped[ManyToOne["SeriesTypeDefinition"]] = relationship()
 

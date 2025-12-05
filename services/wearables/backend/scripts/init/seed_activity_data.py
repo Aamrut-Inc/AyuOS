@@ -62,20 +62,18 @@ def generate_workout(
 
     # Duration between 15 minutes and 3 hours
     duration_minutes = fake_instance.random_int(min=15, max=180)
-    duration_seconds = Decimal(duration_minutes * 60)
+    duration_seconds = duration_minutes * 60
 
     end_datetime = start_datetime + timedelta(seconds=float(duration_seconds))
 
-    steps = Decimal(fake_instance.random_int(min=500, max=20000))
-    heart_rate_min = Decimal(fake_instance.random_int(min=90, max=120))
-    heart_rate_max = Decimal(fake_instance.random_int(min=140, max=180))
-    heart_rate_avg = Decimal((float(heart_rate_min) + float(heart_rate_max)) / 2)
+    steps = fake_instance.random_int(min=500, max=20000)
+    heart_rate_min = fake_instance.random_int(min=90, max=120)
+    heart_rate_max = fake_instance.random_int(min=140, max=180)
+    heart_rate_avg = Decimal((heart_rate_min + heart_rate_max) / 2)
 
     workout_id = uuid4()
     device_id = (
-        f"device_{fake_instance.random_int(min=1, max=5)}"
-        if fake_instance.boolean(chance_of_getting_true=50)
-        else None
+        f"device_{fake_instance.random_int(min=1, max=5)}" if fake_instance.boolean(chance_of_getting_true=50) else None
     )
 
     record = EventRecordCreate(
@@ -98,7 +96,7 @@ def generate_workout(
         heart_rate_avg=heart_rate_avg,
         steps_min=steps,
         steps_max=steps,
-        steps_avg=steps,
+        steps_avg=Decimal(steps),
         steps_total=steps,
     )
 
@@ -118,26 +116,24 @@ def generate_sleep(
 
     # Sleep duration between 5 and 10 hours
     sleep_duration_minutes = fake_instance.random_int(min=300, max=600)
-    sleep_duration_seconds = Decimal(sleep_duration_minutes * 60)
+    sleep_duration_seconds = sleep_duration_minutes * 60
     end_datetime = start_datetime + timedelta(seconds=float(sleep_duration_seconds))
 
     # Time in bed is typically 15-60 minutes more than sleep duration
-    time_in_bed_minutes = Decimal(sleep_duration_minutes + fake_instance.random_int(min=15, max=60))
-    sleep_efficiency = Decimal(float(sleep_duration_minutes) / float(time_in_bed_minutes) * 100)
+    time_in_bed_minutes = sleep_duration_minutes + fake_instance.random_int(min=15, max=60)
+    sleep_efficiency = Decimal(
+        Decimal(sleep_duration_minutes) / Decimal(time_in_bed_minutes) * Decimal("100")
+    )
 
     # Sleep stages (should sum to approximately sleep_duration_minutes)
-    deep_minutes = Decimal(fake_instance.random_int(min=60, max=180))
-    rem_minutes = Decimal(fake_instance.random_int(min=60, max=150))
-    light_minutes = Decimal(
-        sleep_duration_minutes - int(deep_minutes) - int(rem_minutes) - fake_instance.random_int(min=10, max=30),
-    )
-    awake_minutes = Decimal(sleep_duration_minutes - int(deep_minutes) - int(rem_minutes) - int(light_minutes))
+    deep_minutes = fake_instance.random_int(min=60, max=180)
+    rem_minutes = fake_instance.random_int(min=60, max=150)
+    light_minutes = sleep_duration_minutes - deep_minutes - rem_minutes - fake_instance.random_int(min=10, max=30)
+    awake_minutes = sleep_duration_minutes - deep_minutes - rem_minutes - light_minutes
 
     sleep_id = uuid4()
     device_id = (
-        f"device_{fake_instance.random_int(min=1, max=3)}"
-        if fake_instance.boolean(chance_of_getting_true=60)
-        else None
+        f"device_{fake_instance.random_int(min=1, max=3)}" if fake_instance.boolean(chance_of_getting_true=60) else None
     )
 
     record = EventRecordCreate(
@@ -155,7 +151,7 @@ def generate_sleep(
 
     detail = EventRecordDetailCreate(
         record_id=sleep_id,
-        sleep_total_duration_minutes=Decimal(sleep_duration_minutes),
+        sleep_total_duration_minutes=sleep_duration_minutes,
         sleep_time_in_bed_minutes=time_in_bed_minutes,
         sleep_efficiency_score=sleep_efficiency,
         sleep_deep_minutes=deep_minutes,
