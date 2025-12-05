@@ -15,11 +15,6 @@ from .apple.healthkit.record_import import (
 from .apple.healthkit.workout_import import (
     WorkoutJSON as HKWorkoutJSON,
 )
-from .body_state import (
-    BodyStateCreate,
-    BodyStateResponse,
-    BodyStateUpdate,
-)
 from .common import (
     RootJSON,
 )
@@ -170,9 +165,6 @@ __all__ = [
     "PersonalRecordCreate",
     "PersonalRecordUpdate",
     "PersonalRecordResponse",
-    "BodyStateCreate",
-    "BodyStateUpdate",
-    "BodyStateResponse",
     # Suunto schemas
     "SuuntoRootJSON",
     "SuuntoWorkoutJSON",

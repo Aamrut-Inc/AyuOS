@@ -11,6 +11,17 @@ class SeriesType(str, Enum):
     steps = "steps"
     heart_rate = "heart_rate"
     energy = "energy"
+    height = "height"
+    weight = "weight"
+    body_fat_percentage = "body_fat_percentage"
+    resting_heart_rate = "resting_heart_rate"
+    body_temperature = "body_temperature"
+    distance_walking_running = "distance_walking_running"
+    distance_cycling = "distance_cycling"
+    respiratory_rate = "respiratory_rate"
+    walking_heart_rate_average = "walking_heart_rate_average"
+    heart_rate_variability_sdnn = "heart_rate_variability_sdnn"
+    oxygen_saturation = "oxygen_saturation"
 
 
 class TimeSeriesSampleBase(BaseModel):
