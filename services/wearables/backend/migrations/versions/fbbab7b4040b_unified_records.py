@@ -143,4 +143,5 @@ def downgrade() -> None:
     op.drop_table('body_state')
     op.drop_index('idx_data_point_series_device_type_time', table_name='data_point_series')
     op.drop_table('data_point_series')
+    op.execute("DROP TYPE IF EXISTS seriestype")
     # ### end Alembic commands ###
