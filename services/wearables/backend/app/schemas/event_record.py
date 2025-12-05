@@ -81,9 +81,9 @@ class EventRecordResponse(EventRecordBase):
     """Schema returned to API consumers."""
 
     id: UUID
-    user_id: UUID
+    user_id: UUID | None
     provider_id: str | None
-    external_mapping_id: UUID
+    external_mapping_id: UUID | None
 
 
 class EventRecordQueryParams(BaseQueryParams):
