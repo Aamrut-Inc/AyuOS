@@ -73,9 +73,7 @@ def generate_workout(
 
     workout_id = uuid4()
     device_id = (
-        f"device_{fake_instance.random_int(min=1, max=5)}"
-        if fake_instance.boolean(chance_of_getting_true=50)
-        else None
+        f"device_{fake_instance.random_int(min=1, max=5)}" if fake_instance.boolean(chance_of_getting_true=50) else None
     )
 
     record = EventRecordCreate(
@@ -135,9 +133,7 @@ def generate_sleep(
 
     sleep_id = uuid4()
     device_id = (
-        f"device_{fake_instance.random_int(min=1, max=3)}"
-        if fake_instance.boolean(chance_of_getting_true=60)
-        else None
+        f"device_{fake_instance.random_int(min=1, max=3)}" if fake_instance.boolean(chance_of_getting_true=60) else None
     )
 
     record = EventRecordCreate(

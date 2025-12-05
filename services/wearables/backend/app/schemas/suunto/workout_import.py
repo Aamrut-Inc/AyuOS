@@ -21,7 +21,7 @@ class DeviceJSON(BaseModel):
 class WorkoutJSON(BaseModel):
     workoutId: int
     activityId: int
-    
+
     # unix timestamp (ms)
     startTime: int
     stopTime: int

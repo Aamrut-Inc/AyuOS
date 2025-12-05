@@ -45,12 +45,9 @@ class EventRecordRepository(
         query_params: EventRecordQueryParams,
         user_id: str,
     ) -> tuple[list[tuple[EventRecord, ExternalDeviceMapping]], int]:
-        query: Query = (
-            db_session.query(EventRecord, ExternalDeviceMapping)
-            .join(
-                ExternalDeviceMapping,
-                EventRecord.external_mapping_id == ExternalDeviceMapping.id,
-            )
+        query: Query = db_session.query(EventRecord, ExternalDeviceMapping).join(
+            ExternalDeviceMapping,
+            EventRecord.external_mapping_id == ExternalDeviceMapping.id,
         )
 
         filters = [ExternalDeviceMapping.user_id == UUID(user_id)]

@@ -75,4 +75,3 @@ class ExternalMappingRepository(
             device_id=device_id,
         )
         return self.create(db_session, create_payload)
-

@@ -1,8 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
 from typing import Literal, TypedDict
 from uuid import UUID
-from enum import StrEnum
 
 from pydantic import BaseModel, Field
 

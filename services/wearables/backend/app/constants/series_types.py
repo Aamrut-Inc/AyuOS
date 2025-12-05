@@ -30,4 +30,3 @@ def get_series_type_id(series_type: SeriesType) -> int:
 
 def get_series_type_from_id(series_type_id: int) -> SeriesType:
     return SERIES_TYPE_ENUM_BY_ID[series_type_id]
-

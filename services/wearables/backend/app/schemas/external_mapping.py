@@ -25,4 +25,3 @@ class ExternalMappingResponse(ExternalMappingBase):
     """Representation returned via APIs."""
 
     id: UUID
-

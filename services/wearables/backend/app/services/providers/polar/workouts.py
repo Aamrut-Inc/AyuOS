@@ -77,7 +77,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             "steps_avg": None,
             "steps_total": None,
         }
-        
+
     def _get_workout_type(self, type: str) -> WorkoutType:
         """Get workout type from Polar exercise."""
         match type:
