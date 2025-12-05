@@ -69,6 +69,11 @@ from .sync import (
     SyncAllUsersResult,
     SyncVendorDataResult,
 )
+from .system_info import (
+    CountWithGrowth,
+    DataPointsInfo,
+    SystemInfoResponse,
+)
 from .user import (
     UserCreate,
     UserCreateInternal,
@@ -129,6 +134,9 @@ __all__ = [
     "WorkoutStatisticCreate",
     "WorkoutStatisticUpdate",
     "WorkoutStatisticResponse",
+    "SystemInfoResponse",
+    "CountWithGrowth",
+    "DataPointsInfo",
     "HKWorkoutJSON",
     "HKRecordJSON",
     "AEWorkoutJSON",
