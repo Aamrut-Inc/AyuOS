@@ -10,6 +10,7 @@ from .personal_record import PersonalRecord
 from .data_point_series import DataPointSeries
 from .body_state import BodyState
 from .external_device_mapping import ExternalDeviceMapping
+from .series_unit_mapping import SeriesUnitMapping
 
 __all__ = [
     "ApiKey",
@@ -24,4 +25,5 @@ __all__ = [
     "DataPointSeries",
     "BodyState",
     "ExternalDeviceMapping",
+    "SeriesUnitMapping",
 ]
