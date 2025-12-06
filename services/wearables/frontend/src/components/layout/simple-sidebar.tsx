@@ -2,12 +2,12 @@ import { Link, useLocation } from '@tanstack/react-router';
 import {
   Home,
   Users,
-  Activity,
-  Key,
   FileText,
-  DollarSign,
   LogOut,
+  Settings,
+  ExternalLink,
 } from 'lucide-react';
+import logotype from '@/logotype.svg';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -23,25 +23,15 @@ const menuItems = [
     icon: Users,
   },
   {
-    title: 'Health Insights',
-    url: '/health-insights',
-    icon: Activity,
-  },
-  {
-    title: 'Credentials',
-    url: '/credentials',
-    icon: Key,
-  },
-  {
-    title: 'Pricing',
-    url: '/pricing',
-    icon: DollarSign,
+    title: 'Settings',
+    url: '/settings',
+    icon: Settings,
   },
   {
     title: 'Documentation',
-    url: '/docs',
+    url: 'https://docs.openwearables.io/',
     icon: FileText,
-    comingSoon: true,
+    external: true,
   },
 ];
 
@@ -53,17 +43,7 @@ export function SimpleSidebar() {
     <aside className="relative w-64 bg-black flex flex-col border-r border-zinc-900">
       {/* Header */}
       <div className="p-4 border-b border-zinc-900">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <Activity className="h-5 w-5 text-black" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-white uppercase tracking-tight">
-              Open Wearables
-            </h2>
-            <p className="text-[10px] text-zinc-500">Platform Dashboard</p>
-          </div>
-        </div>
+        <img src={logotype} alt="Open Wearables" className="h-auto" />
       </div>
 
       {/* Navigation */}
@@ -71,18 +51,19 @@ export function SimpleSidebar() {
         {menuItems.map((item) => {
           const isActive = location.pathname.startsWith(item.url);
 
-          if (item.comingSoon) {
+          if (item.external) {
             return (
-              <div
+              <a
                 key={item.title}
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-600 cursor-not-allowed"
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200 transition-all duration-200"
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-4 w-4 text-zinc-500" />
                 <span>{item.title}</span>
-                <span className="ml-auto text-[10px] text-zinc-700">
-                  (Soon)
-                </span>
-              </div>
+                <ExternalLink className="ml-auto h-3 w-3 text-zinc-600" />
+              </a>
             );
           }
 

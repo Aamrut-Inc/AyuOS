@@ -5,7 +5,12 @@ import { isAuthenticated } from '@/lib/auth/session';
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
   beforeLoad: () => {
-    if (typeof window !== 'undefined' && !isAuthenticated()) {
+    // Skip auth check during SSR - localStorage is not available on the server
+    // The check will run on the client after hydration
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (!isAuthenticated()) {
       throw redirect({ to: '/login' });
     }
   },

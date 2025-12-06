@@ -24,21 +24,21 @@ export interface UserRead {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
-  client_user_id: string;
+  external_user_id: string | null;
 }
 
 export interface UserCreate {
   first_name?: string | null;
   last_name?: string | null;
   email?: string | null;
-  client_user_id: string;
+  external_user_id?: string | null;
 }
 
 export interface UserUpdate {
   first_name?: string | null;
   last_name?: string | null;
   email?: string | null;
-  client_user_id?: string | null;
+  external_user_id?: string | null;
 }
 
 export interface LoginRequest {
@@ -85,13 +85,11 @@ export interface DashboardStats {
 }
 
 export interface Provider {
-  id: string;
+  provider: string;
   name: string;
-  description: string;
-  logoUrl: string;
-  isAvailable: boolean;
-  features: string[];
-  authType: 'oauth2' | 'api_key';
+  has_cloud_api: boolean;
+  is_enabled: boolean;
+  icon_url: string;
 }
 
 export type WearableProvider =
@@ -100,22 +98,20 @@ export type WearableProvider =
   | 'oura'
   | 'whoop'
   | 'strava'
-  | 'apple'
-  | 'apple-health'
   | 'google-fit'
   | 'withings';
 
 export interface UserConnection {
+  user_id: string;
+  provider: string;
+  provider_user_id?: string;
+  provider_username?: string;
+  scope?: string;
   id: string;
-  userId: string;
-  providerId: string;
-  providerName: string;
-  status: 'active' | 'error' | 'pending' | 'disconnected';
-  connectedAt: string;
-  lastSyncAt: string | null;
-  syncStatus: 'success' | 'failed' | 'pending' | 'syncing';
-  syncError?: string;
-  dataPoints: number;
+  status: 'active' | 'revoked' | 'expired';
+  last_synced_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface HeartRateData {
@@ -202,18 +198,14 @@ export interface ActivitySummary {
 }
 
 export interface ApiKey {
-  id: string;
+  id: string; // This is the actual API key value (sk-...)
   name: string;
-  created_by: string | null;
+  created_by: string;
   created_at: string;
 }
 
 export interface ApiKeyCreate {
   name: string;
-}
-
-export interface ApiKeyUpdate {
-  name?: string;
 }
 
 export interface Automation {

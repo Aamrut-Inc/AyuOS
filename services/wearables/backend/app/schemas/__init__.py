@@ -54,6 +54,7 @@ from .garmin.activity_import import (
 from .oauth import (
     AuthenticationMethod,
     AuthorizationURLResponse,
+    ConnectionStatus,
     OAuthState,
     OAuthTokenResponse,
     ProviderCredentials,
@@ -70,6 +71,11 @@ from .personal_record import (
 )
 from .polar.exercise_import import (
     ExerciseJSON as PolarExerciseJSON,
+)
+from .provider_setting import (
+    BulkProviderSettingsUpdate,
+    ProviderSettingRead,
+    ProviderSettingUpdate,
 )
 from .response import UploadDataResponse
 from .suunto.workout_import import (
@@ -91,6 +97,16 @@ from .time_series import (
     TimeSeriesSampleCreate,
     TimeSeriesSampleResponse,
     TimeSeriesSampleUpdate,
+)
+from .sync import (
+    ProviderSyncResult,
+    SyncAllUsersResult,
+    SyncVendorDataResult,
+)
+from .system_info import (
+    CountWithGrowth,
+    DataPointsInfo,
+    SystemInfoResponse,
 )
 from .user import (
     UserCreate,
@@ -120,6 +136,7 @@ __all__ = [
     "UploadDataResponse",
     # OAuth schemas
     "AuthenticationMethod",
+    "ConnectionStatus",
     "ProviderName",
     "OAuthState",
     "OAuthTokenResponse",
@@ -129,6 +146,9 @@ __all__ = [
     "UserConnectionRead",
     "UserConnectionUpdate",
     "AuthorizationURLResponse",
+    "ProviderSettingRead",
+    "ProviderSettingUpdate",
+    "BulkProviderSettingsUpdate",
     "RootJSON",
     "EventRecordCreate",
     "EventRecordUpdate",
@@ -151,6 +171,9 @@ __all__ = [
     "StepSampleCreate",
     "StepSampleResponse",
     "TimeSeriesQueryParams",
+    "SystemInfoResponse",
+    "CountWithGrowth",
+    "DataPointsInfo",
     "HKWorkoutJSON",
     "HKRecordJSON",
     "AEWorkoutJSON",
@@ -171,4 +194,8 @@ __all__ = [
     # AWS schemas
     "PresignedURLRequest",
     "PresignedURLResponse",
+    # Sync schemas
+    "ProviderSyncResult",
+    "SyncAllUsersResult",
+    "SyncVendorDataResult",
 ]

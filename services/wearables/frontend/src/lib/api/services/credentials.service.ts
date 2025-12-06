@@ -1,6 +1,6 @@
 import { apiClient } from '../client';
 import { API_ENDPOINTS } from '../config';
-import type { ApiKey, ApiKeyCreate, ApiKeyUpdate } from '../types';
+import type { ApiKey, ApiKeyCreate } from '../types';
 
 export const credentialsService = {
   async getApiKeys(): Promise<ApiKey[]> {
@@ -15,15 +15,11 @@ export const credentialsService = {
     return apiClient.post<ApiKey>(API_ENDPOINTS.apiKeys, data);
   },
 
-  async updateApiKey(id: string, data: ApiKeyUpdate): Promise<ApiKey> {
-    return apiClient.patch<ApiKey>(API_ENDPOINTS.apiKeyDetail(id), data);
+  async revokeApiKey(id: string): Promise<void> {
+    return apiClient.delete<void>(API_ENDPOINTS.apiKeyDetail(id));
   },
 
-  async deleteApiKey(id: string): Promise<ApiKey> {
-    return apiClient.delete<ApiKey>(API_ENDPOINTS.apiKeyDetail(id));
-  },
-
-  async rotateApiKey(id: string): Promise<ApiKey> {
-    return apiClient.post<ApiKey>(API_ENDPOINTS.apiKeyRotate(id));
+  async deleteApiKey(id: string): Promise<void> {
+    return apiClient.delete<void>(API_ENDPOINTS.apiKeyDetail(id));
   },
 };

@@ -1,5 +1,6 @@
 from .api_key import ApiKey
 from .developer import Developer
+from .provider_setting import ProviderSetting
 from .user import User
 from .user_connection import UserConnection
 from .event_record import EventRecord
@@ -14,6 +15,7 @@ from .series_type_definition import SeriesTypeDefinition
 __all__ = [
     "ApiKey",
     "Developer",
+    "ProviderSetting",
     "User",
     "UserConnection",
     "EventRecord",

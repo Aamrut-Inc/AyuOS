@@ -1,45 +1,65 @@
 import { apiClient } from '../client';
+import { API_ENDPOINTS } from '../config';
 import type {
-  HeartRateData,
-  SleepData,
-  ActivityData,
-  HealthDataSummary,
-  Provider,
+  WorkoutStatisticResponse,
+  WorkoutResponse,
   UserConnection,
   HeartRateSampleResponse,
   EventRecordResponse,
   HealthDataParams,
 } from '../types';
 
+export interface WorkoutsParams {
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+  sort_order?: 'asc' | 'desc';
+  workout_type?: string;
+  source_name?: string;
+  min_duration?: number;
+  max_duration?: number;
+  sort_by?:
+    | 'start_datetime'
+    | 'end_datetime'
+    | 'duration_seconds'
+    | 'type'
+    | 'source_name';
+  [key: string]: string | number | undefined;
+}
+
 export const healthService = {
-  async getProviders(): Promise<Provider[]> {
-    return apiClient.get<Provider[]>('/v1/providers');
+  /**
+   * Synchronize workouts/exercises/activities from fitness provider API for a specific user
+   */
+  async synchronizeProvider(provider: string, userId: string): Promise<void> {
+    return apiClient.post<void>(
+      API_ENDPOINTS.providerSynchronization(provider, userId)
+    );
   },
 
+  /**
+   * Get user connections for a user
+   */
   async getUserConnections(userId: string): Promise<UserConnection[]> {
-    return apiClient.get<UserConnection[]>(`/v1/users/${userId}/connections`);
-  },
-
-  async generateConnectionLink(
-    userId: string,
-    providerId: string
-  ): Promise<{ url: string; expiresAt: string }> {
-    return apiClient.post<{ url: string; expiresAt: string }>(
-      `/v1/users/${userId}/connections/generate-link`,
-      { providerId }
+    return apiClient.get<UserConnection[]>(
+      API_ENDPOINTS.userConnections(userId)
     );
   },
 
-  async disconnectProvider(
-    userId: string,
-    connectionId: string
-  ): Promise<void> {
-    return apiClient.delete<void>(
-      `/v1/users/${userId}/connections/${connectionId}`
+  /**
+   * Get heart rate data for a user
+   */
+  async getHeartRate(userId: string): Promise<WorkoutStatisticResponse[]> {
+    return apiClient.get<WorkoutStatisticResponse[]>(
+      API_ENDPOINTS.userHeartRate(userId)
     );
   },
 
-  async getHeartRateData(
+  /**
+   * Get workouts for a user
+   */
+  async getWorkouts(
     userId: string,
     deviceId: string,
     days: number = 7
