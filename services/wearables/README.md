@@ -1,5 +1,13 @@
 # Open Wearables
 
+<div align="center">
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/Docs-PRs%20Welcome-blue.svg)](https://github.com/the-momentum/open-wearables/issues)
+![Built with: FastAPI + React + Tanstack](https://img.shields.io/badge/Built%20with-FastAPI%20%2B%20React%20%2B%20Tanstack-green.svg)
+
+</div>
+
 Open-source platform that unifies wearable device data from multiple providers and enables AI-powered health insights through natural language automations. Build health applications faster with a single API, embeddable widgets, and intelligent webhook notifications.
 
 ## What It Does
