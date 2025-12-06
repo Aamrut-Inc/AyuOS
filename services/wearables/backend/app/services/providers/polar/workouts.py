@@ -73,8 +73,16 @@ class PolarWorkouts(BaseWorkoutsTemplate):
         return start_date, end_date
 
     def _build_metrics(self, raw_workout: PolarExerciseJSON) -> EventRecordMetrics:
-        hr_avg = Decimal(str(raw_workout.heart_rate.average)) if raw_workout.heart_rate.average is not None else None
-        hr_max = Decimal(str(raw_workout.heart_rate.maximum)) if raw_workout.heart_rate.maximum is not None else None
+        hr_avg = (
+            Decimal(str(raw_workout.heart_rate.average))
+            if raw_workout.heart_rate and raw_workout.heart_rate.average is not None
+            else None
+        )
+        hr_max = (
+            Decimal(str(raw_workout.heart_rate.maximum))
+            if raw_workout.heart_rate and raw_workout.heart_rate.maximum is not None
+            else None
+        )
 
         return {
             "heart_rate_min": int(hr_avg) if hr_avg is not None else None,
@@ -122,7 +130,7 @@ class PolarWorkouts(BaseWorkoutsTemplate):
             provider_id=raw_workout.id,
             user_id=user_id,
             type=self._get_workout_type(raw_workout.sport).value,
-            duration_seconds=Decimal(duration_seconds),
+            duration_seconds=duration_seconds,
             source_name=raw_workout.device,
             device_id=raw_workout.device,
             start_datetime=start_date,

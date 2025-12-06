@@ -1,5 +1,5 @@
 from logging import Logger, getLogger
-from typing import cast
+from typing import TypeVar
 from uuid import UUID
 
 from app.constants.series_types import get_series_type_from_id
@@ -66,10 +66,7 @@ class TimeSeriesService(
         params: TimeSeriesQueryParams,
     ) -> list[HeartRateSampleResponse]:
         samples = self.crud.get_samples(db_session, params, self.HEART_RATE_TYPE, UUID(user_id))
-        return [
-            cast(HeartRateSampleResponse, self._build_response(sample, mapping, HeartRateSampleResponse))
-            for sample, mapping in samples
-        ]
+        return [self._build_response(sample, mapping, HeartRateSampleResponse) for sample, mapping in samples]
 
     @handle_exceptions
     async def get_user_step_series(
@@ -79,10 +76,7 @@ class TimeSeriesService(
         params: TimeSeriesQueryParams,
     ) -> list[StepSampleResponse]:
         samples = self.crud.get_samples(db_session, params, self.STEP_TYPE, UUID(user_id))
-        return [
-            cast(StepSampleResponse, self._build_response(sample, mapping, StepSampleResponse))
-            for sample, mapping in samples
-        ]
+        return [self._build_response(sample, mapping, StepSampleResponse) for sample, mapping in samples]
 
 
 time_series_service = TimeSeriesService(log=getLogger(__name__))

@@ -139,13 +139,13 @@ class ImportService:
         steps_total = Decimal(sum(step_values)) if step_values else None
 
         return EventRecordMetrics(
-            heart_rate_min=hr_min,
-            heart_rate_max=hr_max,
+            heart_rate_min=int(hr_min) if hr_min is not None else None,
+            heart_rate_max=int(hr_max) if hr_max is not None else None,
             heart_rate_avg=hr_avg,
-            steps_min=steps_min,
-            steps_max=steps_max,
+            steps_min=int(steps_min) if steps_min is not None else None,
+            steps_max=int(steps_max) if steps_max is not None else None,
             steps_avg=steps_avg,
-            steps_total=steps_total,
+            steps_total=int(steps_total) if steps_total is not None else None,
         )
 
     def load_data(self, db_session: DbSession, raw: dict, user_id: str) -> bool:

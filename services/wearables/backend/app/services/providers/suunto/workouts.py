@@ -128,7 +128,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
         workout_id = uuid4()
 
         start_date, end_date = self._extract_dates(raw_workout.startTime, raw_workout.stopTime)
-        duration_seconds = raw_workout.totalTime
+        duration_seconds = int(raw_workout.totalTime)
 
         source_name = raw_workout.gear.name if raw_workout.gear else "Unknown"
 
@@ -143,7 +143,7 @@ class SuuntoWorkouts(BaseWorkoutsTemplate):
             type=self._get_workout_type(raw_workout.workoutId).value,
             source_name=source_name,
             device_id=device_id,
-            duration_seconds=Decimal(duration_seconds),
+            duration_seconds=duration_seconds,
             start_datetime=start_date,
             end_datetime=end_date,
         )
