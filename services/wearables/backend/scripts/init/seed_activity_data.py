@@ -122,7 +122,7 @@ def generate_sleep(
     # Time in bed is typically 15-60 minutes more than sleep duration
     time_in_bed_minutes = sleep_duration_minutes + fake_instance.random_int(min=15, max=60)
     sleep_efficiency = Decimal(
-        Decimal(sleep_duration_minutes) / Decimal(time_in_bed_minutes) * Decimal("100")
+        Decimal(sleep_duration_minutes) / Decimal(time_in_bed_minutes) * Decimal("100"),
     )
 
     # Sleep stages (should sum to approximately sleep_duration_minutes)

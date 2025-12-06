@@ -87,6 +87,16 @@ from .suunto.workout_import import (
 from .suunto.workout_import import (
     WorkoutJSON as SuuntoWorkoutJSON,
 )
+from .sync import (
+    ProviderSyncResult,
+    SyncAllUsersResult,
+    SyncVendorDataResult,
+)
+from .system_info import (
+    CountWithGrowth,
+    DataPointsInfo,
+    SystemInfoResponse,
+)
 from .time_series import (
     HeartRateSampleCreate,
     HeartRateSampleResponse,
@@ -97,16 +107,6 @@ from .time_series import (
     TimeSeriesSampleCreate,
     TimeSeriesSampleResponse,
     TimeSeriesSampleUpdate,
-)
-from .sync import (
-    ProviderSyncResult,
-    SyncAllUsersResult,
-    SyncVendorDataResult,
-)
-from .system_info import (
-    CountWithGrowth,
-    DataPointsInfo,
-    SystemInfoResponse,
 )
 from .user import (
     UserCreate,
