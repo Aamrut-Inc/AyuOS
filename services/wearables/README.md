@@ -1,6 +1,6 @@
 # Open Wearables
 
-<div align="center">
+<div align="left">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/Docs-PRs%20Welcome-blue.svg)](https://github.com/the-momentum/open-wearables/issues)
