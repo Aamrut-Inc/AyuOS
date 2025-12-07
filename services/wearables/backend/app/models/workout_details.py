@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Mapped
 
 from app.mappings import FKEventRecordDetail, numeric_5_2, numeric_10_3
+
 from .event_record_detail import EventRecordDetail
 
 
@@ -28,4 +29,3 @@ class WorkoutDetails(EventRecordDetail):
     average_watts: Mapped[numeric_10_3 | None]
     elev_high: Mapped[numeric_10_3 | None]
     elev_low: Mapped[numeric_10_3 | None]
-

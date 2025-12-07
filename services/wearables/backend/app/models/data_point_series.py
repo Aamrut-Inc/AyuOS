@@ -20,4 +20,3 @@ class DataPointSeries(BaseDbModel):
     recorded_at: Mapped[datetime_tz]
     value: Mapped[numeric_10_3]
     series_type_id: Mapped[FKSeriesTypeDefinition]
-

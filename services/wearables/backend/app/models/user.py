@@ -3,7 +3,8 @@ from uuid import UUID
 from sqlalchemy.orm import Mapped, relationship
 
 from app.database import BaseDbModel
-from app.mappings import PrimaryKey, Unique, datetime_tz, str_100, str_255, email
+from app.mappings import PrimaryKey, Unique, datetime_tz, email, str_100, str_255
+
 
 class User(BaseDbModel):
     """Data owner model"""
@@ -22,4 +23,3 @@ class User(BaseDbModel):
         uselist=False,
         cascade="all, delete-orphan",
     )
-

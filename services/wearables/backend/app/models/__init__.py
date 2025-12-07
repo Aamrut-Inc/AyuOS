@@ -1,16 +1,16 @@
 from .api_key import ApiKey
+from .data_point_series import DataPointSeries
 from .developer import Developer
-from .provider_setting import ProviderSetting
-from .user import User
-from .user_connection import UserConnection
 from .event_record import EventRecord
 from .event_record_detail import EventRecordDetail
-from .sleep_details import SleepDetails
-from .workout_details import WorkoutDetails
-from .personal_record import PersonalRecord
-from .data_point_series import DataPointSeries
 from .external_device_mapping import ExternalDeviceMapping
+from .personal_record import PersonalRecord
+from .provider_setting import ProviderSetting
 from .series_type_definition import SeriesTypeDefinition
+from .sleep_details import SleepDetails
+from .user import User
+from .user_connection import UserConnection
+from .workout_details import WorkoutDetails
 
 __all__ = [
     "ApiKey",

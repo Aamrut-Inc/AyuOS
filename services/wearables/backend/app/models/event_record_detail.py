@@ -16,4 +16,3 @@ class EventRecordDetail(BaseDbModel):
         "polymorphic_on": "detail_type",
         "polymorphic_identity": "base",
     }
-

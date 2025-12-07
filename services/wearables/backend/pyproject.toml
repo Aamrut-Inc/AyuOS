@@ -42,7 +42,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = 'py313'
-exclude = ["migrations/", "app/models/", "README.md", ".python-version", "LICENSE"]
+exclude = ["README.md", ".python-version", "LICENSE", "app/models/"]
 
 [tool.ruff.lint]
 select = [

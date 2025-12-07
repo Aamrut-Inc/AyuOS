@@ -29,4 +29,3 @@ class ExternalDeviceMapping(BaseDbModel):
 
     event_records: Mapped[OneToMany["EventRecord"]]
     data_points: Mapped[OneToMany["DataPointSeries"]]
-

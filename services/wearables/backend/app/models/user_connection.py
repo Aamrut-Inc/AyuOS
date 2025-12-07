@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from sqlalchemy import Index, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped
 
 from app.database import BaseDbModel
 from app.mappings import FKUser, PrimaryKey, datetime_tz, str_64
