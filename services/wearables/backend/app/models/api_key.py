@@ -6,6 +6,7 @@ from app.mappings import FKDeveloper, PrimaryKey, datetime_tz, str_64
 
 class ApiKey(BaseDbModel):
     """Global API key for external service access."""
+    __tablename__ = "api_key"
 
     id: Mapped[PrimaryKey[str_64]]  # The actual key value (sk-...)
     name: Mapped[str]
