@@ -1,16 +1,6 @@
 # Open Wearables Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
-
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
-
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
-
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+This directory houses the documentation site built with Mintlify.
 
 ## Development
 
@@ -23,10 +13,12 @@ npm i -g mint
 Run the following command at the root of your documentation, where your `docs.json` is located:
 
 ```
-mint dev
+mint dev --port 3333
 ```
 
-View your local preview at `http://localhost:3000`.
+(port `3000` is already being used by the frontend)
+
+View your local preview at `http://localhost:3333` (or the port you specified).
 
 ## Publishing changes
 
