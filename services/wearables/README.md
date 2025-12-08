@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue.svg)](https://github.com/the-momentum/open-wearables/issues)
 ![Built with: FastAPI + React + Tanstack](https://img.shields.io/badge/Built%20with-FastAPI%20%2B%20React%20%2B%20Tanstack-green.svg)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/qrcfFnNE6H)
 
 </div>
 
@@ -219,6 +220,12 @@ You'll need to register as a developer with each provider you want to support. T
 - 📚 Enhanced documentation site
 - 📝 API request logging
 - 🎨 Prompt-based view regeneration for user metrics
+
+## Join the Discord
+
+Join our Discord community to connect with other developers, get help, share ideas, and stay updated on the latest developments:
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/qrcfFnNE6H)
 
 ## Contributing
 
