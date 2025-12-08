@@ -31,7 +31,7 @@ class DataPointSeriesRepository(
         creation_data = creator.model_dump()
         creation_data["external_mapping_id"] = mapping.id
         creation_data["series_type_id"] = get_series_type_id(creator.series_type)
-        for redundant_key in ("user_id", "provider_id", "device_id", "external_mapping_id", "series_type"):
+        for redundant_key in ("user_id", "provider_id", "device_id", "series_type"):
             creation_data.pop(redundant_key, None)
 
         creation = self.model(**creation_data)

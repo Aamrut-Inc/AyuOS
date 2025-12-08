@@ -13,7 +13,7 @@ SERIES_TYPE_DEFINITIONS: list[tuple[int, SeriesType, str]] = [
     (8, SeriesType.body_temperature, "celsius"),
     (9, SeriesType.distance_walking_running, "meters"),
     (10, SeriesType.distance_cycling, "meters"),
-    (11, SeriesType.respiratory_rate, "breaths_per_minute"),
+    (11, SeriesType.respiratory_rate, "brpm"),
     (12, SeriesType.walking_heart_rate_average, "bpm"),
     (13, SeriesType.heart_rate_variability_sdnn, "ms"),
     (14, SeriesType.oxygen_saturation, "percent"),
