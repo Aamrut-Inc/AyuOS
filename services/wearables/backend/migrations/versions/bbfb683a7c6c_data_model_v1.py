@@ -1,6 +1,6 @@
-"""data_model_v1
+"""data model v1
 
-Revision ID: 1dc12a224f84
+Revision ID: bbfb683a7c6c
 Revises: bb5425bd11d0
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "1dc12a224f84"
+revision: str = "bbfb683a7c6c"
 down_revision: Union[str, None] = "bb5425bd11d0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -79,6 +79,12 @@ def upgrade() -> None:
         sa.Column("end_datetime", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["external_mapping_id"], ["external_device_mapping.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "external_mapping_id",
+            "start_datetime",
+            "category",
+            name="uq_event_record_datetime_category",
+        ),
     )
     op.create_index(
         "idx_event_record_mapping_category",

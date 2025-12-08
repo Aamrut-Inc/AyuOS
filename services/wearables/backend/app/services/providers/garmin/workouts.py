@@ -3,13 +3,13 @@ from decimal import Decimal
 from typing import Any, Iterable
 from uuid import UUID, uuid4
 
+from app.constants.workout_types.garmin import get_unified_workout_type
 from app.database import DbSession
 from app.schemas import (
     EventRecordCreate,
     EventRecordDetailCreate,
     EventRecordMetrics,
     GarminActivityJSON,
-    WorkoutType,
 )
 from app.services.event_record_service import event_record_service
 from app.services.providers.templates.base_workouts import BaseWorkoutsTemplate
@@ -116,20 +116,6 @@ class GarminWorkouts(BaseWorkoutsTemplate):
             "steps_total": steps_total,
         }
 
-    def _get_workout_type(self, activity_type: str) -> WorkoutType:
-        """Get workout type from Garmin activity."""
-        match activity_type:
-            case "RUNNING":
-                return WorkoutType.RUNNING
-            case "WALKING":
-                return WorkoutType.WALKING
-            case "CYCLING":
-                return WorkoutType.CYCLING
-            case "SWIMMING":
-                return WorkoutType.SWIMMING
-            case _:
-                return WorkoutType.OTHER
-
     def _normalize_workout(
         self,
         raw_workout: GarminActivityJSON,
@@ -137,6 +123,8 @@ class GarminWorkouts(BaseWorkoutsTemplate):
     ) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
         """Normalize Garmin activity to EventRecordCreate and EventRecordDetailCreate."""
         workout_id = uuid4()
+
+        workout_type = get_unified_workout_type(raw_workout.activityType)
 
         start_date, end_date = self._extract_dates(
             raw_workout.startTimeInSeconds,
@@ -147,15 +135,16 @@ class GarminWorkouts(BaseWorkoutsTemplate):
         metrics = self._build_metrics(raw_workout)
 
         record = EventRecordCreate(
-            id=workout_id,
-            provider_id=raw_workout.summaryId,
-            user_id=user_id,
-            type=self._get_workout_type(raw_workout.activityType).value,
-            duration_seconds=duration_seconds,
+            category="workout",
+            type=workout_type.value,
             source_name=raw_workout.deviceName,
-            device_id=None,
+            device_id=raw_workout.deviceName,
+            duration_seconds=duration_seconds,
             start_datetime=start_date,
             end_datetime=end_date,
+            id=workout_id,
+            provider_id=raw_workout.activityId,
+            user_id=user_id,
         )
 
         detail = EventRecordDetailCreate(

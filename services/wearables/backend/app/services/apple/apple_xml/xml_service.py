@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from xml.etree import ElementTree as ET
 
 from app.config import settings
+from app.constants.workout_types.apple import get_unified_workout_type
 from app.schemas import (
     EventRecordCreate,
     EventRecordDetailCreate,
@@ -78,7 +79,7 @@ class XMLService:
                 id=uuid4(),
                 user_id=user_id,
                 provider_id=None,
-                device_id=document["device"],
+                device_id=document.get("device"),
                 recorded_at=document["startDate"],
                 value=value,
             )
@@ -87,7 +88,7 @@ class XMLService:
                 id=uuid4(),
                 user_id=user_id,
                 provider_id=None,
-                device_id=document["device"],
+                device_id=document.get("device"),
                 recorded_at=document["startDate"],
                 value=value,
             )
@@ -102,21 +103,24 @@ class XMLService:
     ) -> tuple[EventRecordCreate, EventRecordDetailCreate]:
         document = self._parse_date_fields(document)
 
-        document["type"] = document.pop("workoutActivityType")
-
         workout_id = uuid4()
+        raw_type = document.pop("workoutActivityType")
+
+        workout_type = get_unified_workout_type(raw_type)
+
         duration_seconds = int((document["endDate"] - document["startDate"]).total_seconds())
 
         record = EventRecordCreate(
+            category="workout",
+            type=workout_type.value,
+            source_name=document["sourceName"],
+            device_id=document.get("device"),
+            duration_seconds=duration_seconds,
+            start_datetime=document["startDate"],
+            end_datetime=document["endDate"],
             id=workout_id,
             provider_id=None,
             user_id=user_id,
-            type=document["type"],
-            duration_seconds=duration_seconds,
-            source_name=document["sourceName"],
-            device_id=document["device"],
-            start_datetime=document["startDate"],
-            end_datetime=document["endDate"],
         )
 
         actual_metrics = metrics if metrics is not None else self._init_metrics()
