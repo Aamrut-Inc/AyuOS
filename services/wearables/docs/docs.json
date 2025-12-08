@@ -21,12 +21,23 @@
             ]
           },
           {
+            "group": "Architecture",
+            "pages": [
+              "architecture/system-overview",
+              "architecture/data-model"
+            ]
+          },
+          {
             "group": "Provider setup",
             "pages": [
-              "provider-setup/suunto",
-              "provider-setup/apple-health",
-              "provider-setup/garmin",
-              "provider-setup/polar"
+              "provider-setup/index"
+            ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "support",
+              "faqs"
             ]
           }
         ]
