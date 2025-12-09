@@ -1,3 +1,4 @@
+
 # Open Wearables
 
 <div align="left">
@@ -14,6 +15,10 @@ Open-source platform that unifies wearable device data from multiple providers a
 ## What It Does
 
 Open Wearables provides a unified API and developer portal to connect and sync data from multiple wearable devices and fitness platforms. Instead of implementing separate integrations for Garmin, Fitbit, Oura, Whoop, Strava, and Apple Health, you can use a single platform to access normalized health data and build intelligent health insights through AI-powered automations.
+
+<div align="center">
+<img width="597" height="449" alt="image" src="https://github.com/user-attachments/assets/b626405d-99a3-4ff7-b044-442483a3edea" />
+</div>
 
 **Vision**: Health Insights automations unlock the potential of user data and allow you to drive businesses in a completely new way. By defining conditions in natural language, developers can create intelligent notifications and insights that respond to user health patterns, enabling new types of health applications and services.
 
