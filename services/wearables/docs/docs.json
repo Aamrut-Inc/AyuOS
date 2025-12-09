@@ -28,7 +28,7 @@
             ]
           },
           {
-            "group": "Provider setup",
+            "group": "Providers",
             "pages": [
               "provider-setup/index"
             ]
