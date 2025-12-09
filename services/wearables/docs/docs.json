@@ -24,7 +24,7 @@
             "group": "Architecture",
             "pages": [
               "architecture/system-overview",
-              "architecture/data-model"
+              "architecture/unified-data-model"
             ]
           },
           {
