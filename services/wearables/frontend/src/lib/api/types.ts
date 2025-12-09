@@ -77,11 +77,32 @@ export interface ResetPasswordRequest {
   password: string;
 }
 
+export interface CountWithGrowth {
+  count: number;
+  weekly_growth: number;
+}
+
+export interface SeriesTypeMetric {
+  series_type: string;
+  count: number;
+}
+
+export interface WorkoutTypeMetric {
+  workout_type: string | null;
+  count: number;
+}
+
+export interface DataPointsInfo {
+  count: number;
+  weekly_growth: number;
+  top_series_types: SeriesTypeMetric[];
+  top_workout_types: WorkoutTypeMetric[];
+}
+
 export interface DashboardStats {
-  totalUsers: number;
-  activeConnections: number;
-  dataPoints: number;
-  apiCalls: number;
+  total_users: CountWithGrowth;
+  active_conn: CountWithGrowth;
+  data_points: DataPointsInfo;
 }
 
 export interface Provider {

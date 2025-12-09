@@ -1,6 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Users, Activity, Database, Zap } from 'lucide-react';
+import {
+  Users,
+  Activity,
+  Database,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { useDashboardStats } from '@/hooks/api/use-dashboard';
+import { useUsers } from '@/hooks/api/use-users';
 import { NumberTicker } from '@/components/ui/number-ticker';
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
@@ -9,6 +16,7 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 
 function DashboardPage() {
   const { data: stats, isLoading, error, refetch } = useDashboardStats();
+  const { data: users, isLoading: isLoadingUsers } = useUsers();
 
   if (isLoading) {
     return (
@@ -17,8 +25,8 @@ function DashboardPage() {
           <h1 className="text-2xl font-medium text-white">Dashboard</h1>
           <p className="text-sm text-zinc-500 mt-1">Your platform overview</p>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
             <div
               key={i}
               className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6"
@@ -56,33 +64,28 @@ function DashboardPage() {
   const statCards = [
     {
       title: 'Total Users',
-      value: stats.totalUsers,
+      value: stats.total_users.count,
       suffix: '',
       description: 'Registered users',
       icon: Users,
+      growth: stats.total_users.weekly_growth,
     },
     {
       title: 'Active Connections',
-      value: stats.activeConnections,
+      value: stats.active_conn.count,
       suffix: '',
       description: 'Connected wearables',
       icon: Activity,
+      growth: stats.active_conn.weekly_growth,
     },
     {
       title: 'Data Points',
-      value: stats.dataPoints / 1000,
+      value: stats.data_points.count / 1000,
       suffix: 'K',
       description: 'Health data collected',
       icon: Database,
       decimalPlaces: 1,
-    },
-    {
-      title: 'API Calls',
-      value: stats.apiCalls / 1000,
-      suffix: 'K',
-      description: 'This month',
-      icon: Zap,
-      decimalPlaces: 1,
+      growth: stats.data_points.weekly_growth,
     },
   ];
 
@@ -97,7 +100,7 @@ function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {statCards.map((stat) => (
           <div
             key={stat.title}
@@ -119,23 +122,101 @@ function DashboardPage() {
                 <span className="text-zinc-500 ml-0.5">{stat.suffix}</span>
               )}
             </div>
-            <p className="text-xs text-zinc-500 mt-2">{stat.description}</p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-zinc-500">{stat.description}</p>
+              {stat.growth !== undefined && (
+                <div
+                  className={`flex items-center text-xs ${
+                    stat.growth >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {stat.growth >= 0 ? (
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 mr-1" />
+                  )}
+                  <span>{Math.abs(stat.growth).toFixed(1)}%</span>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
 
       {/* Charts Section */}
       <div className="grid gap-6 lg:grid-cols-7">
-        {/* Overview Chart */}
+        {/* Data Points Metrics */}
         <div className="lg:col-span-4 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-zinc-800">
-            <h2 className="text-sm font-medium text-white">Overview</h2>
+            <h2 className="text-sm font-medium text-white">
+              Data Points Metrics
+            </h2>
             <p className="text-xs text-zinc-500 mt-1">
-              Your platform performance this month
+              Breakdown by series type and workout type
             </p>
           </div>
-          <div className="h-[300px] flex items-center justify-center text-zinc-600">
-            <p className="text-sm">Chart will be rendered here</p>
+          <div className="p-6 space-y-6">
+            {/* Top Series Types */}
+            <div>
+              <h3 className="text-xs font-medium text-zinc-400 mb-3">
+                Top Series Types
+              </h3>
+              <div className="space-y-2">
+                {stats.data_points.top_series_types.length > 0 ? (
+                  stats.data_points.top_series_types.map((metric, index) => (
+                    <div
+                      key={metric.series_type}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500 w-4">
+                          {index + 1}.
+                        </span>
+                        <span className="text-sm text-zinc-300 capitalize">
+                          {metric.series_type.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium text-white">
+                        {metric.count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-zinc-600">No data available</p>
+                )}
+              </div>
+            </div>
+
+            {/* Top Workout Types */}
+            <div>
+              <h3 className="text-xs font-medium text-zinc-400 mb-3">
+                Top Workout Types
+              </h3>
+              <div className="space-y-2">
+                {stats.data_points.top_workout_types.length > 0 ? (
+                  stats.data_points.top_workout_types.map((metric, index) => (
+                    <div
+                      key={metric.workout_type || 'unknown'}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500 w-4">
+                          {index + 1}.
+                        </span>
+                        <span className="text-sm text-zinc-300">
+                          {metric.workout_type || 'Unknown'}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium text-white">
+                        {metric.count.toLocaleString()}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-zinc-600">No data available</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -144,19 +225,66 @@ function DashboardPage() {
           <div className="px-6 py-4 border-b border-zinc-800">
             <h2 className="text-sm font-medium text-white">Recent Users</h2>
             <p className="text-xs text-zinc-500 mt-1">
-              You have 234 new users this month
+              Total users: {stats.total_users.count}
             </p>
           </div>
           <div className="p-6 space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-zinc-300">User {i}</p>
-                  <p className="text-xs text-zinc-500">user{i}@example.com</p>
-                </div>
-                <span className="text-xs text-emerald-400">Connected</span>
+            {isLoadingUsers ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 w-32 bg-zinc-800 rounded mb-1" />
+                    <div className="h-3 w-48 bg-zinc-800/50 rounded" />
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : users && users.length > 0 ? (
+              users
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                )
+                .slice(0, 5)
+                .map((user) => {
+                  const userName =
+                    user.first_name || user.last_name
+                      ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                      : user.email || 'Unknown User';
+                  const createdDate = new Date(user.created_at);
+                  const formattedDate = createdDate.toLocaleDateString(
+                    'en-US',
+                    {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    }
+                  );
+                  return (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-zinc-300">
+                          {userName}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {user.email || user.external_user_id || 'No email'}
+                        </p>
+                        <p className="text-xs text-zinc-600 mt-0.5">
+                          Created on {formattedDate}
+                        </p>
+                      </div>
+                      <span className="text-xs text-emerald-400">Active</span>
+                    </div>
+                  );
+                })
+            ) : (
+              <div className="flex items-center justify-center h-[200px] text-zinc-600">
+                <p className="text-sm">No users found</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

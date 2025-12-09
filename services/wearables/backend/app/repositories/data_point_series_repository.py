@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import desc
+from sqlalchemy import Date, cast, desc, func
 
 from app.constants.series_types import get_series_type_id
 from app.database import DbSession
@@ -75,3 +76,65 @@ class DataPointSeriesRepository(
             query = query.filter(self.model.recorded_at <= params.end_datetime)
 
         return query.order_by(desc(self.model.recorded_at)).limit(1000).all()
+
+    def get_total_count(self, db_session: DbSession) -> int:
+        """Get total count of all data points."""
+        return db_session.query(func.count(self.model.id)).scalar() or 0
+
+    def get_count_in_range(self, db_session: DbSession, start_datetime: datetime, end_datetime: datetime) -> int:
+        """Get count of data points within a datetime range."""
+        return (
+            db_session.query(func.count(self.model.id))
+            .filter(self.model.recorded_at >= start_datetime)
+            .filter(self.model.recorded_at < end_datetime)
+            .scalar()
+            or 0
+        )
+
+    def get_daily_histogram(self, db_session: DbSession, start_datetime: datetime, end_datetime: datetime) -> list[int]:
+        """Get daily histogram of data points for the given date range.
+
+        Returns a list of counts, one per day, ordered chronologically.
+        """
+
+        daily_counts = (
+            db_session.query(cast(self.model.recorded_at, Date).label("date"), func.count(self.model.id).label("count"))
+            .filter(self.model.recorded_at >= start_datetime)
+            .filter(self.model.recorded_at < end_datetime)
+            .group_by(cast(self.model.recorded_at, Date))
+            .order_by(cast(self.model.recorded_at, Date))
+            .all()
+        )
+
+        # Convert to list of counts, filling in zeros for missing days
+        if not daily_counts:
+            return []
+
+        return [count for _, count in daily_counts]
+
+    def get_count_by_series_type(self, db_session: DbSession) -> list[tuple[int, int]]:
+        """Get count of data points grouped by series type ID.
+
+        Returns list of (series_type_id, count) tuples ordered by count descending.
+        """
+        results = (
+            db_session.query(self.model.series_type_id, func.count(self.model.id).label("count"))
+            .group_by(self.model.series_type_id)
+            .order_by(func.count(self.model.id).desc())
+            .all()
+        )
+        return [(series_type_id, count) for series_type_id, count in results]
+
+    def get_count_by_provider(self, db_session: DbSession) -> list[tuple[str | None, int]]:
+        """Get count of data points grouped by provider.
+
+        Returns list of (provider_id, count) tuples ordered by count descending.
+        """
+        results = (
+            db_session.query(ExternalDeviceMapping.provider_id, func.count(self.model.id).label("count"))
+            .join(ExternalDeviceMapping, self.model.external_mapping_id == ExternalDeviceMapping.id)
+            .group_by(ExternalDeviceMapping.provider_id)
+            .order_by(func.count(self.model.id).desc())
+            .all()
+        )
+        return [(provider_id, count) for provider_id, count in results]
