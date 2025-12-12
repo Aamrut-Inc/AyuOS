@@ -35,6 +35,12 @@
             ]
           },
           {
+            "group": "Developer Guides",
+            "pages": [
+              "dev-guides/how-to-add-new-provider"
+            ]
+          },
+          {
             "group": "Support",
             "pages": [
               "support",
