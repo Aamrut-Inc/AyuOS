@@ -30,3 +30,17 @@ class ErrorDetails(BaseModel):
     code: str
     message: str
     details: dict | None = None
+
+
+class PaginatedResponse[DataT](BaseModel):
+    """Generic response model for paginated data with metadata.
+
+    Can be used with any data type by specifying the type parameter:
+    - PaginatedResponse[HeartRateSample]
+    - PaginatedResponse[HeartRateSample | HrvSample | Spo2Sample]
+    - PaginatedResponse[Workout]  # for other endpoints
+    """
+
+    data: list[DataT]
+    pagination: Pagination
+    metadata: TimeseriesMetadata
