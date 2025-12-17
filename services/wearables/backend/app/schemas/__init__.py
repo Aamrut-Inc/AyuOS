@@ -93,6 +93,7 @@ from .provider_setting import (
     ProviderSettingUpdate,
 )
 from .response import UploadDataResponse
+from .series_types import SeriesType
 from .summaries import (
     ActivitySummary,
     BodySummary,
@@ -120,25 +121,21 @@ from .system_info import (
     DataPointsInfo,
     SystemInfoResponse,
 )
-from .time_series import (
+from .timeseries import (
+    BloodGlucoseSample,
+    HeartRateSample,
     HeartRateSampleCreate,
     HeartRateSampleResponse,
-    SeriesType,
+    HrvSample,
+    SleepStageSample,
+    Spo2Sample,
     StepSampleCreate,
     StepSampleResponse,
+    StepsSample,
     TimeSeriesQueryParams,
     TimeSeriesSampleCreate,
     TimeSeriesSampleResponse,
     TimeSeriesSampleUpdate,
-)
-from .timeseries import (
-    BiometricType,
-    BloodGlucoseSample,
-    HeartRateSample,
-    HrvSample,
-    SleepStageSample,
-    Spo2Sample,
-    StepsSample,
 )
 from .user import (
     UserCreate,
@@ -251,7 +248,6 @@ __all__ = [
     "SleepStagesSummary",
     "SleepSummary",
     # Timeseries
-    "BiometricType",
     "BloodGlucoseSample",
     "HeartRateSample",
     "HrvSample",
