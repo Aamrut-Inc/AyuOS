@@ -69,6 +69,12 @@ from .garmin.activity_import import (
 from .garmin.activity_import import (
     RootJSON as GarminRootJSON,
 )
+from .invitation import (
+    InvitationAccept,
+    InvitationCreate,
+    InvitationRead,
+    InvitationStatus,
+)
 from .oauth import (
     AuthenticationMethod,
     AuthorizationURLResponse,
@@ -161,6 +167,10 @@ __all__ = [
     "DeveloperCreateInternal",
     "DeveloperUpdateInternal",
     "DeveloperUpdate",
+    "InvitationCreate",
+    "InvitationRead",
+    "InvitationAccept",
+    "InvitationStatus",
     "ApiKeyCreate",
     "ApiKeyRead",
     "ApiKeyUpdate",
