@@ -5,14 +5,6 @@ export interface ApiErrorResponse {
   details?: Record<string, unknown>;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
-
 export interface ApiResponse<T> {
   data: T;
   message?: string;
@@ -32,6 +24,26 @@ export interface UserCreate {
   last_name?: string | null;
   email?: string | null;
   external_user_id?: string | null;
+}
+
+export interface UserQueryParams {
+  page?: number;
+  limit?: number;
+  sort_by?: 'created_at' | 'email' | 'first_name' | 'last_name';
+  sort_order?: 'asc' | 'desc';
+  search?: string;
+  email?: string;
+  external_user_id?: string;
+}
+
+export interface PaginatedUsersResponse {
+  items: UserRead[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  has_next: boolean;
+  has_prev: boolean;
 }
 
 export interface UserUpdate {
