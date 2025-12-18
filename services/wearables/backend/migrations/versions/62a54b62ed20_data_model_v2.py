@@ -1,7 +1,7 @@
 """data_model_v2
 
 Revision ID: 62a54b62ed20
-Revises: bbfb683a7c6c
+Revises: c1a2b3c4d5e6
 
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "62a54b62ed20"
-down_revision: Union[str, None] = "bbfb683a7c6c"
+down_revision: Union[str, None] = "c1a2b3c4d5e6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
