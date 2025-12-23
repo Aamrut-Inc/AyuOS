@@ -9,7 +9,6 @@ Tests the /api/v1/users/{user_id}/workouts endpoint including:
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -41,11 +40,20 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act
-        response = client.get(f"/api/v1/users/{user.id}/workouts", headers=headers)
+        # Provide required start_date and end_date
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{user.id}/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 2
         assert any(w["id"] == str(workout1.id) for w in data)
         assert any(w["id"] == str(workout2.id) for w in data)
@@ -58,11 +66,19 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act
-        response = client.get(f"/api/v1/users/{user.id}/workouts", headers=headers)
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{user.id}/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 0
 
     def test_get_workouts_filters_by_category(self, client: TestClient, db: Session) -> None:
@@ -76,18 +92,22 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
         response = client.get(
-            f"/api/v1/users/{user.id}/workouts",
+            f"/api/v1/users/{user.id}/events/workouts",
             headers=headers,
-            params={"category": "workout"},
+            params={"category": "workout", "start_date": start_date, "end_date": end_date},
         )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 1
         assert data[0]["id"] == str(workout.id)
-        assert data[0]["category"] == "workout"
+        # category is not in the response model
 
     def test_get_workouts_filters_by_type(self, client: TestClient, db: Session) -> None:
         """Test filtering workouts by type."""
@@ -100,15 +120,19 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act - note: API uses 'record_type' parameter (not 'type') and does ILIKE substring matching
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
         response = client.get(
-            f"/api/v1/users/{user.id}/workouts",
+            f"/api/v1/users/{user.id}/events/workouts",
             headers=headers,
-            params={"record_type": "running"},
+            params={"record_type": "running", "start_date": start_date, "end_date": end_date},
         )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 1
         assert data[0]["id"] == str(running.id)
         assert data[0]["type"] == "running"
@@ -137,14 +161,14 @@ class TestWorkoutsEndpoints:
         # Act - filter for last 5 days (note: API uses 'start_date' parameter, not 'start_datetime')
         start_date = (now - timedelta(days=5)).isoformat()
         response = client.get(
-            f"/api/v1/users/{user.id}/workouts",
+            f"/api/v1/users/{user.id}/events/workouts",
             headers=headers,
-            params={"start_date": start_date},
+            params={"start_date": start_date, "end_date": now.isoformat()},
         )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 1
         assert data[0]["id"] == str(recent_workout.id)
 
@@ -159,15 +183,19 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act - get page 2 with 2 items per page
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
         response = client.get(
-            f"/api/v1/users/{user.id}/workouts",
+            f"/api/v1/users/{user.id}/events/workouts",
             headers=headers,
-            params={"skip": 2, "limit": 2},
+            params={"skip": 2, "limit": 2, "start_date": start_date, "end_date": end_date},
         )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 2
 
     def test_get_workouts_sorting(self, client: TestClient, db: Session) -> None:
@@ -195,19 +223,25 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act - sort by start_datetime ascending
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        # Note: API does not currently expose sort_by/sort_order params, defaults to desc
         response = client.get(
-            f"/api/v1/users/{user.id}/workouts",
+            f"/api/v1/users/{user.id}/events/workouts",
             headers=headers,
-            params={"sort_by": "start_datetime", "sort_order": "asc"},
+            params={"start_date": start_date, "end_date": end_date},
         )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 3
-        assert data[0]["id"] == str(workout1.id)
+        # Default sort is descending (newest first)
+        assert data[0]["id"] == str(workout3.id)
         assert data[1]["id"] == str(workout2.id)
-        assert data[2]["id"] == str(workout3.id)
+        assert data[2]["id"] == str(workout1.id)
 
     def test_get_workouts_multiple_users_isolation(self, client: TestClient, db: Session) -> None:
         """Test that users can only see their own workouts."""
@@ -222,11 +256,19 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act - get user1's workouts
-        response = client.get(f"/api/v1/users/{user1.id}/workouts", headers=headers)
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{user1.id}/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 1
         assert data[0]["id"] == str(workout1.id)
 
@@ -236,7 +278,13 @@ class TestWorkoutsEndpoints:
         user = UserFactory()
 
         # Act
-        response = client.get(f"/api/v1/users/{user.id}/workouts")
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{user.id}/events/workouts", params={"start_date": start_date, "end_date": end_date}
+        )
 
         # Assert
         assert response.status_code == 401
@@ -248,20 +296,36 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers("invalid-api-key")
 
         # Act
-        response = client.get(f"/api/v1/users/{user.id}/workouts", headers=headers)
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{user.id}/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
 
         # Assert
         assert response.status_code == 401
 
     def test_get_workouts_invalid_user_id(self, client: TestClient, db: Session) -> None:
-        """Test handling of invalid user ID format raises ValueError."""
+        """Test handling of invalid user ID format."""
         # Arrange
         api_key = ApiKeyFactory()
         headers = api_key_headers(api_key.id)
 
-        # Act & Assert - Invalid UUID causes ValueError with message from UUID parsing
-        with pytest.raises(ValueError, match="badly formed hexadecimal UUID string"):
-            client.get("/api/v1/users/not-a-uuid/workouts", headers=headers)
+        # Act & Assert - Invalid UUID causes 400 Bad Request (or 422 depending on config, but here 400)
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            "/api/v1/users/not-a-uuid/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
+        assert response.status_code == 400
 
     def test_get_workouts_nonexistent_user(self, client: TestClient, db: Session) -> None:
         """Test retrieving workouts for a user that doesn't exist."""
@@ -273,36 +337,22 @@ class TestWorkoutsEndpoints:
         nonexistent_user_id = uuid4()
 
         # Act
-        response = client.get(f"/api/v1/users/{nonexistent_user_id}/workouts", headers=headers)
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{nonexistent_user_id}/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
 
         # Assert - should return empty list, not 404
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 0
 
-    def test_get_workouts_filters_by_provider(self, client: TestClient, db: Session) -> None:
-        """Test filtering workouts by provider."""
-        # Arrange
-        user = UserFactory()
-        apple_mapping = ExternalDeviceMappingFactory(user=user, provider_name="apple")
-        garmin_mapping = ExternalDeviceMappingFactory(user=user, provider_name="garmin")
-        apple_workout = EventRecordFactory(mapping=apple_mapping, category="workout")
-        EventRecordFactory(mapping=garmin_mapping, category="workout")
-        api_key = ApiKeyFactory()
-        headers = api_key_headers(api_key.id)
-
-        # Act
-        response = client.get(
-            f"/api/v1/users/{user.id}/workouts",
-            headers=headers,
-            params={"provider_name": "apple"},
-        )
-
-        # Assert
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 1
-        assert data[0]["id"] == str(apple_workout.id)
+    # test_get_workouts_filters_by_provider removed as provider filtering is not exposed in API
 
     def test_get_workouts_response_structure(self, client: TestClient, db: Session) -> None:
         """Test that response contains all expected fields."""
@@ -319,19 +369,26 @@ class TestWorkoutsEndpoints:
         headers = api_key_headers(api_key.id)
 
         # Act
-        response = client.get(f"/api/v1/users/{user.id}/workouts", headers=headers)
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).isoformat()
+        end_date = (now + timedelta(days=1)).isoformat()
+
+        response = client.get(
+            f"/api/v1/users/{user.id}/events/workouts",
+            headers=headers,
+            params={"start_date": start_date, "end_date": end_date},
+        )
 
         # Assert
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert len(data) == 1
         workout_data = data[0]
 
         # Verify essential fields are present
         assert "id" in workout_data
-        assert "category" in workout_data
+        # category is not in the response model
         assert "type" in workout_data
-        assert "start_datetime" in workout_data
-        assert "end_datetime" in workout_data
+        assert "start_time" in workout_data
+        assert "end_time" in workout_data
         assert "duration_seconds" in workout_data
-        assert workout_data["category"] == "workout"

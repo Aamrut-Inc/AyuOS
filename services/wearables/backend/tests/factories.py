@@ -19,6 +19,7 @@ from factory import LazyAttribute, LazyFunction, Sequence
 
 from app.models import (
     ApiKey,
+    Application,
     DataPointSeries,
     Developer,
     EventRecord,
@@ -32,6 +33,7 @@ from app.models import (
     WorkoutDetails,
 )
 from app.schemas.oauth import ConnectionStatus
+from app.utils.security import get_password_hash
 
 
 class BaseFactory(factory.alchemy.SQLAlchemyModelFactory):
@@ -131,6 +133,38 @@ class ApiKeyFactory(BaseFactory):
             # Create a developer if not provided
             developer = DeveloperFactory()
         kwargs["created_by"] = developer.id
+        return super()._create(model_class, *args, **kwargs)
+
+
+class ApplicationFactory(BaseFactory):
+    """Factory for Application model (SDK apps)."""
+
+    class Meta:
+        model = Application
+
+    id = LazyFunction(uuid4)
+    app_id = LazyFunction(lambda: f"app_{uuid4().hex[:32]}")
+    name = Sequence(lambda n: f"Test Application {n}")
+    created_at = LazyFunction(lambda: datetime.now(timezone.utc))
+    updated_at = LazyFunction(lambda: datetime.now(timezone.utc))
+
+    @classmethod
+    def _create(cls, model_class: type[Application], *args: Any, **kwargs: Any) -> Application:
+        """Override create to handle developer relationship and password hashing."""
+        developer = kwargs.pop("developer", None)
+        # Remove any stale developer_id that might have been set
+        kwargs.pop("developer_id", None)
+        if developer is None:
+            # Create a developer if not provided
+            developer = DeveloperFactory()
+        kwargs["developer_id"] = developer.id
+
+        # Handle app_secret -> app_secret_hash conversion with real bcrypt
+        # Default to "test_app_secret" if not provided
+        app_secret = kwargs.pop("app_secret", "test_app_secret")
+        if "app_secret_hash" not in kwargs:
+            kwargs["app_secret_hash"] = get_password_hash(app_secret)
+
         return super()._create(model_class, *args, **kwargs)
 
 
@@ -359,6 +393,7 @@ __all__ = [
     "UserFactory",
     "DeveloperFactory",
     "ApiKeyFactory",
+    "ApplicationFactory",
     "ExternalDeviceMappingFactory",
     "UserConnectionFactory",
     "EventRecordFactory",
