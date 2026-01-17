@@ -9,7 +9,7 @@ Tests the /api/v1/garmin/webhooks endpoints including:
 - Error cases
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -46,15 +46,17 @@ class TestGarminPingWebhook:
 
         # Mock httpx response for callback URL
         mock_httpx = mock_external_apis["httpx"]
-        mock_response = mock_httpx.return_value.__aenter__.return_value.get.return_value
-        mock_response.__aenter__.return_value.status_code = 200
-        mock_response.__aenter__.return_value.json.return_value = [
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
             {
                 "activityId": 12345,
                 "activityName": "Morning Run",
                 "startTimeInSeconds": 1234567890,
             },
         ]
+        mock_client = mock_httpx.return_value.__aenter__.return_value
+        mock_client.get = AsyncMock(return_value=mock_response)
 
         # Act
         response = client.post(
@@ -194,9 +196,11 @@ class TestGarminPingWebhook:
 
         # Mock httpx response
         mock_httpx = mock_external_apis["httpx"]
-        mock_response = mock_httpx.return_value.__aenter__.return_value.get.return_value
-        mock_response.__aenter__.return_value.status_code = 200
-        mock_response.__aenter__.return_value.json.return_value = [{"activityId": 12345}]
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"activityId": 12345}]
+        mock_client = mock_httpx.return_value.__aenter__.return_value
+        mock_client.get = AsyncMock(return_value=mock_response)
 
         # Act
         response = client.post(
@@ -271,8 +275,8 @@ class TestGarminPingWebhook:
         import httpx
 
         mock_httpx = mock_external_apis["httpx"]
-        mock_response = mock_httpx.return_value.__aenter__.return_value.get
-        mock_response.side_effect = httpx.HTTPError("Connection failed")
+        mock_client = mock_httpx.return_value.__aenter__.return_value
+        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Connection failed"))
 
         # Act
         response = client.post(
