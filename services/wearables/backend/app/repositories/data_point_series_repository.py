@@ -1,8 +1,11 @@
 from datetime import date, datetime
 from typing import TypedDict
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from psycopg.errors import UniqueViolation
 from sqlalchemy import Date, asc, case, cast, func, literal_column, tuple_
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError as SQLAIntegrityError
 
 from app.database import DbSession
 from app.models import DataPointSeries, ExternalDeviceMapping
@@ -16,6 +19,8 @@ from app.schemas import (
 from app.schemas.series_types import SeriesType, get_series_type_from_id, get_series_type_id
 from app.utils.exceptions import handle_exceptions
 from app.utils.pagination import decode_cursor
+
+MappingIdentity = tuple[UUID, str, str | None]
 
 
 class ActivityAggregateResult(TypedDict):
@@ -72,50 +77,192 @@ class DataPointSeriesRepository(
         Handles duplicate records gracefully by catching IntegrityError and
         returning the existing record instead.
         """
-        mapping = self.mapping_repo.ensure_mapping(
-            db_session,
-            creator.user_id,
-            creator.provider_name,
-            creator.device_id,
-            creator.external_device_mapping_id,
-        )
+        mapping = self.create_mapping(db_session, creator)
 
         creation_data = creator.model_dump()
         creation_data["external_device_mapping_id"] = mapping.id
         creation_data["series_type_definition_id"] = get_series_type_id(creator.series_type)
+
         for redundant_key in ("user_id", "provider_name", "device_id", "series_type"):
             creation_data.pop(redundant_key, None)
 
+        creation = self.model(**creation_data)
+        db_session.add(creation)
+        return self.try_commit(db_session, creation)
+
+    @handle_exceptions
+    def bulk_create(self, db_session: DbSession, creators: list[TimeSeriesSampleCreate]) -> list[DataPointSeries]:
+        """Bulk create data point samples.
+
+        Optimized for performance:
+        - Resolves mappings efficiently (batch fetch + batch insert missing)
+        - Inserts data points in a single batch
+        """
+        if not creators:
+            return []
+
+        # 1. Resolve all necessary device mappings
+        identity_to_mapping_id = self._resolve_mappings(db_session, creators)
+
+        # 2. Build and execute data point batch insert
+        self._insert_data_points(db_session, creators, identity_to_mapping_id)
+
+        # Return empty list (ON CONFLICT DO NOTHING means strict tracking is omitted)
+        return []
+
+    def _resolve_mappings(
+        self, db_session: DbSession, creators: list[TimeSeriesSampleCreate]
+    ) -> dict[MappingIdentity, UUID]:
+        """Ensure all required mappings exist and return a lookup dict."""
+        # Identify all unique mappings needed
+        unique_identities: set[MappingIdentity] = {(c.user_id, c.provider_name, c.device_id) for c in creators}
+
+        # Step 1: Fetch what already exists
+        mapping_map = self._fetch_mappings_by_identity(db_session, list(unique_identities))
+
+        # Step 2: Handle missing mappings
+        missing_identities = [i for i in unique_identities if i not in mapping_map]
+
+        if missing_identities:
+            # Batch insert missing ones
+            self._batch_insert_mappings(db_session, missing_identities, creators)
+
+            # Re-fetch the ones we just inserted (or that conflicted) to get their validation IDs
+            # We re-fetch specifically the missing ones to ensure we have IDs for everything
+            newly_fetched = self._fetch_mappings_by_identity(db_session, missing_identities)
+            mapping_map.update(newly_fetched)
+
+        return mapping_map
+
+    def _fetch_mappings_by_identity(
+        self, db_session: DbSession, identities: list[MappingIdentity]
+    ) -> dict[MappingIdentity, UUID]:
+        """Batch fetch mappings for a list of identities."""
+        if not identities:
+            return {}
+
+        mappings = (
+            db_session.query(ExternalDeviceMapping)
+            .filter(
+                tuple_(
+                    ExternalDeviceMapping.user_id,
+                    ExternalDeviceMapping.provider_name,
+                    ExternalDeviceMapping.device_id,
+                ).in_(identities)
+            )
+            .all()
+        )
+
+        return {(m.user_id, m.provider_name, m.device_id): m.id for m in mappings}
+
+    def _batch_insert_mappings(
+        self,
+        db_session: DbSession,
+        identities: list[MappingIdentity],
+        creators_lookup: list[TimeSeriesSampleCreate],
+    ) -> None:
+        """Insert missing mappings ignoring conflicts."""
+        # Extract preferred IDs from creators if provided
+        preferred_ids: dict[MappingIdentity, UUID] = {}
+        for c in creators_lookup:
+            if c.external_device_mapping_id:
+                key = (c.user_id, c.provider_name, c.device_id)
+                preferred_ids[key] = c.external_device_mapping_id
+
+        mapping_values = []
+        for identity in identities:
+            # Use provided ID or generate new
+            m_id = preferred_ids.get(identity) or uuid4()
+            mapping_values.append(
+                {
+                    "id": m_id,
+                    "user_id": identity[0],
+                    "provider_name": identity[1],
+                    "device_id": identity[2],
+                }
+            )
+
+        if mapping_values:
+            stmt = (
+                insert(ExternalDeviceMapping)
+                .values(mapping_values)
+                .on_conflict_do_nothing(index_elements=["user_id", "provider_name", "device_id"])
+            )
+            db_session.execute(stmt)
+            # Flush to ensure visible for next select
+            db_session.flush()
+
+    def _insert_data_points(
+        self,
+        db_session: DbSession,
+        creators: list[TimeSeriesSampleCreate],
+        mapping_map: dict[MappingIdentity, UUID],
+    ) -> None:
+        """Batch insert data points."""
+        values_list = []
+        for creator in creators:
+            identity = (creator.user_id, creator.provider_name, creator.device_id)
+            mapping_id = mapping_map.get(identity)
+
+            if not mapping_id:
+                # Should not happen if resolve logic is correct, but safe skip
+                continue
+
+            values_list.append(
+                {
+                    "id": creator.id,
+                    "external_id": creator.external_id,
+                    "external_device_mapping_id": mapping_id,
+                    "recorded_at": creator.recorded_at,
+                    "value": creator.value,
+                    "series_type_definition_id": get_series_type_id(creator.series_type),
+                }
+            )
+
+        if values_list:
+            stmt = (
+                insert(self.model)
+                .values(values_list)
+                .on_conflict_do_nothing(
+                    index_elements=["external_device_mapping_id", "series_type_definition_id", "recorded_at"]
+                )
+            )
+            db_session.execute(stmt)
+            db_session.commit()
+
+    def try_commit(self, db_session: DbSession, creation: DataPointSeries) -> DataPointSeries:
         try:
-            creation = self.model(**creation_data)
-            db_session.add(creation)
             db_session.commit()
             db_session.refresh(creation)
             return creation
-        except Exception as e:
-            # Check if this is a unique constraint violation
-            from psycopg.errors import UniqueViolation
-            from sqlalchemy.exc import IntegrityError as SQLAIntegrityError
-
-            if isinstance(e, SQLAIntegrityError) and isinstance(e.orig, UniqueViolation):
+        except SQLAIntegrityError as e:
+            if isinstance(e.orig, UniqueViolation):
                 db_session.rollback()
 
                 # Query for existing record using the unique constraint fields
                 existing = (
                     db_session.query(self.model)
                     .filter(
-                        self.model.external_device_mapping_id == creation_data["external_device_mapping_id"],
-                        self.model.series_type_definition_id == creation_data["series_type_definition_id"],
-                        self.model.recorded_at == creation_data["recorded_at"],
+                        self.model.external_device_mapping_id == creation.external_device_mapping_id,
+                        self.model.series_type_definition_id == creation.series_type_definition_id,
+                        self.model.recorded_at == creation.recorded_at,
                     )
                     .first()
                 )
 
                 if existing:
                     return existing
-
-            # If it's not a duplicate error or we couldn't find the existing record, re-raise
+            # Re-raise if not a duplicate or if existing record not found
             raise
+
+    def create_mapping(self, db_session: DbSession, creator: TimeSeriesSampleCreate) -> ExternalDeviceMapping:
+        return self.mapping_repo.ensure_mapping(
+            db_session,
+            creator.user_id,
+            creator.provider_name,
+            creator.device_id,
+            creator.external_device_mapping_id,
+        )
 
     def get_samples(
         self,
