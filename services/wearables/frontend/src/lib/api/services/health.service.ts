@@ -13,13 +13,15 @@ import type {
   SleepSummary,
   BodySummary,
   RecoverySummary,
+  SleepSession,
+  SleepSessionsParams,
 } from '../types';
 
 export interface WorkoutsParams {
   start_date?: string;
   end_date?: string;
   limit?: number;
-  offset?: number;
+  cursor?: string;
   sort_order?: 'asc' | 'desc';
   workout_type?: string;
   source_name?: string;
@@ -158,6 +160,19 @@ export const healthService = {
       {
         params,
       }
+    );
+  },
+
+  /**
+   * Get sleep sessions for a date range
+   */
+  async getSleepSessions(
+    userId: string,
+    params: SleepSessionsParams
+  ): Promise<PaginatedResponse<SleepSession>> {
+    return apiClient.get<PaginatedResponse<SleepSession>>(
+      API_ENDPOINTS.userSleepSessions(userId),
+      { params }
     );
   },
 };
