@@ -139,7 +139,7 @@ def get_unified_workout_type(healthkit_activity_type: str) -> WorkoutType:
     return HEALTHKIT_TO_UNIFIED.get(healthkit_activity_type, WorkoutType.OTHER)
 
 
-def get_healthkit_activity_name(healthkit_activity_type: str) -> str:
+def get_activity_name(healthkit_activity_type: str) -> str:
     """
     Extract human-readable name from HealthKit activity type.
     Examples:
