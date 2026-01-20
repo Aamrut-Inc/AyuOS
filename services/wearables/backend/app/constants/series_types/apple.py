@@ -1,3 +1,5 @@
+from enum import IntEnum
+
 from app.schemas.series_types import SeriesType
 
 METRIC_TYPE_TO_SERIES_TYPE: dict[str, SeriesType] = {
@@ -84,6 +86,15 @@ HEALTHION_TYPE_TO_SERIES_TYPE: dict[str, SeriesType] = {
 }
 
 
+class SleepPhase(IntEnum):
+    IN_BED = 0
+    ASLEEP_UNSPECIFIED = 1
+    AWAKE = 2
+    ASLEEP_CORE = 3
+    ASLEEP_DEEP = 4
+    ASLEEP_REM = 5
+
+
 def get_series_type_from_metric_type(metric_type: str) -> SeriesType | None:
     """
     Map a HealthKit metric type identifier to the unified SeriesType enum.
@@ -98,3 +109,10 @@ def get_series_type_from_healthion_type(healthion_type: str) -> SeriesType | Non
     Returns None when the metric type is not supported.
     """
     return HEALTHION_TYPE_TO_SERIES_TYPE.get(healthion_type)
+
+
+def get_apple_sleep_phase(apple_sleep_phase: int) -> SleepPhase | None:
+    try:
+        return SleepPhase(apple_sleep_phase)
+    except ValueError:
+        return None
