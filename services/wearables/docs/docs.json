@@ -35,6 +35,21 @@
             ]
           },
           {
+            "group": "Sync SDK",
+            "pages": [
+              "sdk/index",
+              {
+                "group": "Flutter",
+                "pages": [
+                  "sdk/flutter/index",
+                  "sdk/flutter/example-app",
+                  "sdk/flutter/integration",
+                  "sdk/flutter/troubleshooting"
+                ]
+              }
+            ]
+          },
+          {
             "group": "Developer Guides",
             "pages": [
               "dev-guides/backend-e2e-integration",
