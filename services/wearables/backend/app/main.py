@@ -1,4 +1,5 @@
-from logging import INFO, basicConfig
+import sys
+from logging import INFO, StreamHandler, basicConfig
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -12,7 +13,14 @@ from app.integrations.sentry import init_sentry
 from app.middlewares import add_cors_middleware
 from app.utils.exceptions import DatetimeParseError, handle_exception
 
-basicConfig(level=INFO, format="[%(asctime)s - %(name)s] (%(levelname)s) %(message)s")
+# Configure logging to use stdout instead of stderr
+# Some platforms convert stderr logs to level.error automatically, so we must use stdout
+# This ensures platforms correctly identify log levels from JSON structured logs
+basicConfig(
+    level=INFO,
+    format="[%(asctime)s - %(name)s] (%(levelname)s) %(message)s",
+    handlers=[StreamHandler(sys.stdout)],
+)
 
 api = FastAPI(title=settings.api_name)
 celery_app = create_celery()
