@@ -80,8 +80,8 @@ class ImportService:
                         id=uuid4(),
                         external_id=None,
                         user_id=user_id,
-                        provider_name="Apple",
-                        device_id=source_name,
+                        source="apple_health_auto_export",
+                        device_model=source_name,
                         recorded_at=self._dt(entry.date),
                         value=self._dec(value) or 0,
                     ),
@@ -120,13 +120,13 @@ class ImportService:
                 category="workout",
                 type=workout_type,
                 source_name="Auto Export",
-                device_id=None,
+                device_model=None,
                 duration_seconds=duration_seconds,
                 start_datetime=start_date,
                 end_datetime=end_date,
                 id=workout_id,
                 external_id=wjson.id,
-                provider_name="Apple",
+                source="apple_health_auto_export",
                 user_id=user_uuid,
             )
 
@@ -168,6 +168,9 @@ class ImportService:
         if all_hr_samples:
             self.timeseries_service.bulk_create_samples(db_session, all_hr_samples)
             records_saved = len(all_hr_samples)
+
+        # Commit all changes in one transaction
+        db_session.commit()
 
         return {
             "workouts_saved": workouts_saved,
