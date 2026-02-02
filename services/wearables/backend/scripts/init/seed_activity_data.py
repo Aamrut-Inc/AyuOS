@@ -70,8 +70,8 @@ PROVIDER_CONFIGS: dict[ProviderName, ProviderConfig] = {
     ProviderName.WHOOP: {
         "source_name": "WHOOP",
         "manufacturer": "WHOOP Inc.",
-        "devices": ["WHOOP 4.0", "WHOOP 3.0"],
-        "os_versions": ["4.0", "3.0"],
+        "devices": ["WHOOP 5.0", "WHOOP 4.0", "WHOOP 3.0"],
+        "os_versions": ["5.0", "4.0", "3.0"],
     },
 }
 
