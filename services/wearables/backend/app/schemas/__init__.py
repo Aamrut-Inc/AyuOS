@@ -47,6 +47,14 @@ from .developer import (
     DeveloperUpdate,
     DeveloperUpdateInternal,
 )
+from .device_type import DeviceType
+from .device_type_priority import (
+    DeviceTypePriorityBulkUpdate,
+    DeviceTypePriorityCreate,
+    DeviceTypePriorityListResponse,
+    DeviceTypePriorityResponse,
+    DeviceTypePriorityUpdate,
+)
 from .error_codes import ErrorCode
 from .event_record import (
     EventRecordCreate,
@@ -111,6 +119,13 @@ from .personal_record import (
 )
 from .polar.exercise_import import (
     ExerciseJSON as PolarExerciseJSON,
+)
+from .provider_priority import (
+    ProviderPriorityBulkUpdate,
+    ProviderPriorityCreate,
+    ProviderPriorityListResponse,
+    ProviderPriorityResponse,
+    ProviderPriorityUpdate,
 )
 from .provider_setting import (
     BulkProviderSettingsUpdate,
@@ -303,4 +318,17 @@ __all__ = [
     "RecoverySummary",
     "SleepStagesSummary",
     "SleepSummary",
+    # Priority schemas
+    "ProviderPriorityCreate",
+    "ProviderPriorityUpdate",
+    "ProviderPriorityResponse",
+    "ProviderPriorityListResponse",
+    "ProviderPriorityBulkUpdate",
+    "DeviceTypePriorityCreate",
+    "DeviceTypePriorityUpdate",
+    "DeviceTypePriorityResponse",
+    "DeviceTypePriorityListResponse",
+    "DeviceTypePriorityBulkUpdate",
+    # Device type
+    "DeviceType",
 ]
