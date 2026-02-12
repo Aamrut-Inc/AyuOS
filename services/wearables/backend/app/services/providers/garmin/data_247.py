@@ -1430,53 +1430,54 @@ class Garmin247Data(Base247DataTemplate):
         for item in items:
             try:
                 # DataPointSeries types - accumulate samples
-                if summary_type == "dailies":
-                    normalized = self.normalize_dailies(item, user_id)
-                    all_samples.extend(self._build_dailies_samples(user_id, normalized))
-                elif summary_type == "epochs":
-                    normalized = self.normalize_epochs([item], user_id)
-                    all_samples.extend(self._build_epochs_samples(user_id, normalized))
-                elif summary_type == "bodyComps":
-                    all_samples.extend(self._build_body_comp_samples(user_id, item))
-                elif summary_type == "hrv":
-                    all_samples.extend(self._build_hrv_samples(user_id, item))
-                elif summary_type == "stressDetails":
-                    all_samples.extend(self._build_stress_samples(user_id, item))
-                elif summary_type == "respiration":
-                    all_samples.extend(self._build_respiration_samples(user_id, item))
-                elif summary_type == "pulseOx":
-                    all_samples.extend(self._build_pulse_ox_samples(user_id, item))
-                elif summary_type == "bloodPressures":
-                    all_samples.extend(self._build_blood_pressure_samples(user_id, item))
-                elif summary_type == "userMetrics":
-                    all_samples.extend(self._build_user_metrics_samples(user_id, item))
-                elif summary_type == "skinTemp":
-                    all_samples.extend(self._build_skin_temp_samples(user_id, item))
-                elif summary_type == "healthSnapshot":
-                    all_samples.extend(self._build_health_snapshot_samples(user_id, item))
+                match summary_type:
+                    case "dailies":
+                        normalized = self.normalize_dailies(item, user_id)
+                        all_samples.extend(self._build_dailies_samples(user_id, normalized))
+                    case "epochs":
+                        normalized = self.normalize_epochs([item], user_id)
+                        all_samples.extend(self._build_epochs_samples(user_id, normalized))
+                    case "bodyComps":
+                        all_samples.extend(self._build_body_comp_samples(user_id, item))
+                    case "hrv":
+                        all_samples.extend(self._build_hrv_samples(user_id, item))
+                    case "stressDetails":
+                        all_samples.extend(self._build_stress_samples(user_id, item))
+                    case "respiration":
+                        all_samples.extend(self._build_respiration_samples(user_id, item))
+                    case "pulseOx":
+                        all_samples.extend(self._build_pulse_ox_samples(user_id, item))
+                    case "bloodPressures":
+                        all_samples.extend(self._build_blood_pressure_samples(user_id, item))
+                    case "userMetrics":
+                        all_samples.extend(self._build_user_metrics_samples(user_id, item))
+                    case "skinTemp":
+                        all_samples.extend(self._build_skin_temp_samples(user_id, item))
+                    case "healthSnapshot":
+                        all_samples.extend(self._build_health_snapshot_samples(user_id, item))
 
-                # EventRecord types - accumulate records + details
-                elif summary_type == "sleeps":
-                    normalized = self.normalize_sleep(item, user_id)
-                    result = self._build_sleep_record(user_id, normalized)
-                    if result:
-                        record, detail = result
-                        all_records.append(record)
-                        all_sleep_details.append(detail)
-                elif summary_type in ("activities", "activityDetails"):
-                    result = self._build_activity_record(user_id, item)
-                    if result:
-                        record, detail = result
-                        all_records.append(record)
-                        all_workout_details.append(detail)
-                elif summary_type == "moveiq":
-                    record = self._build_moveiq_record(user_id, item)
-                    if record:
-                        all_records.append(record)
+                    # EventRecord types - accumulate records + details
+                    case "sleeps":
+                        normalized = self.normalize_sleep(item, user_id)
+                        result = self._build_sleep_record(user_id, normalized)
+                        if result:
+                            record, detail = result
+                            all_records.append(record)
+                            all_sleep_details.append(detail)
+                    case "activities" | "activityDetails":
+                        result = self._build_activity_record(user_id, item)
+                        if result:
+                            record, detail = result
+                            all_records.append(record)
+                            all_workout_details.append(detail)
+                    case "moveiq":
+                        record = self._build_moveiq_record(user_id, item)
+                        if record:
+                            all_records.append(record)
 
-                # No-op types
-                elif summary_type == "mct":
-                    self.save_mct_data(db, user_id, item)
+                    # No-op types
+                    case "mct":
+                        self.save_mct_data(db, user_id, item)
 
             except Exception as e:
                 self.logger.warning(f"Error building batch item for {summary_type}: {e}")
@@ -1574,72 +1575,6 @@ class Garmin247Data(Base247DataTemplate):
     # Main Entry Points
     # -------------------------------------------------------------------------
 
-    def load_and_save_sleep(
-        self,
-        db: DbSession,
-        user_id: UUID,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> int:
-        """Load sleep data from API and save to database."""
-        raw_data = self.get_sleep_data(db, user_id, start_time, end_time)
-        count = 0
-        for item in raw_data:
-            try:
-                normalized = self.normalize_sleep(item, user_id)
-                self.save_sleep_data(db, user_id, normalized)
-                count += 1
-            except Exception as e:
-                self.logger.warning(f"Failed to save sleep data: {e}")
-        return count
-
-    def load_and_save_dailies(
-        self,
-        db: DbSession,
-        user_id: UUID,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> int:
-        """Load dailies data from API and save to database."""
-        raw_data = self.get_dailies_data(db, user_id, start_time, end_time)
-        count = 0
-        for item in raw_data:
-            try:
-                normalized = self.normalize_dailies(item, user_id)
-                count += self.save_dailies_data(db, user_id, normalized)
-            except Exception as e:
-                self.logger.warning(f"Failed to save daily data: {e}")
-        return count
-
-    def load_and_save_epochs(
-        self,
-        db: DbSession,
-        user_id: UUID,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> int:
-        """Load epochs data from API and save to database."""
-        raw_data = self.get_epochs_data(db, user_id, start_time, end_time)
-        normalized = self.normalize_epochs(raw_data, user_id)
-        return self.save_epochs_data(db, user_id, normalized)
-
-    def load_and_save_body_composition(
-        self,
-        db: DbSession,
-        user_id: UUID,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> int:
-        """Load body composition and save to database."""
-        raw_data = self.get_body_composition(db, user_id, start_time, end_time)
-        count = 0
-        for item in raw_data:
-            try:
-                count += self.save_body_composition(db, user_id, item)
-            except Exception as e:
-                self.logger.warning(f"Failed to save body composition: {e}")
-        return count
-
     def load_and_save_all(
         self,
         db: DbSession,
@@ -1669,27 +1604,3 @@ class Garmin247Data(Base247DataTemplate):
             "total_saved": 0,
             "message": "Garmin data arrives via webhooks. No REST fetch performed.",
         }
-
-    # -------------------------------------------------------------------------
-    # Raw API Access (for debugging)
-    # -------------------------------------------------------------------------
-
-    def get_raw_dailies(
-        self,
-        db: DbSession,
-        user_id: UUID,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> list[dict[str, Any]]:
-        """Get raw dailies data from API without normalization."""
-        return self.get_dailies_data(db, user_id, start_time, end_time)
-
-    def get_raw_epochs(
-        self,
-        db: DbSession,
-        user_id: UUID,
-        start_time: datetime,
-        end_time: datetime,
-    ) -> list[dict[str, Any]]:
-        """Get raw epochs data from API without normalization."""
-        return self.get_epochs_data(db, user_id, start_time, end_time)

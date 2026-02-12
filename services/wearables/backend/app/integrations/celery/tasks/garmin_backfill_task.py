@@ -21,49 +21,24 @@ from app.database import SessionLocal
 from app.integrations.redis_client import get_redis_client
 from app.repositories.user_connection_repository import UserConnectionRepository
 from app.services.providers.factory import ProviderFactory
+from app.services.providers.garmin.backfill_config import (
+    ACTIVITY_API_TYPES,
+    ALL_DATA_TYPES,
+    BACKFILL_CHUNK_DAYS,
+    BACKFILL_WINDOW_COUNT,
+    DELAY_AFTER_RATE_LIMIT,
+    DELAY_BETWEEN_TYPES,
+    MAX_BACKFILL_DAYS,
+    MAX_TYPE_ATTEMPTS,
+    REDIS_PREFIX,
+    REDIS_TTL,
+    TRIGGERED_TIMEOUT_SECONDS,
+)
 from app.services.providers.garmin.handlers.backfill import GarminBackfillService
 from app.utils.structured_logging import log_structured
 from celery import shared_task
 
 logger = getLogger(__name__)
-
-# Redis key prefixes for backfill tracking
-REDIS_PREFIX = "garmin:backfill"
-REDIS_TTL = 86400 * 7  # 7 days TTL for backfill tracking
-
-# Garmin rate limit: 100 requests per 60 seconds
-GARMIN_RATE_LIMIT_WINDOW = 60  # seconds
-GARMIN_RATE_LIMIT_REQUESTS = 100
-GARMIN_BACKFILL_BUDGET_PCT = 0.3  # Reserve 30% of rate limit for backfill
-
-# Rate limiting delays (derived from Garmin's 100 req/min limit)
-_backfill_budget = int(GARMIN_RATE_LIMIT_REQUESTS * GARMIN_BACKFILL_BUDGET_PCT)  # 30 req/min
-DELAY_BETWEEN_TYPES = GARMIN_RATE_LIMIT_WINDOW // _backfill_budget  # 2s between types
-DELAY_AFTER_RATE_LIMIT = GARMIN_RATE_LIMIT_WINDOW  # Wait for full window reset (60s)
-
-# Stale request timeout settings
-TRIGGERED_TIMEOUT_SECONDS = 300  # 5 min before skipping a triggered type
-MAX_TYPE_ATTEMPTS = 3  # Total attempts (1 original + 2 retries)
-
-# All 16 data types to backfill
-ALL_DATA_TYPES = [
-    "sleeps",
-    "dailies",
-    "epochs",
-    "bodyComps",
-    "hrv",
-    "activities",
-    "activityDetails",
-    "moveiq",
-    "healthSnapshot",
-    "stressDetails",
-    "respiration",
-    "pulseOx",
-    "bloodPressures",
-    "userMetrics",
-    "skinTemp",
-    "mct",
-]
 
 
 def _get_key(user_id: str | UUID, *parts: str) -> str:
@@ -138,29 +113,31 @@ def get_backfill_status(user_id: str | UUID) -> dict[str, Any]:
         type_tid = redis_client.get(_get_key(user_id_str, "types", data_type, "trace_id"))
         if type_tid:
             type_info["trace_id"] = type_tid
+
         skip_cnt = redis_client.get(_get_key(user_id_str, "types", data_type, "skip_count"))
         if skip_cnt:
             type_info["skip_count"] = int(skip_cnt)
 
-        if status == "triggered":
-            triggered_at = redis_client.get(_get_key(user_id_str, "types", data_type, "triggered_at"))
-            if triggered_at:
-                type_info["triggered_at"] = triggered_at
-            triggered_count += 1
-        elif status == "success":
-            completed_at = redis_client.get(_get_key(user_id_str, "types", data_type, "completed_at"))
-            if completed_at:
-                type_info["completed_at"] = completed_at
-            success_count += 1
-        elif status == "failed":
-            error = redis_client.get(_get_key(user_id_str, "types", data_type, "error"))
-            if error:
-                type_info["error"] = error
-            failed_count += 1
-        elif status == "skipped":
-            skipped_count += 1
-        else:
-            pending_count += 1
+        match status:
+            case "triggered":
+                triggered_at = redis_client.get(_get_key(user_id_str, "types", data_type, "triggered_at"))
+                if triggered_at:
+                    type_info["triggered_at"] = triggered_at
+                triggered_count += 1
+            case "success":
+                completed_at = redis_client.get(_get_key(user_id_str, "types", data_type, "completed_at"))
+                if completed_at:
+                    type_info["completed_at"] = completed_at
+                success_count += 1
+            case "failed":
+                error = redis_client.get(_get_key(user_id_str, "types", data_type, "error"))
+                if error:
+                    type_info["error"] = error
+                failed_count += 1
+            case "skipped":
+                skipped_count += 1
+            case _:
+                pending_count += 1
 
         types_status[data_type] = type_info
 
@@ -192,8 +169,8 @@ def get_backfill_status(user_id: str | UUID) -> dict[str, Any]:
         "current_window": get_current_window(user_id_str),
         "total_windows": get_total_windows(user_id_str),
         "completed_windows": completed_windows,
-        "days_completed": completed_windows * GarminBackfillService.BACKFILL_CHUNK_DAYS,
-        "target_days": GarminBackfillService.MAX_BACKFILL_DAYS,
+        "days_completed": completed_windows * BACKFILL_CHUNK_DAYS,
+        "target_days": MAX_BACKFILL_DAYS,
     }
 
 
@@ -297,7 +274,13 @@ def reset_type_status(user_id: str | UUID, data_type: str) -> None:
     for key_suffix in ["status", "triggered_at", "completed_at", "error", "trace_id"]:
         redis_client.delete(_get_key(user_id_str, "types", data_type, key_suffix))
 
-    logger.info(f"Reset {data_type} status for user {user_id_str}")
+    log_structured(
+        logger,
+        "info",
+        "Reset type status",
+        data_type=data_type,
+        user_id=user_id_str,
+    )
 
 
 def mark_type_skipped(user_id: str | UUID, data_type: str) -> int:
@@ -352,7 +335,7 @@ def get_type_skip_count(user_id: str | UUID, data_type: str) -> int:
     return int(count) if count else 0
 
 
-def init_window_state(user_id: str | UUID, total_windows: int = GarminBackfillService.BACKFILL_WINDOW_COUNT) -> None:
+def init_window_state(user_id: str | UUID, total_windows: int = BACKFILL_WINDOW_COUNT) -> None:
     """Initialize multi-window backfill state in Redis."""
     redis_client = get_redis_client()
     uid = str(user_id)
@@ -374,7 +357,7 @@ def get_total_windows(user_id: str | UUID) -> int:
     """Get total number of windows for this backfill."""
     redis_client = get_redis_client()
     val = redis_client.get(_get_key(str(user_id), "window", "total"))
-    return int(val) if val else GarminBackfillService.BACKFILL_WINDOW_COUNT
+    return int(val) if val else BACKFILL_WINDOW_COUNT
 
 
 def get_anchor_timestamp(user_id: str | UUID) -> datetime:
@@ -395,7 +378,7 @@ def get_window_date_range(user_id: str | UUID) -> tuple[datetime, datetime]:
     """
     anchor = get_anchor_timestamp(user_id)
     window = get_current_window(user_id)
-    chunk = GarminBackfillService.BACKFILL_CHUNK_DAYS
+    chunk = BACKFILL_CHUNK_DAYS
     end_time = anchor - timedelta(days=window * chunk)
     start_time = anchor - timedelta(days=(window + 1) * chunk)
     return start_time, end_time
@@ -452,7 +435,7 @@ def complete_backfill(user_id: str | UUID) -> None:
     user_id_str = str(user_id)
 
     # Set overall complete marker with shorter TTL (1 day)
-    redis_client.setex(_get_key(user_id_str, "overall_complete"), 86400, "1")
+    redis_client.setex(_get_key(user_id_str, "overall_complete"), 24 * 60 * 60, "1")
 
     trace_id = get_trace_id(user_id_str)
     completed_windows = get_completed_window_count(user_id_str)
@@ -482,14 +465,20 @@ def start_full_backfill(user_id: str) -> dict[str, Any]:
     try:
         UUID(user_id)  # Validate UUID format
     except ValueError as e:
-        logger.error(f"Invalid user_id: {user_id}")
+        log_structured(
+            logger,
+            "error",
+            "Invalid user_id",
+            user_id=user_id,
+            error=str(e),
+        )
         return {"error": f"Invalid user_id: {e}"}
 
     # Generate trace ID for this backfill session
     trace_id = set_trace_id(user_id)
 
     # Initialize multi-window state
-    init_window_state(user_id, total_windows=GarminBackfillService.BACKFILL_WINDOW_COUNT)
+    init_window_state(user_id, total_windows=BACKFILL_WINDOW_COUNT)
 
     log_structured(
         logger,
@@ -498,8 +487,8 @@ def start_full_backfill(user_id: str) -> dict[str, Any]:
         trace_id=trace_id,
         user_id=user_id,
         total_types=len(ALL_DATA_TYPES),
-        total_windows=GarminBackfillService.BACKFILL_WINDOW_COUNT,
-        target_days=GarminBackfillService.MAX_BACKFILL_DAYS,
+        total_windows=BACKFILL_WINDOW_COUNT,
+        target_days=MAX_BACKFILL_DAYS,
     )
 
     # Reset all type statuses to pending
@@ -515,8 +504,8 @@ def start_full_backfill(user_id: str) -> dict[str, Any]:
         "user_id": user_id,
         "trace_id": trace_id,
         "total_types": len(ALL_DATA_TYPES),
-        "total_windows": GarminBackfillService.BACKFILL_WINDOW_COUNT,
-        "target_days": GarminBackfillService.MAX_BACKFILL_DAYS,
+        "total_windows": BACKFILL_WINDOW_COUNT,
+        "target_days": MAX_BACKFILL_DAYS,
         "first_type": first_type,
     }
 
@@ -633,7 +622,13 @@ def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
     try:
         user_uuid = UUID(user_id)
     except ValueError as e:
-        logger.error(f"Invalid user_id: {user_id}")
+        log_structured(
+            logger,
+            "error",
+            "Invalid user_id",
+            user_id=user_id,
+            error=str(e),
+        )
         return {"error": f"Invalid user_id: {e}"}
 
     trace_id = get_trace_id(user_id)
@@ -699,7 +694,7 @@ def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
                 # Garmin rejects requests for users connected less than max days ago
                 if e.status_code == 400 and "min start time" in str(e.detail):
                     # Retry with shorter range (14 days for Activity API, 31 for Health API)
-                    fallback_days = 14 if data_type in GarminBackfillService.ACTIVITY_API_TYPES else 31
+                    fallback_days = 14 if data_type in ACTIVITY_API_TYPES else 31
                     start_time_fallback = end_time - timedelta(days=fallback_days)
                     log_structured(
                         logger,
