@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     redis_password: SecretStr | None = None
     redis_username: str | None = None  # Redis 6.0+ ACL
 
+    # ADMIN ACCOUNT SEED
+    admin_email: str = "admin@admin.com"
+    admin_password: SecretStr = SecretStr("secret123")
+
     # Time to live for sleep state in Redis
     redis_sleep_ttl_seconds: int = 24 * 3600  # 24 hours
 
