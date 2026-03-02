@@ -892,6 +892,50 @@ def check_triggered_timeout(user_id: str, data_type: str) -> dict[str, Any]:
     }
 
 
+def _classify_chain_stop_error(status_code: int | None, error_text: str) -> tuple[str, str] | None:
+    """Return (error_msg, log_msg) if the error should stop the entire backfill chain.
+
+    Returns None if the error is transient and the chain should continue.
+    """
+    error_lower = error_text.lower()
+    is_before_min_start = status_code == 400 and "min start time" in error_lower
+
+    # "Endpoint not enabled" (400) is NOT a chain-stopper — it may only
+    # affect a single data type while the rest succeed normally.
+    if not (status_code in (401, 403, 412) or is_before_min_start):
+        return None
+
+    if status_code == 401:
+        return (
+            "Authorization expired or revoked. Please re-authorize Garmin.",
+            "401: token invalid, stopping backfill for all types",
+        )
+    if status_code == 412:
+        return (
+            "HISTORICAL_DATA_EXPORT permission not granted. User must re-authorize.",
+            "412: permission precondition failed, stopping backfill for all types",
+        )
+    if is_before_min_start:
+        return (
+            "Requested date range is before Garmin's minimum start time. No older data available.",
+            "400: before min start time, stopping backfill chain",
+        )
+    # 403 fallback
+    return (
+        "Historical data access not granted. User must re-authorize.",
+        "403: marking all remaining types as failed",
+    )
+
+
+def _finalize_chain_stop(user_id: str, current_window: int, error_msg: str) -> None:
+    """Mark all pending types as failed and finalize the backfill."""
+    pending = get_pending_types(user_id)
+    for pending_type in pending:
+        mark_type_failed(user_id, pending_type, error_msg)
+    persist_window_results(user_id, current_window)
+    complete_backfill(user_id)
+
+
 @shared_task
 def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
     """Trigger backfill for a specific data type.
@@ -1018,29 +1062,27 @@ def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
             # Check result
             if data_type in result.get("failed", {}):
                 error = result["failed"][data_type]
+                status_code = result.get("failed_status_codes", {}).get(data_type)
                 mark_type_failed(user_id, data_type, error)
 
-                # 400 "Endpoint not enabled" = app-level config issue in Garmin portal.
-                # All types will fail identically, so stop the chain immediately.
-                if "endpoint not enabled" in error.lower():
-                    error_msg = "Backfill endpoints not enabled for this app in Garmin developer portal."
+                chain_stop = _classify_chain_stop_error(status_code, error)
+                if chain_stop:
+                    error_msg, log_msg = chain_stop
                     log_structured(
                         logger,
                         "warning",
-                        "Endpoint not enabled: stopping backfill for all types",
+                        log_msg,
                         provider="garmin",
                         trace_id=trace_id,
                         type_trace_id=type_trace_id,
                         data_type=data_type,
                         user_id=user_id,
                     )
-                    pending = get_pending_types(user_id)
-                    for pending_type in pending:
-                        mark_type_failed(user_id, pending_type, error_msg)
+                    _finalize_chain_stop(user_id, current_window, error_msg)
                     return {"status": "failed", "error": error_msg}
 
                 # Determine delay based on error type
-                is_rate_limit = "429" in error or "rate limit" in error.lower()
+                is_rate_limit = status_code == 429 or "rate limit" in error.lower()
                 delay = DELAY_AFTER_RATE_LIMIT if is_rate_limit else DELAY_BETWEEN_TYPES
                 if is_rate_limit:
                     log_structured(
@@ -1057,6 +1099,29 @@ def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
                 # Still trigger next type even if this one failed (with delay)
                 trigger_next_pending_type.apply_async(args=[user_id], countdown=delay)
                 return {"status": "failed", "error": error}
+
+            # 409 duplicate — Garmin already processed this timeframe and won't
+            # send another webhook.  Skip immediately to the next type instead
+            # of waiting for the 5-min timeout.
+            if data_type in result.get("duplicate", []):
+                log_structured(
+                    logger,
+                    "info",
+                    "Skipping duplicate backfill, proceeding to next type",
+                    provider="garmin",
+                    trace_id=trace_id,
+                    type_trace_id=type_trace_id,
+                    data_type=data_type,
+                    user_id=user_id,
+                )
+                mark_type_success(user_id, data_type)
+                trigger_next_pending_type.apply_async(args=[user_id], countdown=DELAY_BETWEEN_TYPES)
+                return {
+                    "status": "duplicate_skipped",
+                    "data_type": data_type,
+                    "start_date": start_time.isoformat(),
+                    "end_date": end_time.isoformat(),
+                }
 
             # Schedule timeout check in case Garmin never sends a webhook
             check_triggered_timeout.apply_async(args=[user_id, data_type], countdown=TRIGGERED_TIMEOUT_SECONDS)
@@ -1084,17 +1149,9 @@ def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
             )
             mark_type_failed(user_id, data_type, error)
 
-            # 403 = user didn't grant HISTORICAL_DATA_EXPORT permission during OAuth
-            # 400 "Endpoint not enabled" = app-level config issue in Garmin portal
-            # Both cases affect all types identically, so don't chain to next type
-            is_endpoint_not_enabled = e.status_code == 400 and "endpoint not enabled" in error.lower()
-            if e.status_code == 403 or is_endpoint_not_enabled:
-                if is_endpoint_not_enabled:
-                    error_msg = "Backfill endpoints not enabled for this app in Garmin developer portal."
-                    log_msg = "Endpoint not enabled: stopping backfill for all types"
-                else:
-                    error_msg = "Historical data access not granted. User must re-authorize."
-                    log_msg = "403: marking all remaining types as failed"
+            chain_stop = _classify_chain_stop_error(e.status_code, error)
+            if chain_stop:
+                error_msg, log_msg = chain_stop
                 log_structured(
                     logger,
                     "warning",
@@ -1105,10 +1162,7 @@ def trigger_backfill_for_type(user_id: str, data_type: str) -> dict[str, Any]:
                     data_type=data_type,
                     user_id=user_id,
                 )
-                # Mark all remaining pending types as failed
-                pending = get_pending_types(user_id)
-                for pending_type in pending:
-                    mark_type_failed(user_id, pending_type, error_msg)
+                _finalize_chain_stop(user_id, current_window, error_msg)
                 return {"status": "failed", "error": error_msg}
 
             # Determine delay based on error type
