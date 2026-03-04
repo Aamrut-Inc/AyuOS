@@ -343,6 +343,8 @@ class BaseOAuthTemplate(ABC):
         provider_user_id = user_info.get("user_id")
         provider_username = user_info.get("username")
 
+        scope = user_info.get("scope")
+
         token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=token_response.expires_in)
 
         existing_connection = self.connection_repo.get_by_user_and_provider(
@@ -361,7 +363,7 @@ class BaseOAuthTemplate(ABC):
                 expires_in=token_response.expires_in,
                 provider_user_id=provider_user_id,
                 provider_username=provider_username,
-                scope=token_response.scope,
+                scope=scope,
             )
         else:
             connection_create = UserConnectionCreate(
@@ -372,6 +374,6 @@ class BaseOAuthTemplate(ABC):
                 access_token=token_response.access_token,
                 refresh_token=token_response.refresh_token,
                 token_expires_at=token_expires_at,
-                scope=token_response.scope,
+                scope=scope,
             )
             self.connection_repo.create(db, connection_create)
