@@ -19,6 +19,7 @@ from app.schemas import (
     TimeSeriesSampleCreate,
 )
 from app.schemas.apple.apple_xml.stats import XMLParseStats
+from app.schemas.apple.healthkit.sync_request import SourceInfo
 
 
 class XMLService:
@@ -101,6 +102,35 @@ class XMLService:
             )
             return None
 
+    def _extract_device_info(self, raw_source: str | None) -> SourceInfo:
+        """
+        Extract device information from source info.
+        Example device string: device="<<HKDevice: 0x66aaba640>,
+          name:Apple Watch, manufacturer:Apple Inc., model:Watch,
+          hardware:Watch6,12, software:26.2, creation date:2026-01-15 22:56:09 +0000>"
+        Mobile SDK extracts more info about device, but XML exposes
+          only the fields above.
+        """
+        if not raw_source:
+            return SourceInfo()
+
+        source_list = raw_source.strip("<>").split(", ")
+        raw_fields: dict[str, str] = {}
+        for part in source_list:
+            if ":" not in part:
+                continue
+            key, value = part.split(":", maxsplit=1)
+            raw_fields[key.strip()] = value.strip()
+
+        return SourceInfo(
+            name=raw_fields.get("name"),
+            device_id=raw_fields.get("device"),
+            device_model=raw_fields.get("model"),
+            device_manufacturer=raw_fields.get("manufacturer"),
+            device_hardware_version=raw_fields.get("hardware"),
+            device_software_version=raw_fields.get("software"),
+        )
+
     def _create_record(
         self,
         document: dict[str, Any],
@@ -137,12 +167,15 @@ class XMLService:
             self.stats.record_skip(f"missing_startDate:{metric_type}")
             return None
 
+        device_info = self._extract_device_info(document.get("device", ""))
+
         sample = TimeSeriesSampleCreate(
             id=uuid4(),
             external_id=None,
             user_id=user_id,
             source="apple_health_xml",
-            device_model=document.get("device", "")[:100] or None,
+            device_model=device_info.device_model,
+            software_version=device_info.device_software_version,
             recorded_at=document["startDate"],
             value=value,
             series_type=series_type,
@@ -169,13 +202,16 @@ class XMLService:
 
         workout_type = get_unified_apple_workout_type_xml(raw_type)
 
+        device_info = self._extract_device_info(document.get("device", ""))
+
         duration_seconds = int((document["endDate"] - document["startDate"]).total_seconds())
 
         record = EventRecordCreate(
             category="workout",
             type=workout_type.value,
             source_name=document["sourceName"],
-            device_model=document.get("device", "")[:100],
+            device_model=device_info.device_model,
+            software_version=device_info.device_software_version,
             duration_seconds=duration_seconds,
             start_datetime=document["startDate"],
             end_datetime=document["endDate"],

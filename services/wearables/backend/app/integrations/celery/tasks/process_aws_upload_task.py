@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.services import event_record_service
-from app.services.apple.apple_xml.aws_service import s3_client
+from app.services.apple.apple_xml.aws_service import get_s3_client
 from app.services.apple.apple_xml.xml_service import XMLService
 from app.services.timeseries_service import timeseries_service
 from app.services.user_service import user_service
+from app.utils.sentry_helpers import log_and_capture_error
 from app.utils.structured_logging import log_structured
 from celery import shared_task
 
@@ -27,6 +28,17 @@ def process_aws_upload(bucket_name: str, object_key: str, user_id: str | None = 
         bucket_name: S3 bucket name
         object_key: S3 object key (path)
     """
+
+    s3_client = get_s3_client()
+    if not s3_client:
+        err = RuntimeError("S3 client not configured — cannot process AWS upload")
+        log_and_capture_error(
+            err,
+            logger,
+            "S3 client unavailable in process_aws_upload task",
+            extra={"bucket_name": bucket_name, "object_key": object_key, "user_id": user_id},
+        )
+        raise err
 
     with SessionLocal() as db:
         temp_xml_file = None
