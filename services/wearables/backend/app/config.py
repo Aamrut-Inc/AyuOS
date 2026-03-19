@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     token_lifetime: int = 3600
 
+    # VALIDATION SETTINGS
+    min_password_length: int = 8
+
     # REDIS SETTINGS
     redis_host: str = "localhost"
     redis_port: int = 6379
