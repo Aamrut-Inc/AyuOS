@@ -7,6 +7,7 @@ from .aws import (
     MIN_FILE_SIZE,
     PresignedURLRequest,
     PresignedURLResponse,
+    SNSNotification,
 )
 from .stats import (
     XMLParseStats,
@@ -24,4 +25,5 @@ __all__ = [
     "DEFAULT_FILE_SIZE",
     # ParseStats
     "XMLParseStats",
+    "SNSNotification",
 ]

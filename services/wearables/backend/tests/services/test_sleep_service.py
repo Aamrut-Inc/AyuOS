@@ -642,7 +642,7 @@ class TestSDKSyncEndpointSleep:
                 json=OLD_WATCH_PAYLOAD,
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
         assert data["status_code"] == 202
         mock_task.delay.assert_called_once()
@@ -667,6 +667,6 @@ class TestSDKSyncEndpointSleep:
                 json=DETAILED_STAGES_PAYLOAD,
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
         assert data["status_code"] == 202
