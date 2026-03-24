@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     fitbit_client_secret: SecretStr | None = None
     fitbit_redirect_uri: str = "http://localhost:8000/api/v1/oauth/fitbit/callback"
     fitbit_default_scope: str = "activity heartrate sleep profile"
+
     # OURA OAUTH SETTINGS
     oura_client_id: str | None = None
     oura_client_secret: SecretStr | None = None
@@ -122,6 +123,12 @@ class Settings(BaseSettings):
     strava_webhook_verify_token: str = "open-wearables-strava-verify"
     # Strava API max is 200 activities per page
     strava_events_per_page: int = 200
+
+    # ULTRAHUMAN OAUTH SETTINGS
+    ultrahuman_client_id: str | None = None
+    ultrahuman_client_secret: SecretStr | None = None
+    ultrahuman_redirect_uri: str = "http://localhost:8000/api/v1/oauth/ultrahuman/callback"
+    ultrahuman_default_scope: str = "ring_data cgm_data profile"
 
     # EMAIL SETTINGS (Resend)
     resend_api_key: SecretStr | None = None
