@@ -1,6 +1,7 @@
 from datetime import datetime
+from decimal import Decimal
 from logging import Logger, getLogger
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.database import DbSession
 from app.models import (
@@ -19,6 +20,7 @@ from app.schemas.model_crud.activities import (
     EventRecordResponse,
     EventRecordUpdate,
 )
+from app.schemas.model_crud.activities.sleep import SleepStage
 from app.schemas.responses.activity import SleepSession, SleepStagesSummary, Workout, WorkoutDetailed
 from app.schemas.utils import (
     PaginatedResponse,
@@ -78,9 +80,203 @@ class EventRecordService(
         start_time: datetime,
         end_time: datetime,
         threshold_minutes: int,
+        source: str | None = None,
     ) -> EventRecord | None:
         """Find an existing sleep session adjacent to [start_time, end_time]."""
-        return self.crud.find_adjacent_sleep_record(db_session, user_id, start_time, end_time, threshold_minutes)
+        return self.crud.find_adjacent_sleep_record(
+            db_session, user_id, start_time, end_time, threshold_minutes, source=source
+        )
+
+    def create_or_merge_sleep(
+        self,
+        db_session: DbSession,
+        user_id: UUID,
+        record: EventRecordCreate,
+        detail: EventRecordDetailCreate,
+        threshold_minutes: int,
+    ) -> EventRecord:
+        """Create a sleep record, merging with any adjacent session within threshold_minutes.
+
+        When an adjacent session already exists in the database within the gap threshold,
+        the two records are merged: the time window expands to cover both, stage minutes
+        are summed (or recomputed from the merged stage timeline when windows overlap and
+        stages are available), and efficiency is recalculated as a time-in-bed-weighted
+        average over sessions that have a non-None score.  The merged record is created
+        first, and the old record is deleted only after a successful insert — so a failure
+        never loses the original data.
+        """
+        adjacent = self.find_adjacent_sleep_record(
+            db_session,
+            user_id,
+            record.start_datetime,
+            record.end_datetime,
+            threshold_minutes,
+            source=record.source,
+        )
+
+        if adjacent is not None:
+            adj_detail: SleepDetails | None = adjacent.detail if isinstance(adjacent.detail, SleepDetails) else None
+
+            def _adj_int(attr: str) -> int:
+                return (getattr(adj_detail, attr) or 0) if adj_detail else 0
+
+            adj_in_bed = _adj_int("sleep_time_in_bed_minutes")
+            new_in_bed = detail.sleep_time_in_bed_minutes or 0
+            merged_in_bed = adj_in_bed + new_in_bed
+
+            # Weighted efficiency: only include sessions that have a non-None score
+            # so a missing score on one session does not dilute the merged average.
+            merged_efficiency: Decimal | None = None
+            eff_numerator = 0.0
+            eff_denominator = 0
+            if adj_detail and adj_detail.sleep_efficiency_score and adj_in_bed > 0:
+                eff_numerator += float(adj_detail.sleep_efficiency_score) * adj_in_bed
+                eff_denominator += adj_in_bed
+            if detail.sleep_efficiency_score and new_in_bed > 0:
+                eff_numerator += float(detail.sleep_efficiency_score) * new_in_bed
+                eff_denominator += new_in_bed
+            if eff_denominator > 0:
+                merged_efficiency = Decimal(str(round(eff_numerator / eff_denominator, 2)))
+
+            # Merge sleep_stages: convert DB dicts back to SleepStage, concatenate, sort
+            adj_stages_raw = (adj_detail.sleep_stages if adj_detail else None) or []
+            adj_stages = [SleepStage.model_validate(s) for s in adj_stages_raw]
+            new_stages = list(detail.sleep_stages or [])
+            merged_stages: list[SleepStage] | None = None
+            if adj_stages or new_stages:
+                merged_stages = sorted(adj_stages + new_stages, key=lambda s: s.start_time)
+
+            merged_start = min(adjacent.start_datetime, record.start_datetime)
+            merged_end = max(adjacent.end_datetime, record.end_datetime)
+
+            # Compute per-stage minute totals.  When the windows actually overlap
+            # and stage intervals are available, recompute from the merged timeline
+            # (clipping overlaps — consistent with Apple SDK's _calculate_final_metrics)
+            # to avoid double-counting the overlapping period.  For non-overlapping
+            # sessions simple summation is exact.
+            overlap_seconds = max(
+                0,
+                (
+                    min(adjacent.end_datetime, record.end_datetime)
+                    - max(adjacent.start_datetime, record.start_datetime)
+                ).total_seconds(),
+            )
+            if overlap_seconds > 0 and merged_stages:
+                deep_secs = light_secs = rem_secs = awake_secs = sleeping_secs = 0.0
+                last_end = None
+                for s in merged_stages:  # already sorted above
+                    s_start, s_end = s.start_time, s.end_time
+                    if last_end is not None and s_start < last_end:
+                        s_start = last_end
+                    if s_start >= s_end:
+                        continue
+                    dur = (s_end - s_start).total_seconds()
+                    stage_str = str(s.stage)
+                    if stage_str == "deep":
+                        deep_secs += dur
+                    elif stage_str == "light":
+                        light_secs += dur
+                    elif stage_str == "rem":
+                        rem_secs += dur
+                    elif stage_str == "awake":
+                        awake_secs += dur
+                    elif stage_str == "sleeping":
+                        sleeping_secs += dur
+                    last_end = s_end
+                merged_deep = int(deep_secs / 60)
+                merged_light = int(light_secs / 60)
+                merged_rem = int(rem_secs / 60)
+                merged_awake = int(awake_secs / 60)
+                merged_total = merged_deep + merged_light + merged_rem + int(sleeping_secs / 60)
+            else:
+                merged_deep = _adj_int("sleep_deep_minutes") + (detail.sleep_deep_minutes or 0)
+                merged_light = _adj_int("sleep_light_minutes") + (detail.sleep_light_minutes or 0)
+                merged_rem = _adj_int("sleep_rem_minutes") + (detail.sleep_rem_minutes or 0)
+                merged_awake = _adj_int("sleep_awake_minutes") + (detail.sleep_awake_minutes or 0)
+                merged_total = _adj_int("sleep_total_duration_minutes") + (detail.sleep_total_duration_minutes or 0)
+
+            self.logger.info(
+                "Merging adjacent sleep records: %s (%s – %s) + %s (%s – %s)",
+                adjacent.id,
+                adjacent.start_datetime,
+                adjacent.end_datetime,
+                record.id,
+                record.start_datetime,
+                record.end_datetime,
+            )
+
+            merged_detail_fields = {
+                "sleep_deep_minutes": merged_deep,
+                "sleep_light_minutes": merged_light,
+                "sleep_rem_minutes": merged_rem,
+                "sleep_awake_minutes": merged_awake,
+                "sleep_total_duration_minutes": merged_total,
+                "sleep_time_in_bed_minutes": merged_in_bed,
+                "sleep_efficiency_score": merged_efficiency,
+                "is_nap": bool(adj_detail.is_nap if adj_detail else False) and bool(detail.is_nap or False),
+                "sleep_stages": merged_stages,
+            }
+
+            # When the merged window is identical to the existing record's window
+            # (new session fully contained within adjacent), inserting a new record
+            # would violate the unique constraint on (data_source_id, start, end).
+            # Detect this upfront and update the detail in-place instead.
+            same_window = (
+                merged_start == adjacent.start_datetime
+                and merged_end == adjacent.end_datetime
+                and record.data_source_id is not None
+                and record.data_source_id == adjacent.data_source_id
+            )
+
+            if same_window:
+                self.event_record_detail_repo.delete_by_record_id(db_session, adjacent.id)
+                self.event_record_detail_repo.create_and_flush(
+                    db_session,
+                    detail.model_copy(update={"record_id": adjacent.id, **merged_detail_fields}),
+                    detail_type="sleep",
+                )
+                db_session.commit()
+                return adjacent
+
+            record = record.model_copy(
+                update={
+                    "id": uuid4(),
+                    "start_datetime": merged_start,
+                    "end_datetime": merged_end,
+                    "duration_seconds": int((merged_end - merged_start).total_seconds()),
+                }
+            )
+            created_record = self.crud.create_and_flush(db_session, record)
+
+            if created_record.id == adjacent.id:
+                # data_source_id was None (resolved at insert time) and the
+                # constraint returned the existing row — treat as same_window.
+                self.event_record_detail_repo.delete_by_record_id(db_session, adjacent.id)
+                self.event_record_detail_repo.create_and_flush(
+                    db_session,
+                    detail.model_copy(update={"record_id": adjacent.id, **merged_detail_fields}),
+                    detail_type="sleep",
+                )
+                db_session.commit()
+                return adjacent
+
+            self.event_record_detail_repo.create_and_flush(
+                db_session,
+                detail.model_copy(update={"record_id": created_record.id, **merged_detail_fields}),
+                detail_type="sleep",
+            )
+            self.crud.delete_flush(db_session, adjacent)
+            db_session.commit()
+            return created_record
+
+        created_record = self.crud.create_and_flush(db_session, record)
+        self.event_record_detail_repo.create_and_flush(
+            db_session,
+            detail.model_copy(update={"record_id": created_record.id}),
+            detail_type="sleep",
+        )
+        db_session.commit()
+        return created_record
 
     def bulk_create(
         self,
