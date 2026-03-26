@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from app.constants.sleep import SleepStageType
 from app.database import DbSession
 from app.models import DataPointSeries, EventRecord
 from app.repositories import DataSourceRepository, EventRecordRepository, UserConnectionRepository
@@ -14,6 +15,7 @@ from app.schemas.enums import SeriesType
 from app.schemas.model_crud.activities import (
     EventRecordCreate,
     EventRecordDetailCreate,
+    SleepStage,
     TimeSeriesSampleCreate,
 )
 from app.services.event_record_service import event_record_service
@@ -148,6 +150,36 @@ class Garmin247Data(Base247DataTemplate):
         """Fetch sleep data from Garmin /wellness-api/rest/sleeps."""
         return self._fetch_in_chunks(db, user_id, "/wellness-api/rest/sleeps", start_time, end_time)
 
+    def _extract_sleep_stages_from_map(self, sleep_map: dict) -> list[SleepStage]:
+        """Extract sleep stage intervals from Garmin sleepLevelsMap."""
+        stages: list[SleepStage] = []
+        for stage_key, intervals in sleep_map.items():
+            try:
+                stage_type = SleepStageType(stage_key)
+            except ValueError:
+                continue
+            for iv in intervals:
+                try:
+                    stages.append(
+                        SleepStage(
+                            stage=stage_type,
+                            start_time=datetime.fromtimestamp(iv["startTimeInSeconds"], tz=timezone.utc),
+                            end_time=datetime.fromtimestamp(iv["endTimeInSeconds"], tz=timezone.utc),
+                        )
+                    )
+                except (KeyError, TypeError, ValueError):
+                    log_structured(
+                        self.logger,
+                        "warning",
+                        "Invalid sleep stage interval data",
+                        interval_data=iv,
+                        provider="garmin",
+                        task="extract_sleep_stages_from_map",
+                    )
+                    continue
+
+        return sorted(stages, key=lambda s: s.start_time)
+
     def normalize_sleep(
         self,
         raw_sleep: dict[str, Any],
@@ -167,6 +199,10 @@ class Garmin247Data(Base247DataTemplate):
         light_seconds = raw_sleep.get("lightSleepDurationInSeconds") or 0
         rem_seconds = raw_sleep.get("remSleepInSeconds") or 0
         awake_seconds = raw_sleep.get("awakeDurationInSeconds") or 0
+
+        sleep_stages: list[SleepStage] | None = None
+        if sleep_map := raw_sleep.get("sleepLevelsMap"):
+            sleep_stages = self._extract_sleep_stages_from_map(sleep_map)
 
         # Extract sleep score if available
         sleep_score = None
@@ -188,6 +224,7 @@ class Garmin247Data(Base247DataTemplate):
                 "rem_seconds": rem_seconds,
                 "awake_seconds": awake_seconds,
             },
+            "stage_timestamps": sleep_stages,
             "avg_heart_rate_bpm": raw_sleep.get("averageHeartRate"),
             "min_heart_rate_bpm": raw_sleep.get("lowestHeartRate"),
             "avg_respiration": raw_sleep.get("respirationAvg"),
@@ -255,6 +292,7 @@ class Garmin247Data(Base247DataTemplate):
             if normalized_sleep.get("avg_heart_rate_bpm")
             else None,
             heart_rate_min=normalized_sleep.get("min_heart_rate_bpm"),
+            sleep_stages=normalized_sleep.get("stage_timestamps"),
         )
 
         return record, detail
