@@ -214,6 +214,37 @@ class TestGarmin247Data:
         assert [s.stage.value for s in stages] == ["light", "deep", "rem", "awake"]
         assert all(s.start_time.tzinfo == timezone.utc for s in stages)
 
+    def test_normalize_sleep_end_datetime_from_stages(self, garmin_247: Garmin247Data) -> None:
+        """end_datetime and duration include awake time when sleepLevelsMap is present."""
+        user_id = uuid4()
+        # start at 22:00, durationInSeconds covers only asleep time (2h)
+        start_ts = 1705273200  # 2024-01-14 22:00:00 UTC
+        asleep_duration = 7200  # 2 hours (deep + light + rem only)
+        awake_end_ts = start_ts + 7200 + 1800  # last awake stage ends 30 min after asleep
+
+        sleep_data: dict[str, Any] = {
+            "summaryId": "sleep_stages_test",
+            "startTimeInSeconds": start_ts,
+            "durationInSeconds": asleep_duration,
+            "deepSleepDurationInSeconds": 3600,
+            "lightSleepDurationInSeconds": 1800,
+            "remSleepInSeconds": 1800,
+            "awakeDurationInSeconds": 1800,
+            "sleepLevelsMap": {
+                "light": [{"startTimeInSeconds": start_ts, "endTimeInSeconds": start_ts + 1800}],
+                "deep": [{"startTimeInSeconds": start_ts + 1800, "endTimeInSeconds": start_ts + 5400}],
+                "rem": [{"startTimeInSeconds": start_ts + 5400, "endTimeInSeconds": start_ts + 7200}],
+                "awake": [{"startTimeInSeconds": start_ts + 7200, "endTimeInSeconds": awake_end_ts}],
+            },
+        }
+
+        normalized = garmin_247.normalize_sleep(sleep_data, user_id)
+
+        actual_end = datetime.fromisoformat(normalized["end_time"])
+        expected_end = datetime.fromtimestamp(awake_end_ts, tz=timezone.utc)
+        assert actual_end == expected_end
+        assert normalized["duration_seconds"] == 9000  # 7200 asleep + 1800 awake
+
     def test_normalize_sleep_missing_stages(self, garmin_247: Garmin247Data) -> None:
         """Test normalizing sleep with missing stage data."""
         user_id = uuid4()

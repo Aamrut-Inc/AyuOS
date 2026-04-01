@@ -204,6 +204,11 @@ class Garmin247Data(Base247DataTemplate):
         sleep_stages: list[SleepStage] | None = None
         if sleep_map := raw_sleep.get("sleepLevelsMap"):
             sleep_stages = self._extract_sleep_stages_from_map(sleep_map)
+            if sleep_stages:
+                last_stage_end = max(int(s.end_time.timestamp()) for s in sleep_stages)
+                end_ts = max(end_ts, last_stage_end)
+                duration = end_ts - start_ts
+                end_dt = self._from_epoch_seconds(end_ts)
 
         # Extract sleep score if available
         sleep_score = None
@@ -278,9 +283,10 @@ class Garmin247Data(Base247DataTemplate):
         )
 
         stages = normalized_sleep.get("stages", {})
+        asleep_seconds = stages.get("deep_seconds", 0) + stages.get("light_seconds", 0) + stages.get("rem_seconds", 0)
         detail = EventRecordDetailCreate(
             record_id=sleep_id,
-            sleep_total_duration_minutes=normalized_sleep.get("duration_seconds", 0) // 60,
+            sleep_total_duration_minutes=asleep_seconds // 60,
             sleep_efficiency_score=Decimal(str(normalized_sleep.get("sleep_score", 0)))
             if normalized_sleep.get("sleep_score")
             else None,
