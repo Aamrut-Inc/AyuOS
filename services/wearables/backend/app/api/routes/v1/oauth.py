@@ -35,7 +35,7 @@ def get_oauth_strategy(provider: ProviderName) -> BaseProviderStrategy:
     return strategy
 
 
-@router.get("/{provider}/authorize", response_model=AuthorizationURLResponse, tags=["External: Providers"])
+@router.get("/{provider}/authorize", response_model=AuthorizationURLResponse)
 def authorize_provider(
     provider: ProviderName,
     user_id: Annotated[UUID, Query(description="User ID to connect")],
@@ -53,7 +53,7 @@ def authorize_provider(
     return AuthorizationURLResponse(authorization_url=auth_url, state=state)
 
 
-@router.get("/{provider}/callback", tags=["System: OAuth"])
+@router.get("/{provider}/callback")
 def oauth_callback(
     provider: ProviderName,
     db: DbSession,
@@ -107,7 +107,7 @@ def oauth_callback(
     )
 
 
-@router.get("/success", tags=["System: OAuth"])
+@router.get("/success")
 def oauth_success(
     provider: Annotated[str, Query()],
     user_id: Annotated[str, Query()],
@@ -121,7 +121,7 @@ def oauth_success(
     }
 
 
-@router.get("/error", tags=["System: OAuth"])
+@router.get("/error")
 def oauth_error(
     message: Annotated[str, Query()] = "OAuth authentication failed",
 ) -> dict:
@@ -132,7 +132,7 @@ def oauth_error(
     }
 
 
-@router.get("/providers", response_model=list[ProviderSettingRead], tags=["External: Providers"])
+@router.get("/providers", response_model=list[ProviderSettingRead])
 def get_providers(
     db: DbSession,
     enabled_only: Annotated[bool, Query(description="Return only enabled providers")] = False,
@@ -152,7 +152,7 @@ def get_providers(
     return [p for p in all_providers if (not enabled_only or p.is_enabled) and (not cloud_only or p.has_cloud_api)]
 
 
-@router.put("/providers/{provider}", response_model=ProviderSettingRead, tags=["Internal: Providers"])
+@router.put("/providers/{provider}", response_model=ProviderSettingRead)
 def update_provider_status(
     provider: str,
     update: ProviderSettingUpdate,
@@ -168,7 +168,7 @@ def update_provider_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.put("/providers", response_model=list[ProviderSettingRead], tags=["Internal: Providers"])
+@router.put("/providers", response_model=list[ProviderSettingRead])
 def bulk_update_providers(
     updates: BulkProviderSettingsUpdate,
     db: DbSession,

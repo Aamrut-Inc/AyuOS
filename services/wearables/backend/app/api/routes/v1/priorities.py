@@ -28,7 +28,6 @@ priority_service = PriorityService(log=getLogger(__name__))
 @router.get(
     "/priorities/providers",
     summary="Get global provider priorities",
-    tags=["Internal: Priorities"],
 )
 def get_provider_priorities(
     db: DbSession,
@@ -40,7 +39,6 @@ def get_provider_priorities(
 @router.put(
     "/priorities/providers/{provider}",
     summary="Update provider priority",
-    tags=["Internal: Priorities"],
 )
 def update_provider_priority(
     db: DbSession,
@@ -54,7 +52,6 @@ def update_provider_priority(
 @router.put(
     "/priorities/providers",
     summary="Bulk update provider priorities",
-    tags=["Internal: Priorities"],
 )
 def bulk_update_provider_priorities(
     db: DbSession,
@@ -67,7 +64,6 @@ def bulk_update_provider_priorities(
 @router.get(
     "/users/{user_id}/data-sources",
     summary="Get user data sources",
-    tags=["External: Data Sources"],
 )
 def get_user_data_sources(
     db: DbSession,
@@ -80,7 +76,6 @@ def get_user_data_sources(
 @router.get(
     "/priorities/device-types",
     summary="Get device type priorities",
-    tags=["Internal: Priorities"],
 )
 def get_device_type_priorities(
     db: DbSession,
@@ -92,7 +87,6 @@ def get_device_type_priorities(
 @router.put(
     "/priorities/device-types/{device_type}",
     summary="Update device type priority",
-    tags=["Internal: Priorities"],
 )
 def update_device_type_priority(
     db: DbSession,
@@ -106,7 +100,6 @@ def update_device_type_priority(
 @router.put(
     "/priorities/device-types",
     summary="Bulk update device type priorities",
-    tags=["Internal: Priorities"],
 )
 def bulk_update_device_type_priorities(
     db: DbSession,
