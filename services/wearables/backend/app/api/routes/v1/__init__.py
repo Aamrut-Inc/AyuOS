@@ -7,16 +7,15 @@ from .auth import router as auth_router
 from .connections import router as connections_router
 from .dashboard import router as dashboard_router
 from .data_sources import router as data_sources_router
+from .deprecated_webhooks import router as deprecated_webhooks_router
 from .developers import router as developers_router
 from .events import router as events_router
-from .garmin_webhooks import router as garmin_webhooks_router
 from .health_scores import router as health_scores_router
 from .import_xml import router as import_xml_router
 from .invitations import router as invitations_router
 from .oauth import router as oauth_router
 from .oura_webhooks import router as oura_webhooks_router
 from .priorities import router as priorities_router
-from .providers_webhooks import router as providers_webhooks_router
 from .sdk_sync import router as sdk_sync_router
 from .sdk_token import router as sdk_token_router
 from .strava_webhooks import router as strava_webhooks_router
@@ -28,6 +27,7 @@ from .token import router as token_router
 from .user_invitation_code import router as user_invitation_code_router
 from .users import router as users_router
 from .vendor_workouts import router as vendor_workouts_router
+from .webhooks import router as providers_webhooks_router
 
 v1_router = APIRouter()
 
@@ -59,10 +59,12 @@ v1_router.include_router(archival_router, tags=["Internal: Data Lifecycle"])
 v1_router.include_router(priorities_router, tags=["Internal: Priorities"])
 
 # --- System: provider webhooks and debug ---
-v1_router.include_router(garmin_webhooks_router, prefix="/garmin/webhooks", tags=["System: Garmin Webhooks"])
 v1_router.include_router(oura_webhooks_router, prefix="/oura/webhooks", tags=["System: Oura Webhooks"])
 v1_router.include_router(strava_webhooks_router, prefix="/strava/webhooks", tags=["System: Strava Webhooks"])
-v1_router.include_router(providers_webhooks_router, prefix="/providers", tags=["System: Provider Webhooks"])
+v1_router.include_router(
+    providers_webhooks_router, prefix="/providers/{provider}/webhooks", tags=["System: Provider Webhooks"]
+)
+v1_router.include_router(deprecated_webhooks_router, tags=["System: Provider Webhooks (Deprecated)"], deprecated=True)
 v1_router.include_router(suunto_debug_router, prefix="/debug", tags=["System: Debug"])
 
 __all__ = ["v1_router"]
