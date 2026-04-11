@@ -30,7 +30,12 @@ from app.utils.pagination import encode_cursor
 
 
 class TimeSeriesService(
-    AppService[DataPointSeriesRepository, DataPointSeries, TimeSeriesSampleCreate, TimeSeriesSampleUpdate],
+    AppService[
+        DataPointSeriesRepository,
+        DataPointSeries,
+        TimeSeriesSampleCreate,
+        TimeSeriesSampleUpdate,
+    ],
 ):
     """Coordinated access to unified device time series samples."""
 
@@ -40,7 +45,7 @@ class TimeSeriesService(
     def bulk_create_samples(
         self,
         db_session: DbSession,
-        samples: list[TimeSeriesSampleCreate] | list[HeartRateSampleCreate] | list[StepSampleCreate],
+        samples: (list[TimeSeriesSampleCreate] | list[HeartRateSampleCreate] | list[StepSampleCreate]),
     ) -> None:
         self.crud.bulk_create(db_session, samples)  # type: ignore[arg-type]
 
