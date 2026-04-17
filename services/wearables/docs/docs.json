@@ -36,6 +36,14 @@
             ]
           },
           {
+            "group": "Health Scores",
+            "pages": [
+              "scores/health-scores",
+              "scores/sleep-score",
+              "scores/resilience-score"
+            ]
+          },
+          {
             "group": "Providers",
             "pages": [
               "providers/supported",
