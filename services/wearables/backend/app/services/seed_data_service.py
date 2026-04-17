@@ -1,4 +1,6 @@
-"""Service for generating parameterized seed data.
+# Re-export for backward compatibility.
+# Implementation lives in app.services.seed_data.
+from app.services.seed_data import seed_data_service
 
 Refactored from scripts/init/seed_activity_data.py to support
 dashboard-driven data generation with configurable profiles.
