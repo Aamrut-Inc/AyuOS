@@ -26,7 +26,9 @@ from svix.api import (
     ListResponseEndpointOut,
     ListResponseMessageAttemptOut,
     ListResponseMessageOut,
+    MessageAttemptListByEndpointOptions,
     MessageIn,
+    MessageListOptions,
     MessageOut,
     Svix,
     SvixOptions,
@@ -197,15 +199,24 @@ def create_endpoint(
     *,
     user_id: UUID | None = None,
 ) -> EndpointOut:
+    # Build via model_validate so that fields absent from the dict are NOT set
+    # in model_fields_set.  EndpointIn uses exclude_unset=True serialisation;
+    # passing channels=None explicitly would serialize as "channels":null and
+    # Svix would treat it as "no channel = receive only untagged messages",
+    # blocking all delivery (every message carries a user channel tag).
     assert _client is not None
+    endpoint_data: dict[str, object] = {
+        "url": url,
+        "description": description or "",
+    }
+    if filter_types is not None:
+        endpoint_data["filter_types"] = filter_types
+    channels = _user_channels(user_id)
+    if channels is not None:
+        endpoint_data["channels"] = channels
     return _client.endpoint.create(
         app_id,
-        EndpointIn(
-            url=url,
-            description=description or "",
-            filter_types=filter_types or None,
-            channels=_user_channels(user_id),
-        ),
+        EndpointIn.model_validate(endpoint_data),
     )
 
 
@@ -236,24 +247,26 @@ def patch_endpoint(
     user scope and receive events for all users again.
     """
     assert _client is not None
-    channels: list[str] | None
+    # Build via model_validate so only keys we actually want to update end up in
+    # model_fields_set (EndpointPatch uses exclude_unset=True serialisation).
+    # Rule: include a key → Svix UPDATES it (null = clear/remove the value).
+    #       Omit a key → Svix LEAVES it unchanged.
+    patch_data: dict[str, object] = {}
+    if url is not None:
+        patch_data["url"] = url
+    if description is not None:
+        patch_data["description"] = description
+    if filter_types is not None:
+        patch_data["filter_types"] = filter_types
     if user_id is not None:
-        channels = _user_channels(user_id)
+        patch_data["channels"] = _user_channels(user_id)
     elif clear_user_id:
-        # Empty list tells Svix to remove the channel filter from this endpoint.
-        channels = []
-    else:
-        # None = don't touch the channels field (PATCH semantics).
-        channels = None
+        # Svix requires null (not []) to remove the channel filter entirely.
+        patch_data["channels"] = None
     return _client.endpoint.patch(
         app_id,
         endpoint_id,
-        EndpointPatch(
-            url=url,
-            description=description,
-            filter_types=filter_types,
-            channels=channels,
-        ),
+        EndpointPatch.model_validate(patch_data),
     )
 
 
@@ -269,14 +282,32 @@ def get_endpoint_secret(app_id: str, endpoint_id: str) -> str:
     return result.key
 
 
-def list_messages(app_id: str) -> ListResponseMessageOut:
+def get_message(app_id: str, msg_id: str) -> MessageOut | None:
     assert _client is not None
-    return _client.message.list(app_id)
+    try:
+        return _client.message.get(app_id, msg_id)
+    except Exception:
+        logger.debug("Could not fetch message %s for app %s", msg_id, app_id)
+        return None
 
 
-def list_message_attempts(app_id: str, endpoint_id: str) -> ListResponseMessageAttemptOut:
+def list_messages(
+    app_id: str,
+    options: MessageListOptions | None = None,
+) -> ListResponseMessageOut:
     assert _client is not None
-    return _client.message_attempt.list_by_endpoint(app_id, endpoint_id)
+    return _client.message.list(app_id, options or MessageListOptions())
+
+
+def list_message_attempts(
+    app_id: str,
+    endpoint_id: str,
+    options: MessageAttemptListByEndpointOptions | None = None,
+) -> ListResponseMessageAttemptOut:
+    assert _client is not None
+    return _client.message_attempt.list_by_endpoint(
+        app_id, endpoint_id, options or MessageAttemptListByEndpointOptions()
+    )
 
 
 def send_test_message(app_id: str, endpoint_id: str, event_type: str) -> MessageOut | None:
