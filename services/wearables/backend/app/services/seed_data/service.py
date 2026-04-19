@@ -115,11 +115,7 @@ class SeedDataService:
             "health_scores": 0,
         }
 
-        enabled_types: set[SeriesType] | None = (
-            set(profile.time_series_config.enabled_types)
-            if profile.time_series_config.enabled_types is not None
-            else None
-        )
+        enabled_types: set[SeriesType] = set(profile.time_series_config.enabled_types)
 
         for user_num in range(1, request.num_users + 1):
             user = user_service.create(
@@ -166,11 +162,12 @@ class SeedDataService:
                     event_record_service.create_detail(db, detail)
                     summary["workouts"] += 1
 
-                    if profile.generate_time_series and record.type is not None:
+                    if profile.generate_time_series and record.type is not None and enabled_types:
                         samples = _generate_time_series_samples(
                             record.start_datetime,
                             record.end_datetime,
                             WorkoutType(record.type),
+                            enabled_types,
                             fake,
                             user_id=user.id,
                             source=record.source or "unknown",

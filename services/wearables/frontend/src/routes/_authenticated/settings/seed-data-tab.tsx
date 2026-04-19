@@ -141,6 +141,16 @@ const CONTINUOUS_SERIES_GROUPS: {
       { id: 'headphone_audio_exposure', label: 'Headphone audio' },
     ],
   },
+  {
+    label: 'During workouts only',
+    types: [
+      { id: 'running_power', label: 'Running power' },
+      { id: 'running_speed', label: 'Running speed' },
+      { id: 'cadence', label: 'Cadence' },
+      { id: 'power', label: 'Power' },
+      { id: 'swimming_stroke_count', label: 'Swim stroke count' },
+    ],
+  },
 ];
 
 const DEFAULT_STAGE_DISTRIBUTION: SleepStageDistribution = {
@@ -156,19 +166,124 @@ const STAGE_COLORS = {
   light: 'bg-zinc-600',
 } as const;
 
-// Common workout types displayed as checkboxes
-const COMMON_WORKOUT_TYPES = [
-  'running',
-  'cycling',
-  'swimming',
-  'strength_training',
-  'boxing',
-  'soccer',
-  'walking',
-  'hiking',
-  'yoga',
-  'rowing',
-] as const;
+// Workout types grouped for the seed form. Mirrors the categories in
+// backend/app/schemas/enums/workout_types.py (some niche types omitted).
+const WORKOUT_TYPE_GROUPS: { label: string; types: string[] }[] = [
+  {
+    label: 'Running & walking',
+    types: [
+      'running',
+      'trail_running',
+      'treadmill',
+      'walking',
+      'walking_fitness',
+      'hiking',
+      'trail_hiking',
+      'mountaineering',
+    ],
+  },
+  {
+    label: 'Cycling',
+    types: [
+      'cycling',
+      'indoor_cycling',
+      'mountain_biking',
+      'cyclocross',
+      'e_biking',
+    ],
+  },
+  {
+    label: 'Swimming & water',
+    types: [
+      'swimming',
+      'pool_swimming',
+      'open_water_swimming',
+      'rowing',
+      'kayaking',
+      'canoeing',
+      'paddling',
+      'stand_up_paddleboarding',
+      'surfing',
+    ],
+  },
+  {
+    label: 'Gym & fitness',
+    types: [
+      'strength_training',
+      'cardio_training',
+      'fitness_equipment',
+      'elliptical',
+      'rowing_machine',
+      'stair_climbing',
+    ],
+  },
+  {
+    label: 'Mind & body',
+    types: ['yoga', 'pilates', 'stretching', 'meditation'],
+  },
+  {
+    label: 'Winter',
+    types: [
+      'cross_country_skiing',
+      'alpine_skiing',
+      'backcountry_skiing',
+      'downhill_skiing',
+      'snowboarding',
+      'snowshoeing',
+      'ice_skating',
+    ],
+  },
+  {
+    label: 'Team sports',
+    types: [
+      'soccer',
+      'basketball',
+      'football',
+      'american_football',
+      'baseball',
+      'volleyball',
+      'handball',
+      'rugby',
+      'hockey',
+    ],
+  },
+  {
+    label: 'Racket sports',
+    types: [
+      'tennis',
+      'badminton',
+      'squash',
+      'table_tennis',
+      'padel',
+      'pickleball',
+    ],
+  },
+  {
+    label: 'Combat & climbing',
+    types: [
+      'boxing',
+      'martial_arts',
+      'wrestling',
+      'rock_climbing',
+      'indoor_climbing',
+      'bouldering',
+    ],
+  },
+  {
+    label: 'Multisport & other',
+    types: [
+      'triathlon',
+      'multisport',
+      'dance',
+      'aerobics',
+      'skating',
+      'inline_skating',
+      'skateboarding',
+      'horseback_riding',
+      'golf',
+    ],
+  },
+];
 
 const PROVIDERS = [
   { id: 'apple', label: 'Apple Health' },
@@ -590,28 +705,35 @@ export function SeedDataTab() {
               </div>
             </div>
 
-            <div>
-              <Label className="text-xs text-zinc-500 mb-2 block">
+            <div className="space-y-3">
+              <Label className="text-xs text-zinc-500 block">
                 Workout types{' '}
                 <span className="text-zinc-600">
                   (none selected = all types)
                 </span>
               </Label>
-              <div className="flex flex-wrap gap-2">
-                {COMMON_WORKOUT_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => toggleWorkoutType(type)}
-                    className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                      selectedWorkoutTypes?.includes(type)
-                        ? 'border-blue-500/50 bg-blue-500/15 text-blue-400'
-                        : 'border-zinc-700 text-zinc-400 hover:border-zinc-600'
-                    }`}
-                  >
-                    {type.replace(/_/g, ' ')}
-                  </button>
-                ))}
-              </div>
+              {WORKOUT_TYPE_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <div className="text-xs text-zinc-600 mb-1.5 uppercase tracking-wide">
+                    {group.label}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {group.types.map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => toggleWorkoutType(type)}
+                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                          selectedWorkoutTypes?.includes(type)
+                            ? 'border-blue-500/50 bg-blue-500/15 text-blue-400'
+                            : 'border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                        }`}
+                      >
+                        {type.replace(/_/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1014,7 +1136,6 @@ export function SeedDataTab() {
                 );
                 const enabled = profile.time_series_config.enabled_types;
                 const allEnabled =
-                  enabled !== null &&
                   allTypeIds.every((id) => enabled.includes(id)) &&
                   profile.time_series_config.include_blood_pressure;
                 return (
@@ -1048,8 +1169,7 @@ export function SeedDataTab() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {group.types.map((type) => {
-                      const enabled =
-                        profile.time_series_config.enabled_types ?? [];
+                      const enabled = profile.time_series_config.enabled_types;
                       const selected = enabled.includes(type.id);
                       return (
                         <button
