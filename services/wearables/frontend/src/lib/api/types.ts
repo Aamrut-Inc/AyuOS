@@ -209,6 +209,8 @@ export interface Provider {
   has_cloud_api: boolean;
   is_enabled: boolean;
   icon_url: string;
+  live_sync_mode: 'pull' | 'webhook' | null;
+  live_sync_configurable: boolean;
 }
 
 export type WearableProvider =
@@ -232,7 +234,11 @@ export interface UserConnection {
   created_at: string;
   updated_at: string;
   max_historical_days?: number | null;
-  supports_pull?: boolean;
+  rest_pull?: boolean;
+  webhook_stream?: boolean;
+  webhook_ping?: boolean;
+  webhook_callback?: boolean;
+  live_sync_mode?: 'pull' | 'webhook' | null;
 }
 
 // ============================================================================
