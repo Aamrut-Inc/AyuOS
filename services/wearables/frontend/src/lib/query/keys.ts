@@ -176,4 +176,14 @@ export const queryKeys = {
     attempts: (id: string) =>
       [...queryKeys.webhooks.detail(id), 'attempts'] as const,
   },
+
+  syncStatus: {
+    all: ['syncStatus'] as const,
+    recent: (userId: string, limit?: number) =>
+      [...queryKeys.syncStatus.all, 'recent', userId, limit] as const,
+    runs: (userId: string, limit?: number) =>
+      [...queryKeys.syncStatus.all, 'runs', userId, limit] as const,
+    allRuns: (filters?: Record<string, string | undefined>, limit?: number) =>
+      [...queryKeys.syncStatus.all, 'allRuns', filters ?? {}, limit] as const,
+  },
 } as const;
