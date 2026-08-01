@@ -83,11 +83,4 @@ async def datetime_parse_exception_handler(_: Request, exc: DatetimeParseError) 
     raise handle_exception(exc, "")
 
 
-api.include_router(head_router) 
-@api.get("/debug/whoop")
-def debug_whoop():
-    import os
-    secret = os.environ.get("WHOOP_CLIENT_SECRET", "")
-    return {"repr": repr(secret), "length": len(secret), "last_5": secret[-5:]}
-
-
+api.include_router(head_router)
