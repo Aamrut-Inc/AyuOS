@@ -1,4 +1,4 @@
-import type { ProviderConfig, TokenResponse } from "../types";
+import type { ProviderConfig, TokenResponse } from "../../types";
 import { guardedFetch } from "../security/network-guard";
 import { createPkcePair, randomUrlSafeString } from "./pkce";
 import { startLocalCallbackServer } from "./local-callback";
