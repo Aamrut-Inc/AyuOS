@@ -1,4 +1,5 @@
-import type { FhirResource, ProviderConfig, TokenResponse } from "../../types";
+import type { ProviderConfig, TokenResponse } from "../config";
+import type { FhirResource } from "../../../shared/types";
 import { guardedFetch } from "../security/network-guard";
 
 interface BundleLink {

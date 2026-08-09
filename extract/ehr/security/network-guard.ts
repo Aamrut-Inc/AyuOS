@@ -1,4 +1,4 @@
-import type { ProviderConfig } from "../../types";
+import type { ProviderConfig } from "../config";
 
 function hostnameFor(url: string): string {
   return new URL(url).hostname;
