@@ -437,7 +437,7 @@ class Whoop247Data(Base247DataTemplate):
         end_time: datetime | str | None = None,
         is_first_sync: bool = False,
     ) -> dict[str, int]:
-        """Load and save all 247 data types (sleep, recovery, activity).
+        """Load and save all 247 data types (sleep, recovery, cycle, activity).
 
         Args:
             db: Database session
@@ -460,6 +460,7 @@ class Whoop247Data(Base247DataTemplate):
         results = {
             "sleep_sessions_synced": 0,
             "recovery_samples_synced": 0,
+            "cycle_samples_synced": 0,
             "activity_samples_synced": 0,
             "body_measurement_samples_synced": 0,
         }
@@ -498,6 +499,19 @@ class Whoop247Data(Base247DataTemplate):
                 self.logger,
                 "error",
                 f"Failed to sync body measurement data: {e}",
+                provider="whoop",
+                task="load_and_save_all",
+                user_id=str(user_id),
+            )
+
+        try:
+            results["cycle_samples_synced"] = self.load_and_save_cycle(db, user_id, start_time, end_time)
+        except Exception as e:
+            db.rollback()
+            log_structured(
+                self.logger,
+                "error",
+                f"Failed to sync cycle data: {e}",
                 provider="whoop",
                 task="load_and_save_all",
                 user_id=str(user_id),
@@ -629,6 +643,35 @@ class Whoop247Data(Base247DataTemplate):
                     self.logger,
                     "warning",
                     f"Failed to build weight sample: {e}",
+                    provider="whoop",
+                    task="load_and_save_body_measurement",
+                    user_id=str(user_id),
+                )
+
+        # Save max_heart_rate if changed — previously fetched from the API
+        # but never persisted.
+        max_hr = body.get("max_heart_rate")
+        if max_hr is not None:
+            try:
+                max_hr_value = Decimal(str(max_hr))
+                latest_max_hr = self._get_latest_value(db, user_id, SeriesType.max_heart_rate)
+
+                if latest_max_hr is None or abs(latest_max_hr - max_hr_value) > Decimal("0.01"):
+                    samples_to_create.append(
+                        TimeSeriesSampleCreate(
+                            id=uuid4(),
+                            user_id=user_id,
+                            source=self.provider_name,
+                            recorded_at=recorded_at,
+                            value=max_hr_value,
+                            series_type=SeriesType.max_heart_rate,
+                        )
+                    )
+            except Exception as e:
+                log_structured(
+                    self.logger,
+                    "warning",
+                    f"Failed to build max_heart_rate sample: {e}",
                     provider="whoop",
                     task="load_and_save_body_measurement",
                     user_id=str(user_id),
@@ -937,6 +980,206 @@ class Whoop247Data(Base247DataTemplate):
         if health_scores:
             health_score_service.bulk_create(db, health_scores)
             db.commit()
+
+        return total_count
+
+    # -------------------------------------------------------------------------
+    # Cycle Data (average_heart_rate / max_heart_rate per physiological cycle)
+    #
+    # Whoop's API has no continuous/raw heart rate endpoint — this is the
+    # highest-resolution heart rate data available beyond per-workout and
+    # daily-resting values: one average/max pair per cycle (roughly daily).
+    # -------------------------------------------------------------------------
+
+    def get_cycle_data(
+        self,
+        db: DbSession,
+        user_id: UUID,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> list[dict[str, Any]]:
+        """Fetch cycle data from Whoop API via v2 endpoint with pagination.
+
+        Returns list of cycle records containing score.average_heart_rate
+        and score.max_heart_rate.
+        """
+        all_cycle_data = []
+        next_token = None
+        max_limit = 25  # Whoop API limit
+
+        start_iso = start_time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_iso = end_time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        while True:
+            params: dict[str, Any] = {
+                "start": start_iso,
+                "end": end_iso,
+                "limit": max_limit,
+            }
+
+            if next_token:
+                params["nextToken"] = next_token
+
+            try:
+                response = self._make_api_request(db, user_id, "/v2/cycle", params=params)
+                store_raw_payload(
+                    source="api_response",
+                    provider="whoop",
+                    payload=response,
+                    user_id=str(user_id),
+                    trace_id="/v2/cycle",
+                )
+
+                records = response.get("records", []) if isinstance(response, dict) else []
+                all_cycle_data.extend(records)
+
+                next_token = response.get("next_token") if isinstance(response, dict) else None
+
+                if not records or not next_token:
+                    break
+
+            except Exception as e:
+                log_structured(
+                    self.logger,
+                    "error",
+                    f"Error fetching Whoop cycle data: {e}",
+                    provider="whoop",
+                    task="get_cycle_data",
+                    user_id=str(user_id),
+                )
+                if all_cycle_data:
+                    log_structured(
+                        self.logger,
+                        "warning",
+                        f"Returning partial cycle data due to error: {e}",
+                        provider="whoop",
+                        task="get_cycle_data",
+                        user_id=str(user_id),
+                    )
+                    break
+                raise
+
+        return all_cycle_data
+
+    def normalize_cycle(
+        self,
+        raw_cycle: dict[str, Any],
+        user_id: UUID,
+    ) -> dict[str, Any]:
+        """Normalize Whoop cycle data to our schema.
+
+        Extracts from the score object:
+        - average_heart_rate (bpm)
+        - max_heart_rate (bpm)
+        """
+        start = raw_cycle.get("start")
+        score_state = raw_cycle.get("score_state")
+        score = raw_cycle.get("score", {}) or {}
+
+        if score_state != "SCORED":
+            return {}
+
+        timestamp = None
+        if start:
+            try:
+                timestamp = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                timestamp = datetime.now(timezone.utc)
+
+        if timestamp is None:
+            return {}
+
+        return {
+            "user_id": user_id,
+            "provider": self.provider_name,
+            "timestamp": timestamp,
+            "average_heart_rate": score.get("average_heart_rate"),
+            "max_heart_rate": score.get("max_heart_rate"),
+        }
+
+    def save_cycle_data(
+        self,
+        db: DbSession,
+        user_id: UUID,
+        normalized_cycle: dict[str, Any],
+    ) -> int:
+        """Save normalized cycle data to database as DataPointSeries.
+
+        Saves up to 2 metrics per cycle record: average_heart_rate, max_heart_rate.
+        Returns the number of samples saved.
+        """
+        if not normalized_cycle:
+            return 0
+
+        timestamp = normalized_cycle.get("timestamp")
+        if not timestamp:
+            return 0
+
+        metrics = [
+            ("average_heart_rate", SeriesType.average_heart_rate),
+            ("max_heart_rate", SeriesType.max_heart_rate),
+        ]
+
+        samples_to_create: list[TimeSeriesSampleCreate] = []
+        for field_name, series_type in metrics:
+            value = normalized_cycle.get(field_name)
+            if value is not None:
+                try:
+                    samples_to_create.append(
+                        TimeSeriesSampleCreate(
+                            id=uuid4(),
+                            user_id=user_id,
+                            source=self.provider_name,
+                            recorded_at=timestamp,
+                            value=Decimal(str(value)),
+                            series_type=series_type,
+                        )
+                    )
+                except Exception as e:
+                    log_structured(
+                        self.logger,
+                        "warning",
+                        f"Failed to build cycle sample {field_name}: {e}",
+                        provider="whoop",
+                        task="save_cycle_data",
+                        user_id=str(user_id),
+                    )
+
+        if samples_to_create:
+            timeseries_service.bulk_create_samples(db, samples_to_create)
+            db.commit()
+
+        return len(samples_to_create)
+
+    def load_and_save_cycle(
+        self,
+        db: DbSession,
+        user_id: UUID,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> int:
+        """Load cycle data from API and save to database.
+
+        Returns the total number of data point samples saved.
+        """
+        raw_data = self.get_cycle_data(db, user_id, start_time, end_time)
+        total_count = 0
+
+        for item in raw_data:
+            try:
+                normalized = self.normalize_cycle(item, user_id)
+                if normalized:  # Skip unscored records
+                    total_count += self.save_cycle_data(db, user_id, normalized)
+            except Exception as e:
+                db.rollback()
+                log_structured(
+                    self.logger,
+                    "warning",
+                    f"Failed to save cycle data: {e}",
+                    provider="whoop",
+                    task="load_and_save_cycle",
+                    user_id=str(user_id),
+                )
 
         return total_count
 
