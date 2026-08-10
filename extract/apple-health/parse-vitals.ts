@@ -79,13 +79,24 @@ export async function parseVitalsFromZip(
     const ts = extractEffectiveTime(obs.effectiveTime);
     if (!ts) continue;
 
+    let value = Number(rawValue);
+    let unit = obs.value?.["@_unit"] ?? null;
+
+    // Apple's CDA export encodes oxygen_saturation as a 0-1 fraction under a
+    // "%" unit (e.g. 0.96), while every other source in this table (Oura,
+    // Whoop) already uses the 0-100 scale. Normalize here so the same
+    // metric_type means the same thing regardless of source.
+    if (metricType === "oxygen_saturation" && unit === "%" && value <= 1) {
+      value = value * 100;
+    }
+
     const key = `${metricType}|${ts}`;
     readingsByKey.set(key, {
       userId,
       metricType,
       ts,
-      value: Number(rawValue),
-      unit: obs.value?.["@_unit"] ?? null,
+      value,
+      unit,
       sourceProvider: "apple_health",
       sourceDevice: null
     });

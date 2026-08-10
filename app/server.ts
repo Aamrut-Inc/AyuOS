@@ -130,24 +130,50 @@ Bun.serve({
 
     if (url.pathname === "/data/wearables") {
       const userId = await getOrCreateUserId(wearablesConfig);
+      const source = url.searchParams.get("source"); // null = all sources
       const sql = new SQL(loadPostgresConfig().connectionString);
       try {
-        const summary = await sql`
-          SELECT metric_type, count(*)::int AS count
+        const bySource = await sql`
+          SELECT source_provider, count(*)::int AS count
           FROM timeseries.readings
           WHERE user_id = ${userId}
-          GROUP BY metric_type
+          GROUP BY source_provider
           ORDER BY count DESC
         `;
-        const rows = await sql`
-          SELECT metric_type, ts, value, unit, source_provider
-          FROM timeseries.readings
-          WHERE user_id = ${userId}
-          ORDER BY ts DESC
-          LIMIT 100
-        `;
+        const summary = source
+          ? await sql`
+              SELECT metric_type, count(*)::int AS count
+              FROM timeseries.readings
+              WHERE user_id = ${userId} AND source_provider = ${source}
+              GROUP BY metric_type
+              ORDER BY count DESC
+            `
+          : await sql`
+              SELECT metric_type, count(*)::int AS count
+              FROM timeseries.readings
+              WHERE user_id = ${userId}
+              GROUP BY metric_type
+              ORDER BY count DESC
+            `;
+        const rows = source
+          ? await sql`
+              SELECT metric_type, ts, value, unit, source_provider
+              FROM timeseries.readings
+              WHERE user_id = ${userId} AND source_provider = ${source}
+              ORDER BY ts DESC
+              LIMIT 100
+            `
+          : await sql`
+              SELECT metric_type, ts, value, unit, source_provider
+              FROM timeseries.readings
+              WHERE user_id = ${userId}
+              ORDER BY ts DESC
+              LIMIT 100
+            `;
         const syncing = url.searchParams.get("syncing") === "1";
-        return html(wearablesDataPage(rows as any, summary as any, syncing));
+        return html(
+          wearablesDataPage(rows as any, summary as any, bySource as any, source, syncing)
+        );
       } finally {
         await sql.close();
       }

@@ -104,6 +104,8 @@ interface WearableRow {
 export function wearablesDataPage(
   rows: WearableRow[],
   summary: Array<{ metric_type: string; count: number }>,
+  bySource: Array<{ source_provider: string; count: number }>,
+  activeSource: string | null,
   syncing = false
 ): string {
   const summaryRows = summary
@@ -121,14 +123,32 @@ export function wearablesDataPage(
     ? `<p class="meta">Sync running in the background — <a href="/data/wearables">refresh</a> in a bit to see more rows arrive.</p>`
     : "";
 
+  const totalCount = bySource.reduce((sum, s) => sum + s.count, 0);
+  const filterLink = (label: string, source: string | null, count: number) => {
+    const isActive = activeSource === source;
+    const href = source ? `/data/wearables?source=${source}` : "/data/wearables";
+    return isActive
+      ? `<strong>${label} (${count})</strong>`
+      : `<a href="${href}">${label} (${count})</a>`;
+  };
+
+  const filterBar = `
+    <p class="meta">
+      Filter by source:
+      ${filterLink("All", null, totalCount)}
+      ${bySource.map((s) => ` · ${filterLink(s.source_provider, s.source_provider, s.count)}`).join("")}
+    </p>
+  `;
+
   const body = `
     <h1>timeseries.readings</h1>
     <p><a href="/">← back</a></p>
     ${syncingBanner}
     ${liveTimestamp()}
-    <h2>Row counts by metric type</h2>
+    ${filterBar}
+    <h2>Row counts by metric type${activeSource ? ` (${activeSource} only)` : ""}</h2>
     <table><tr><th>metric_type</th><th>count</th></tr>${summaryRows}</table>
-    <h2>Most recent 100 readings</h2>
+    <h2>Most recent 100 readings${activeSource ? ` (${activeSource} only)` : ""}</h2>
     <table><tr><th>timestamp</th><th>metric_type</th><th>value</th><th>unit</th><th>source</th></tr>${dataRows}</table>
   `;
   return layout("AyuOS — wearable data", body);
