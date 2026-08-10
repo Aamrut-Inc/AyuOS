@@ -24,6 +24,8 @@ class SeriesType(str, Enum):
     heart_rate_recovery_one_minute = "heart_rate_recovery_one_minute"
     walking_heart_rate_average = "walking_heart_rate_average"
     heart_rate_variability_rmssd = "heart_rate_variability_rmssd"
+    max_heart_rate = "max_heart_rate"
+    average_heart_rate = "average_heart_rate"
 
     # =========================================================================
     # BIOMETRICS - Blood & Respiratory (IDs 20-39)
@@ -178,6 +180,8 @@ SERIES_TYPE_DEFINITIONS: list[tuple[int, SeriesType, str]] = [
     (4, SeriesType.heart_rate_recovery_one_minute, "bpm"),
     (5, SeriesType.walking_heart_rate_average, "bpm"),
     (7, SeriesType.heart_rate_variability_rmssd, "ms"),
+    (8, SeriesType.max_heart_rate, "bpm"),
+    (9, SeriesType.average_heart_rate, "bpm"),
     # -------------------------------------------------------------------------
     # BIOMETRICS - Blood & Respiratory (IDs 20-39)
     # -------------------------------------------------------------------------
