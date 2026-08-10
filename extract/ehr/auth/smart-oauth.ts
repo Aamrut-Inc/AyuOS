@@ -105,13 +105,23 @@ async function exchangeCodeForToken(params: {
   return response.json() as Promise<TokenResponse>;
 }
 
-export async function runSmartOAuth(config: ProviderConfig): Promise<TokenResponse> {
+export interface PendingAuthorization {
+  authorizeUrl: string;
+  waitForToken: () => Promise<TokenResponse>;
+  cancel: () => void;
+}
+
+export async function beginSmartOAuth(
+  config: ProviderConfig,
+  successRedirectUrl?: string
+): Promise<PendingAuthorization> {
   const endpoints = await resolveEndpoints(config);
   const { codeVerifier, codeChallenge } = await createPkcePair();
   const state = randomUrlSafeString(32);
   const callbackServer = await startLocalCallbackServer(
     config.redirectUri,
-    state
+    state,
+    successRedirectUrl
   );
 
   const authorizeUrl = buildAuthorizeUrl({
@@ -121,18 +131,38 @@ export async function runSmartOAuth(config: ProviderConfig): Promise<TokenRespon
     codeChallenge
   });
 
-  console.log("Open this URL in your browser to authorize the import:");
-  console.log(authorizeUrl);
+  let settled = false;
 
-  try {
-    const callback = await callbackServer.result;
-    return await exchangeCodeForToken({
-      tokenUrl: endpoints.tokenUrl,
-      code: callback.code,
-      codeVerifier,
-      config
-    });
-  } finally {
-    callbackServer.stop();
-  }
+  return {
+    authorizeUrl,
+    waitForToken: async () => {
+      try {
+        const callback = await callbackServer.result;
+        settled = true;
+        return await exchangeCodeForToken({
+          tokenUrl: endpoints.tokenUrl,
+          code: callback.code,
+          codeVerifier,
+          config
+        });
+      } finally {
+        callbackServer.stop();
+      }
+    },
+    cancel: () => {
+      if (!settled) {
+        settled = true;
+        callbackServer.stop();
+      }
+    }
+  };
+}
+
+export async function runSmartOAuth(config: ProviderConfig): Promise<TokenResponse> {
+  const pending = await beginSmartOAuth(config);
+
+  console.log("Open this URL in your browser to authorize the import:");
+  console.log(pending.authorizeUrl);
+
+  return pending.waitForToken();
 }

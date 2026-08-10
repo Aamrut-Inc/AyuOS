@@ -5,7 +5,8 @@ export interface CallbackResult {
 
 export function startLocalCallbackServer(
   redirectUri: string,
-  expectedState: string
+  expectedState: string,
+  successRedirectUrl?: string
 ): Promise<{
   result: Promise<CallbackResult>;
   stop: () => void;
@@ -58,9 +59,11 @@ export function startLocalCallbackServer(
       }
 
       resolveResult({ code, state });
-      return new Response(
-        "Authorization complete. You can close this tab and return to the terminal."
-      );
+      return successRedirectUrl
+        ? Response.redirect(successRedirectUrl, 302)
+        : new Response(
+            "Authorization complete. You can close this tab and return to the terminal."
+          );
     }
   });
 

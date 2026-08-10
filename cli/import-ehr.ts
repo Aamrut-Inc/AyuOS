@@ -1,18 +1,8 @@
 import { loadProviderConfig } from "../extract/ehr/config";
 import { runSmartOAuth } from "../extract/ehr/auth/smart-oauth";
-import { fetchResourceType } from "../extract/ehr/fhir/client";
+import { importEhr, requirePatientId } from "../extract/ehr/sync";
 import { loadPostgresConfig } from "../load/config";
 import { RawFhirStore } from "../load/raw-store";
-
-function requirePatientId(patientId: string | undefined): string {
-  if (!patientId) {
-    throw new Error(
-      "OAuth token response did not include a patient id. " +
-        "Check that the requested scopes include launch/patient."
-    );
-  }
-  return patientId;
-}
 
 async function main(): Promise<void> {
   const providerConfig = loadProviderConfig();
@@ -22,19 +12,9 @@ async function main(): Promise<void> {
   const patientId = requirePatientId(token.patient);
 
   try {
-    for (const resourceType of providerConfig.resourceTypes) {
-      const resources = await fetchResourceType({
-        config: providerConfig,
-        token,
-        resourceType,
-        patientId
-      });
-
-      for (const resource of resources) {
-        await store.upsertResource(resource, patientId, providerConfig.name);
-      }
-
-      console.log(`${resourceType}: ${resources.length} resource(s) stored`);
+    const countsByType = await importEhr(providerConfig, token, patientId, store);
+    for (const [type, count] of Object.entries(countsByType)) {
+      console.log(`${type}: ${count} resource(s) stored`);
     }
   } finally {
     await store.close();

@@ -5,10 +5,16 @@
   "type": "module",
   "scripts": {
     "migrate": "bun run load/migrate.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "dev:app": "bun run app/server.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/unzipper": "^0.10.11",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.10.1",
+    "unzipper": "^0.12.5"
   }
 }
