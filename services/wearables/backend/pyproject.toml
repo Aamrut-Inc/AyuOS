@@ -1,0 +1,107 @@
+[project]
+name = "open-wearables"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.13"
+dependencies = [
+    "cryptography>=48.0.0",
+    "pydantic-settings>=2.14.1",
+    "email-validator>=2.2.0",
+    "psycopg>=3.3.4",
+    "sqlalchemy>=2.0.49",
+    "fastapi>=0.136.1",
+    "fastapi-cli>=0.0.24",
+    "celery>=5.6.3",
+    "flower>=2.0.1",
+    "redis>=7.4.0",
+    "sentry-sdk[fastapi]>=2.59.0",
+    "python-multipart>=0.0.28",
+    "python-jose[cryptography]>=3.5.0",
+    "httpx>=0.28.1",
+    "alembic>=1.18.4",
+    "boto3>=1.43.6",
+    "requests>=2.34.0",
+    "bcrypt>=5.0.0",
+    "isodate>=0.7.2",
+    "resend>=2.30.0",
+    "pyyaml>=6.0.3",
+    "svix>=1.93.0",
+    "numpy>=2.4.4",
+    "faker>=40.15.0",
+]
+
+[dependency-groups]
+code-quality = [
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.12",
+    "ty>=0.0.35",
+]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=7.1.0",
+    "freezegun>=1.5.0",
+    "factory-boy>=3.3.0",
+    "psycopg-binary>=3.3.4",
+    "testcontainers[postgres,redis]>=4.14.2",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = 'py313'
+exclude = ["README.md", ".python-version", "LICENSE", "app/models/"]
+
+[tool.ruff.lint]
+select = [
+    "I",     # isort
+    "F",     # pyflakes
+    "FAST",  # FastApi
+    "ANN",   # flake8-annotations
+    "ASYNC", # flake8-async
+    "COM",   # flake8-commas
+    "T10",   # flake8-debugger
+    "PT",    # flake8-pytest-style
+    "RET",   # flake8-return
+    "SIM",   # flake8-simplify
+    "N",     # pep8-naming
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+]
+ignore = [
+    "ANN002", # missing-type-args
+    "ANN003", # missing-type-kwargs
+    "ANN204", # missing-return-type-special-method
+    "ANN401", # any-type
+    "RET503", # implicit-return
+    "COM812", # trailing-comma (conflicts with ruff format)
+]
+[tool.ruff.lint.per-file-ignores]
+"app/api/routes/v*/*.py" = ["ANN201"] # missing-type-annotation
+"app/schemas/providers/garmin/*.py" = ["N815"]  # mixedCase from external API
+"app/schemas/providers/suunto/*.py" = ["N815"]  # mixedCase from external API
+
+[tool.ruff.lint.isort]
+known-third-party = ["celery"]
+
+[tool.ty.src]
+exclude = ["migrations/", "app/models/", "tests/", "README.md", ".python-version", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+addopts = "-v --tb=short"
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "app"
