@@ -6,3 +6,5 @@ node_modules/
 .DS_Store
 
 services/wearables/backend/.local/
+
+.ensure-stack-up.launchd.log
