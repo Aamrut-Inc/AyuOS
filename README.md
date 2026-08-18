@@ -2,7 +2,8 @@
 
 ## Getting started
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/), then:
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and
+[Bun](https://bun.sh) (`curl -fsSL https://bun.sh/install | bash`), then:
 
 ```
 git clone https://github.com/Aamrut-Inc/AyuOS.git
@@ -13,16 +14,21 @@ cd AyuOS
 That brings up Postgres for AyuOS itself, plus the whole `services/wearables`
 backend (its own Postgres, Redis, Celery workers, and the Svix webhook
 service) locally — no external deployment required — wires the auto-seeded
-local API key into `.env` automatically, and starts the AyuOS app at
-`http://127.0.0.1:3000`.
+local API key into `.env` automatically, starts the AyuOS app at
+`http://127.0.0.1:3000`, and (on macOS) sets things up so Docker and the
+stack come back on their own after a reboot.
 
-Click "Connect" next to Oura or Whoop on the login page to go through real
-OAuth consent — this requires real Oura/Whoop OAuth client credentials in
-`services/wearables/backend/config/.env` (`OURA_CLIENT_ID`/`OURA_CLIENT_SECRET`,
-`WHOOP_CLIENT_ID`/`WHOOP_CLIENT_SECRET`), and the redirect URI
-`http://localhost:8000/api/v1/oauth/{provider}/callback` must be added to the
-allowed redirect list in Oura's and Whoop's developer app settings, or
-consent will fail with a redirect-mismatch error.
+**Real credentials are not in this repo, on purpose — they're real secrets.**
+Ask a teammate for:
+- `OURA_CLIENT_ID`/`OURA_CLIENT_SECRET`, `WHOOP_CLIENT_ID`/`WHOOP_CLIENT_SECRET`
+  → put in `services/wearables/backend/config/.env`
+- `FHIR_CLIENT_ID` (Epic sandbox — lower stakes, no paired secret, no real
+  patient data; you can also just register your own free sandbox app at
+  https://fhir.epic.com) → put in `.env`
+
+The redirect URI `http://localhost:8000/api/v1/oauth/{provider}/callback`
+already needs to be, and already is, allow-listed on Oura's and Whoop's side
+— that's shared across everyone running locally, nothing to redo per-person.
 
 ### Manual steps (what `start.command` does, for reference)
 
