@@ -309,9 +309,6 @@ def sync_vendor_data(
                             )
                             provider_result.params["data_247"] = {"success": False, "error": str(e)}
 
-                    if not is_historical:
-                        user_connection_repo.update_last_synced_at(db, connection)
-
                     result.providers_synced[provider_name] = provider_result
                     log_structured(
                         logger,
@@ -333,6 +330,15 @@ def sync_vendor_data(
                         final_status = SyncStatus.PARTIAL
                     else:
                         final_status = SyncStatus.SUCCESS
+
+                    # Only advance the resume cursor on a fully clean sync. Sub-fetches
+                    # above swallow their own exceptions (never re-raise), so a partial
+                    # or total failure must not move last_synced_at forward — otherwise
+                    # the failed window is silently skipped forever on the next run.
+                    # Re-fetching an overlapping range on retry is safe: provider saves
+                    # are keyed upserts.
+                    if not is_historical and final_status == SyncStatus.SUCCESS:
+                        user_connection_repo.update_last_synced_at(db, connection)
 
                     if final_status == SyncStatus.FAILED:
                         _emit_sync_status(

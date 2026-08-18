@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ayuos.wearables-up</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/gurcharansingh/Desktop/hospitaldata/AyuOS/scripts/ensure-stack-up.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/gurcharansingh/Desktop/hospitaldata/AyuOS/.ensure-stack-up.launchd.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/gurcharansingh/Desktop/hospitaldata/AyuOS/.ensure-stack-up.launchd.log</string>
+</dict>
+</plist>

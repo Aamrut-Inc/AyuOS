@@ -43,6 +43,15 @@ class WhoopOAuth(BaseOAuthTemplate):
     use_pkce: bool = False  # Whoop doesn't require PKCE
     auth_method: AuthenticationMethod = AuthenticationMethod.BODY  # Based on Whoop API docs, credentials in body
 
+    def _prepare_refresh_request(self, refresh_token: str) -> tuple[dict, dict]:
+        """Whoop's refresh_token grant requires an explicit scope parameter
+        (unlike the base template's default), or it rejects the request as
+        malformed. See https://developer.whoop.com/docs/tutorials/refresh-token-javascript/
+        """
+        token_data, headers = super()._prepare_refresh_request(refresh_token)
+        token_data["scope"] = "offline"
+        return token_data, headers
+
     def _get_provider_user_info(self, token_response: OAuthTokenResponse, user_id: str) -> dict[str, str | None]:
         """Fetches Whoop user ID via API."""
         try:

@@ -1,6 +1,6 @@
 import { SQL } from "bun";
 import type { FhirResource } from "../shared/types";
-import { loadPostgresConfig } from "../load/config";
+import { loadPostgresConfig, type PostgresConfig } from "../load/config";
 import { transformPatient } from "./patient";
 import { transformObservation } from "./observation";
 import { transformImmunization } from "./immunization";
@@ -25,8 +25,11 @@ const mappers: Record<string, Mapper> = {
   Procedure: transformProcedure
 };
 
-async function main(): Promise<void> {
-  const sql = new SQL(loadPostgresConfig().connectionString);
+export async function runTransform(
+  postgresConfig: PostgresConfig
+): Promise<Record<string, number>> {
+  const sql = new SQL(postgresConfig.connectionString);
+  const countsByType: Record<string, number> = {};
 
   try {
     for (const [resourceType, mapper] of Object.entries(mappers)) {
@@ -44,14 +47,25 @@ async function main(): Promise<void> {
         count += 1;
       }
 
-      console.log(`${resourceType}: ${count} resource(s) processed`);
+      countsByType[resourceType] = count;
     }
   } finally {
     await sql.close();
   }
+
+  return countsByType;
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+async function main(): Promise<void> {
+  const countsByType = await runTransform(loadPostgresConfig());
+  for (const [resourceType, count] of Object.entries(countsByType)) {
+    console.log(`${resourceType}: ${count} resource(s) processed`);
+  }
+}
+
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

@@ -76,8 +76,8 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
     <h1>Welcome to AyuOS</h1>
     <p class="meta">Please login:</p>
 
-    ${sourceRow("Oura", `<a class="button" href="/simulate/oura">Connect</a>`, isConnected("oura"))}
-    ${sourceRow("Whoop", `<a class="button" href="/simulate/whoop">Connect</a>`, isConnected("whoop"))}
+    ${sourceRow("Oura", `<a class="button" href="/connect/oura">Connect</a>`, isConnected("oura"))}
+    ${sourceRow("Whoop", `<a class="button" href="/connect/whoop">Connect</a>`, isConnected("whoop"))}
     ${sourceRow("EHR (Epic)", `<a class="button" href="/connect/ehr">Connect</a>`, ehrConnected)}
 
     <div class="source-row" style="flex-direction: column; align-items: stretch;">

@@ -1,8 +1,9 @@
 import { loadAppleHealthConfig } from "../extract/apple-health/config";
 import { findClinicalDocuments } from "../extract/apple-health/parse-export";
 import { convertCcdaToFhir } from "../extract/apple-health/ccda-converter";
-import { loadPostgresConfig } from "../load/config";
+import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
 import { RawFhirStore } from "../load/raw-store";
+import { runTransform } from "../transform/run";
 import type { FhirResource } from "../shared/types";
 
 function bareId(reference: string | undefined): string | null {
@@ -20,8 +21,11 @@ function patientIdFor(resource: FhirResource): string | null {
 }
 
 async function main(): Promise<void> {
+  const postgresConfig = loadPostgresConfig();
+  await assertPostgresReachable(postgresConfig);
+
   const config = loadAppleHealthConfig();
-  const store = new RawFhirStore(loadPostgresConfig());
+  const store = new RawFhirStore(postgresConfig);
 
   const documents = await findClinicalDocuments(config.exportPath);
   console.log(`Found ${documents.length} clinical document(s) in export`);
@@ -42,6 +46,11 @@ async function main(): Promise<void> {
     }
   } finally {
     await store.close();
+  }
+
+  const transformCounts = await runTransform(postgresConfig);
+  for (const [resourceType, count] of Object.entries(transformCounts)) {
+    console.log(`${resourceType}: ${count} resource(s) transformed`);
   }
 
   console.log(`Import complete. ${stored} resource(s) stored.`);

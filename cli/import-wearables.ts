@@ -1,7 +1,10 @@
 import { loadWearablesConfig, requireUserId } from "../extract/wearables/config";
 import { syncWearables } from "../extract/wearables/sync";
+import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
 
 async function main(): Promise<void> {
+  await assertPostgresReachable(loadPostgresConfig());
+
   const config = loadWearablesConfig();
   const userId = requireUserId(config);
 

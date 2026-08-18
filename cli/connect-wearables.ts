@@ -6,6 +6,7 @@ import {
   type WearableProvider
 } from "../extract/wearables/oauth";
 import { syncWearables } from "../extract/wearables/sync";
+import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
 
 const REDIRECT_URI = "http://127.0.0.1:8766/connected";
 
@@ -19,6 +20,8 @@ function parseProvider(): WearableProvider {
 
 async function main(): Promise<void> {
   const provider = parseProvider();
+  await assertPostgresReachable(loadPostgresConfig());
+
   const config = loadWearablesConfig();
 
   const userId = await getOrCreateUserId(config);

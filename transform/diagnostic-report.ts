@@ -16,6 +16,7 @@ interface DiagnosticReportResource extends FhirResource {
   presentedForm?: Array<{ contentType?: string; url?: string; title?: string }>;
 }
 
+
 export async function transformDiagnosticReport(
   sql: SQL,
   fhirResourceId: number,

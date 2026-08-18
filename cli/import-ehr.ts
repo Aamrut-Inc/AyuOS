@@ -1,12 +1,16 @@
 import { loadProviderConfig } from "../extract/ehr/config";
 import { runSmartOAuth } from "../extract/ehr/auth/smart-oauth";
 import { importEhr, requirePatientId } from "../extract/ehr/sync";
-import { loadPostgresConfig } from "../load/config";
+import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
 import { RawFhirStore } from "../load/raw-store";
+import { runTransform } from "../transform/run";
 
 async function main(): Promise<void> {
+  const postgresConfig = loadPostgresConfig();
+  await assertPostgresReachable(postgresConfig);
+
   const providerConfig = loadProviderConfig();
-  const store = new RawFhirStore(loadPostgresConfig());
+  const store = new RawFhirStore(postgresConfig);
 
   const token = await runSmartOAuth(providerConfig);
   const patientId = requirePatientId(token.patient);
@@ -18,6 +22,11 @@ async function main(): Promise<void> {
     }
   } finally {
     await store.close();
+  }
+
+  const transformCounts = await runTransform(postgresConfig);
+  for (const [resourceType, count] of Object.entries(transformCounts)) {
+    console.log(`${resourceType}: ${count} resource(s) transformed`);
   }
 
   console.log("Import complete.");

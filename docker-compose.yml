@@ -1,0 +1,142 @@
+services:
+  ayuos-db:
+    image: postgres:16
+    container_name: ayuos-db
+    environment:
+      POSTGRES_DB: ayuos
+      POSTGRES_USER: ayuos
+      POSTGRES_PASSWORD: ayuos
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ayuos -d ayuos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ayuos_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  wearables-db:
+    image: postgres:18
+    container_name: wearables-db
+    environment:
+      POSTGRES_DB: open-wearables
+      POSTGRES_USER: open-wearables
+      POSTGRES_PASSWORD: open-wearables
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U open-wearables -d open-wearables"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - wearables_db_data:/var/lib/postgresql
+    restart: unless-stopped
+
+  redis:
+    image: redis:8
+    container_name: wearables-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - wearables_redis_data:/var/lib/redis/data
+    restart: unless-stopped
+
+  wearables-app:
+    build:
+      context: ./services/wearables/backend
+      dockerfile: Dockerfile
+    container_name: wearables-app
+    image: ayuos-wearables:latest
+    pull_policy: never
+    command: scripts/start/app.sh
+    env_file:
+      - ./services/wearables/backend/config/.env
+    environment:
+      - DB_HOST=wearables-db
+      - REDIS_HOST=redis
+    volumes:
+      - ./services/wearables/backend/.local:/root_project/.local
+    ports:
+      - "8000:8000"
+    depends_on:
+      wearables-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  wearables-celery-worker:
+    container_name: wearables-celery-worker
+    image: ayuos-wearables:latest
+    pull_policy: never
+    command: scripts/start/worker.sh
+    env_file:
+      - ./services/wearables/backend/config/.env
+    environment:
+      - DB_HOST=wearables-db
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      - wearables-db
+      - wearables-app
+    restart: unless-stopped
+
+  wearables-celery-beat:
+    container_name: wearables-celery-beat
+    image: ayuos-wearables:latest
+    pull_policy: never
+    command: scripts/start/beat.sh
+    env_file:
+      - ./services/wearables/backend/config/.env
+    environment:
+      - DB_HOST=wearables-db
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      - wearables-db
+      - wearables-app
+    restart: unless-stopped
+
+  svix-server:
+    container_name: wearables-svix-server
+    image: svix/svix-server:v1
+    entrypoint:
+      - sh
+      - -c
+      - |
+        : "$${SVIX_JWT_SECRET:=$$SECRET_KEY}"
+        export SVIX_JWT_SECRET
+        exec svix-server "$$@"
+      - --
+    command: ["--run-migrations"]
+    env_file:
+      - ./services/wearables/backend/config/.env
+    environment:
+      SVIX_DB_DSN: "postgresql://open-wearables:open-wearables@wearables-db:5432/svix"
+      SVIX_QUEUE_TYPE: "redis"
+      SVIX_REDIS_DSN: "redis://redis:6379/1"
+      SVIX_CACHE_TYPE: "redis"
+    ports:
+      - "8071:8071"
+    depends_on:
+      wearables-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      wearables-app:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "svix-server", "healthcheck", "http://localhost:8071"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  ayuos_db_data:
+  wearables_db_data:
+  wearables_redis_data:

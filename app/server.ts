@@ -1,25 +1,51 @@
 import { SQL } from "bun";
 import { loadWearablesConfig } from "../extract/wearables/config";
 import { getOrCreateUserId } from "../extract/wearables/provision";
-import { getConnections, type WearableProvider } from "../extract/wearables/oauth";
+import { getConnections, getAuthorizationUrl, type WearableProvider } from "../extract/wearables/oauth";
 import { syncWearables } from "../extract/wearables/sync";
 import { parseVitalsFromZip } from "../extract/apple-health/parse-vitals";
 import { TimeseriesStore } from "../load/timeseries";
 import { loadProviderConfig } from "../extract/ehr/config";
 import { beginSmartOAuth, type PendingAuthorization } from "../extract/ehr/auth/smart-oauth";
 import { importEhr, requirePatientId } from "../extract/ehr/sync";
-import { loadPostgresConfig } from "../load/config";
+import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
 import { RawFhirStore } from "../load/raw-store";
+import { runTransform } from "../transform/run";
 import { loginPage, wearablesDataPage, ehrDataPage } from "./pages";
 
 const PORT = 3000;
 const wearablesConfig = loadWearablesConfig();
+
+try {
+  await assertPostgresReachable(loadPostgresConfig());
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+}
 
 // Only one EHR OAuth attempt can hold the local callback port (8765) at a
 // time. If a previous /connect/ehr click never completed (user navigated
 // away, refreshed, clicked twice), cancel it before starting a new one —
 // otherwise the next attempt fails with EADDRINUSE.
 let pendingEhrAuth: PendingAuthorization | null = null;
+
+// timeseries.readings only gets refreshed when /connect/wearables/callback
+// fires (i.e. right after a fresh OAuth connect) — nothing keeps it current
+// after that. Re-run the sync on an interval so it doesn't silently go stale
+// between connects, independent of whether anyone reconnects a provider.
+const WEARABLES_RESYNC_INTERVAL_MS = 15 * 60 * 1000;
+
+async function resyncWearables(): Promise<void> {
+  if (!wearablesConfig.userId) return;
+  try {
+    await syncWearables(wearablesConfig, wearablesConfig.userId);
+  } catch (error) {
+    console.error("Periodic wearables resync failed:", error instanceof Error ? error.message : error);
+  }
+}
+
+resyncWearables();
+setInterval(resyncWearables, WEARABLES_RESYNC_INTERVAL_MS);
 
 function html(body: string): Response {
   return new Response(body, { headers: { "content-type": "text/html" } });
@@ -60,6 +86,31 @@ Bun.serve({
       return Response.redirect(`http://127.0.0.1:${PORT}/data/wearables?syncing=1`, 302);
     }
 
+    const connectMatch = url.pathname.match(/^\/connect\/(oura|whoop)$/);
+    if (connectMatch) {
+      const provider = connectMatch[1] as WearableProvider;
+      const userId = await getOrCreateUserId(wearablesConfig);
+      const authorizeUrl = await getAuthorizationUrl(
+        wearablesConfig,
+        provider,
+        userId,
+        `http://127.0.0.1:${PORT}/connect/wearables/callback`
+      );
+      return Response.redirect(authorizeUrl, 302);
+    }
+
+    if (url.pathname === "/connect/wearables/callback") {
+      // The wearables service just finished OAuth and bounced the browser back
+      // here. Pull the newly-synced data into AyuOS's own timeseries.readings —
+      // without this, the connection succeeds server-side but never shows up
+      // in our own UI, which reads from our local copy, not the wearables DB.
+      const userId = await getOrCreateUserId(wearablesConfig);
+      syncWearables(wearablesConfig, userId).catch((error) => {
+        console.error("Background wearables sync failed:", error instanceof Error ? error.message : error);
+      });
+      return Response.redirect(`http://127.0.0.1:${PORT}/data/wearables?syncing=1`, 302);
+    }
+
     if (url.pathname === "/connect/ehr") {
       if (pendingEhrAuth) {
         pendingEhrAuth.cancel();
@@ -77,12 +128,17 @@ Bun.serve({
         .waitForToken()
         .then(async (token) => {
           const patientId = requirePatientId(token.patient);
-          const store = new RawFhirStore(loadPostgresConfig());
+          const postgresConfig = loadPostgresConfig();
+          const store = new RawFhirStore(postgresConfig);
           try {
             await importEhr(providerConfig, token, patientId, store);
           } finally {
             await store.close();
           }
+          // Keep clinical.patient/observation/etc. in sync with the raw data
+          // we just stored — without this, new data silently doesn't show up
+          // in the structured tables until someone remembers to run it by hand.
+          await runTransform(postgresConfig);
         })
         .catch((error) => {
           console.error("Background EHR import failed:", error instanceof Error ? error.message : error);

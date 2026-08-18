@@ -21,6 +21,10 @@ uv run python scripts/init_device_priorities.py
 echo 'Seeding admin account...'
 uv run python scripts/init/seed_admin.py
 
+# Seed a local dev API key for AyuOS to use (written to .local/dev-api-key)
+echo 'Seeding local dev API key...'
+uv run python scripts/init/seed_dev_api_key.py
+
 # Initialize series type definitions
 echo 'Initializing series type definitions...'
 uv run python scripts/init/seed_series_types.py
