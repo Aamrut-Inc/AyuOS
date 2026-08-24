@@ -153,6 +153,26 @@ function liveTimestamp(): string {
   return `<p class="meta">Queried live at ${new Date().toISOString()}</p>`;
 }
 
+function viewCompleteDatabaseBlock(): string {
+  return `
+    <details style="margin-top: 20px;">
+      <summary style="cursor: pointer; color: #555; font-size: 13px;">View complete database</summary>
+      <p class="meta">
+        This page only shows the most recent 100 rows. To browse everything, connect any
+        Postgres client (e.g. <a href="https://eggerapps.at/postico2/" target="_blank">Postico</a>)
+        with these details:
+      </p>
+      <table>
+        <tr><th>Host</th><td>localhost</td></tr>
+        <tr><th>Port</th><td>5433</td></tr>
+        <tr><th>Database</th><td>ayuos</td></tr>
+        <tr><th>User</th><td>ayuos</td></tr>
+        <tr><th>Password</th><td>ayuos</td></tr>
+      </table>
+    </details>
+  `;
+}
+
 interface WearableRow {
   metric_type: string;
   ts: string;
@@ -210,6 +230,7 @@ export function wearablesDataPage(
     <table><tr><th>metric_type</th><th>count</th></tr>${summaryRows}</table>
     <h2>Most recent 100 readings${activeSource ? ` (${activeSource} only)` : ""}</h2>
     <table><tr><th>timestamp</th><th>metric_type</th><th>value</th><th>unit</th><th>source</th></tr>${dataRows}</table>
+    ${viewCompleteDatabaseBlock()}
   `;
   return layout("AyuOS — wearable data", body);
 }
@@ -251,6 +272,7 @@ export function ehrDataPage(
     <table><tr><th>resource_type</th><th>count</th></tr>${summaryRows}</table>
     <h2>Most recent 100 resources</h2>
     <table><tr><th>fetched_at</th><th>resource_type</th><th>resource_id</th><th>patient_id</th><th>source</th></tr>${dataRows}</table>
+    ${viewCompleteDatabaseBlock()}
   `;
   return layout("AyuOS — EHR data", body);
 }
