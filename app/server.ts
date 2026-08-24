@@ -63,16 +63,31 @@ Bun.serve({
 
       const sql = new SQL(loadPostgresConfig().connectionString);
       let ehrConnected = false;
+      let ehrLastFetched: string | null = null;
+      let ehrResourceCount = 0;
+      const lastReadingByProvider = new Map<string, string>();
       try {
-        const [row] = await sql`
-          SELECT EXISTS(SELECT 1 FROM clinical.fhir_resources WHERE is_current) AS connected
+        const [ehrRow] = await sql`
+          SELECT count(*) AS n, max(fetched_at) AS latest
+          FROM clinical.fhir_resources WHERE is_current
         `;
-        ehrConnected = Boolean(row?.connected);
+        ehrResourceCount = Number(ehrRow?.n ?? 0);
+        ehrConnected = ehrResourceCount > 0;
+        ehrLastFetched = ehrRow?.latest ?? null;
+
+        const readingRows = await sql`
+          SELECT source_provider, max(ts) AS latest
+          FROM timeseries.readings WHERE user_id = ${userId}
+          GROUP BY source_provider
+        `;
+        for (const row of readingRows) {
+          lastReadingByProvider.set(row.source_provider, row.latest);
+        }
       } finally {
         await sql.close();
       }
 
-      return html(loginPage(connections, ehrConnected));
+      return html(loginPage(connections, ehrConnected, { ehrLastFetched, ehrResourceCount, lastReadingByProvider }));
     }
 
     const simulateMatch = url.pathname.match(/^\/simulate\/(oura|whoop)$/);

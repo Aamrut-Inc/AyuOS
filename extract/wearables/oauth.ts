@@ -36,6 +36,9 @@ export async function getAuthorizationUrl(
 export interface WearableConnection {
   provider: string;
   status: string;
+  created_at?: string;
+  last_synced_at?: string | null;
+  provider_user_id?: string | null;
 }
 
 export async function getConnections(

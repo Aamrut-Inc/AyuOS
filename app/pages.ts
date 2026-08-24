@@ -63,27 +63,87 @@ function layout(title: string, body: string, script = ""): string {
 </html>`;
 }
 
-export function loginPage(connections: WearableConnection[], ehrConnected: boolean): string {
-  const byProvider = new Map(connections.map((c) => [c.provider, c.status]));
-  const isConnected = (provider: string) => byProvider.get(provider) === "active";
+interface LoginPageMeta {
+  ehrLastFetched: string | null;
+  ehrResourceCount: number;
+  lastReadingByProvider: Map<string, string>;
+}
 
-  function sourceRow(label: string, action: string, connectedFlag: boolean): string {
-    const badge = connectedFlag ? `<span class="connected">✓ Connected</span>` : "";
-    return `<div class="source-row"><strong>${label}</strong><span>${badge}${action}</span></div>`;
+function formatWhen(iso: string | null | undefined): string {
+  if (!iso) return "never";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+export function loginPage(connections: WearableConnection[], ehrConnected: boolean, meta: LoginPageMeta): string {
+  const byProvider = new Map(connections.map((c) => [c.provider, c]));
+  const isConnected = (provider: string) => byProvider.get(provider)?.status === "active";
+
+  function sourceRow(
+    label: string,
+    connectHref: string,
+    connectedFlag: boolean,
+    lastReading: string | null,
+    connectedSince: string | undefined,
+    viewDataHref: string
+  ): string {
+    if (!connectedFlag) {
+      return `<div class="source-row"><strong>${label}</strong><span><a class="button" href="${connectHref}">Connect</a></span></div>`;
+    }
+    return `
+      <div class="source-row" style="flex-direction: column; align-items: stretch;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>${label}</strong>
+          <span><span class="connected">✓ Connected</span> <a class="button" href="${connectHref}">Reconnect</a></span>
+        </div>
+        <p class="meta" style="margin: 6px 0 0;">
+          Last reading: ${formatWhen(lastReading)}
+          ${connectedSince ? ` · Connected since ${new Date(connectedSince).toLocaleDateString()}` : ""}
+          · <a href="${viewDataHref}">View data</a>
+        </p>
+      </div>
+    `;
   }
 
   const body = `
     <h1>Welcome to AyuOS</h1>
     <p class="meta">Please login:</p>
 
-    ${sourceRow("Oura", `<a class="button" href="/connect/oura">Connect</a>`, isConnected("oura"))}
-    ${sourceRow("Whoop", `<a class="button" href="/connect/whoop">Connect</a>`, isConnected("whoop"))}
-    ${sourceRow("EHR (Epic)", `<a class="button" href="/connect/ehr">Connect</a>`, ehrConnected)}
+    ${sourceRow(
+      "Oura",
+      "/connect/oura",
+      isConnected("oura"),
+      meta.lastReadingByProvider.get("oura") ?? null,
+      byProvider.get("oura")?.created_at,
+      "/data/wearables?source=oura"
+    )}
+    ${sourceRow(
+      "Whoop",
+      "/connect/whoop",
+      isConnected("whoop"),
+      meta.lastReadingByProvider.get("whoop") ?? null,
+      byProvider.get("whoop")?.created_at,
+      "/data/wearables?source=whoop"
+    )}
+    ${sourceRow(
+      "EHR (Epic)",
+      "/connect/ehr",
+      ehrConnected,
+      meta.ehrLastFetched,
+      undefined,
+      "/data/ehr"
+    )}
 
     <div class="source-row" style="flex-direction: column; align-items: stretch;">
       <strong style="margin-bottom: 10px;">Apple Health</strong>
       <div class="dropzone" id="apple-health-dropzone">Drag and drop your export.zip here, or click to choose a file</div>
       <input type="file" id="apple-health-file-input" accept=".zip" style="display:none;">
+      ${meta.lastReadingByProvider.get("apple_health") ? `<p class="meta" style="margin: 6px 0 0;">Last reading: ${formatWhen(meta.lastReadingByProvider.get("apple_health"))} · <a href="/data/wearables?source=apple_health">View data</a></p>` : ""}
     </div>
   `;
   return layout("AyuOS — Login", body, DROPZONE_SCRIPT);
