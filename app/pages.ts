@@ -190,6 +190,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
 
   const body = `
     <h1>Welcome to AyuOS</h1>
+    <p><a class="button" href="/record">View my health record</a></p>
     ${syncStatusSection(meta.jobs, meta.syncing)}
     <p class="meta">Connect your data sources:</p>
 

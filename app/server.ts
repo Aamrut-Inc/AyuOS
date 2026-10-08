@@ -16,6 +16,7 @@ import { AttachmentStore } from "../load/attachment-store";
 import { runTransform } from "../transform/run";
 import { loginPage, wearablesDataPage, ehrDataPage } from "./pages";
 import { Scheduler } from "./scheduler";
+import { recordPage } from "./record";
 import { importLabPdf, reparseLabPdf } from "./lab-import";
 import { warmPdfReader } from "../extract/lab-pdf/pdf-text";
 import { LAB_DROPZONE_SCRIPT, labReviewPage, labsPage, labUploadCard } from "./lab-pages";
@@ -286,6 +287,32 @@ Bun.serve({
           JSON.stringify({ error: error instanceof Error ? error.message : "Upload failed" }),
           { status: 500, headers: { "content-type": "application/json" } }
         );
+      }
+    }
+
+    if (url.pathname === "/record") {
+      return html(await recordPage(loadPostgresConfig(), wearablesConfig.userId));
+    }
+
+    const attachmentMatch = url.pathname.match(/^\/attachments\/(\d+)$/);
+    if (attachmentMatch) {
+      const sql = new SQL(loadPostgresConfig().connectionString);
+      try {
+        const [row] = await sql`
+          SELECT file_path, content_type FROM clinical.fhir_attachments
+          WHERE id = ${Number(attachmentMatch[1])} AND file_path IS NOT NULL
+        `;
+        if (!row) return new Response("Not found", { status: 404 });
+        return new Response(Bun.file(row.file_path), {
+          headers: {
+            "content-type": row.content_type ?? "application/octet-stream",
+            // Clinical notes are HTML from an outside system: show, never run.
+            "content-security-policy": "sandbox",
+            "x-content-type-options": "nosniff"
+          }
+        });
+      } finally {
+        await sql.close();
       }
     }
 
