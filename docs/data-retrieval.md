@@ -88,7 +88,7 @@ fetched_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 - **`clinical.procedure`**: `status`, `patient_id`, `category_code/system/display`, `performed_datetime`, `report_diagnostic_report_ids TEXT[]`, `performer_refs TEXT[]`.
   - Child `clinical.procedure_coding`: `field CHECK IN ('code','reason_code')`, `system`, `code`, `display`.
 
-**Not structured** — `Condition`, `MedicationRequest`, `AllergyIntolerance`, `Encounter` land in `fhir_resources` as raw JSON only; there is no mapper for them yet (real gap, see §6).
+**Also structured** (migration `0006_clinical_more_types.sql`): `clinical.condition` (+ `condition_coding`), `clinical.medication_request` (+ `medication_request_coding`), `clinical.allergy_intolerance` (+ `allergy_intolerance_coding`), `clinical.encounter` (+ `encounter_type_coding`). Partial FHIR dates ("2019", "2019-05") keep their original text in `*_text` columns and are padded to the first instant in the TIMESTAMPTZ column. The other resource types fetched by default (CarePlan, Goal, Device, ...) are stored raw in `fhir_resources` only.
 
 Migration files: `load/migrations/0001_init.sql` (raw store), `load/migrations/0002_clinical_structured.sql` (structured tables).
 
@@ -207,7 +207,7 @@ Merge history for context: `489c9a2` (wearables ingestion + local web app + Appl
 ## 6. Limitations
 
 **EHR/FHIR:**
-- No transform mapper exists for `Condition`, `MedicationRequest`, `AllergyIntolerance`, or `Encounter` — these are fetched and stored as raw JSON in `clinical.fhir_resources` but never get a structured table (`transform/run.ts`'s `mappers` dict only covers 6 of the ~10 default resource types). `Encounter` is in the live `.env`'s active resource list, so this is a live gap, not just theoretical.
+- Mappers cover Patient, Observation, Immunization, DiagnosticReport, DocumentReference, Procedure, Condition, MedicationRequest, AllergyIntolerance and Encounter. The remaining default types (CarePlan, CareTeam, Device, FamilyMemberHistory, Goal, MedicationStatement, QuestionnaireResponse, ServiceRequest, Specimen) are stored raw only.
 - No refresh-token handling anywhere — `TokenResponse.refresh_token` and `.expires_in` are both defined but unused. A sync that runs longer than the access token's real lifetime will simply fail with a 401 mid-pagination; there's no retry.
 - No pagination cap, rate-limit handling, or backoff in `fetchResourceType()` — a single failed page request aborts the entire import for that resource type with no partial-success handling.
 - The egress allowlist (`network-guard.ts`) only permits the configured FHIR base/auth/token hosts. If a real EHR's `DocumentReference`/`DiagnosticReport` attachment URLs point at a different host (common for large binary content in production EHRs), fetching that content would be blocked unless `ALLOW_NON_FHIR_NETWORK=true`. Not hit yet because nothing currently fetches those attachment URLs — they're stored as bare URL strings, not followed.

@@ -7,6 +7,10 @@ import { transformImmunization } from "./immunization";
 import { transformDiagnosticReport } from "./diagnostic-report";
 import { transformDocumentReference } from "./document-reference";
 import { transformProcedure } from "./procedure";
+import { transformCondition } from "./condition";
+import { transformMedicationRequest } from "./medication-request";
+import { transformAllergyIntolerance } from "./allergy-intolerance";
+import { transformEncounter } from "./encounter";
 
 type Mapper = (
   sql: SQL,
@@ -22,7 +26,11 @@ const mappers: Record<string, Mapper> = {
   Immunization: transformImmunization,
   DiagnosticReport: transformDiagnosticReport,
   DocumentReference: transformDocumentReference,
-  Procedure: transformProcedure
+  Procedure: transformProcedure,
+  Condition: transformCondition,
+  MedicationRequest: transformMedicationRequest,
+  AllergyIntolerance: transformAllergyIntolerance,
+  Encounter: transformEncounter
 };
 
 export async function runTransform(
