@@ -102,7 +102,13 @@ cat > "$PLIST" <<PLIST
 </plist>
 PLIST
 
+# bootout returns before the old instance is fully unloaded; bootstrapping
+# too early fails with "Input/output error".
 launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
+for _ in $(seq 1 20); do
+  launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || break
+  sleep 0.5
+done
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
 echo "Waiting for the app on http://127.0.0.1:3000 ..."
