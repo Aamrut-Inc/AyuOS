@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from logging import Logger, getLogger
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from sqlalchemy import event as sa_event
@@ -48,6 +49,32 @@ from app.services.scores.sleep_service import sleep_score_service
 from app.services.services import AppService
 from app.utils.exceptions import handle_exceptions
 from app.utils.pagination import encode_cursor
+
+_webhook_logger = getLogger(__name__)
+
+
+def _webhook_snapshot(record: EventRecord, data_source: DataSource) -> tuple[SimpleNamespace, SimpleNamespace]:
+    """Copy the fields the outgoing webhook needs while the session is still open.
+
+    The webhook fires in an after_commit hook, where ORM attributes are already
+    expired; touching them there lazy-loads, which raises "session is in
+    'committed' state" out of commit() and breaks the rest of the sync run.
+    """
+    record_snapshot = SimpleNamespace(
+        id=record.id,
+        category=record.category,
+        type=record.type,
+        duration_seconds=record.duration_seconds,
+        start_datetime=record.start_datetime,
+        end_datetime=record.end_datetime,
+        zone_offset=record.zone_offset,
+    )
+    data_source_snapshot = SimpleNamespace(
+        provider=data_source.provider,
+        device_model=data_source.device_model,
+        user_id=data_source.user_id,
+    )
+    return record_snapshot, data_source_snapshot
 
 
 class EventRecordService(
@@ -120,11 +147,15 @@ class EventRecordService(
         if record is not None and record.data_source_id is not None:
             data_source = db_session.get(DataSource, record.data_source_id)
             if data_source is not None:
-                _record, _data_source, _detail = record, data_source, detail
+                _record, _data_source = _webhook_snapshot(record, data_source)
+                _detail = detail
 
                 @sa_event.listens_for(db_session, "after_commit", once=True)
                 def _dispatch_webhook(session: DbSession) -> None:  # noqa: ARG001
-                    self._emit_event_record_webhook(_record, _data_source, _detail)
+                    try:
+                        self._emit_event_record_webhook(_record, _data_source, _detail)  # ty:ignore[invalid-argument-type]
+                    except Exception:
+                        _webhook_logger.exception("Outgoing event record webhook failed")
 
         return result  # ty:ignore[invalid-return-type]
 
@@ -577,7 +608,7 @@ class EventRecordService(
         )
         data_sources_by_id = {ds.id: ds for ds in data_sources}
 
-        dispatches: list[tuple[EventRecord, DataSource, EventRecordDetailCreate]] = []
+        dispatches: list[tuple[SimpleNamespace, SimpleNamespace, EventRecordDetailCreate]] = []
         for detail in details:
             record = records_by_id.get(detail.record_id)
             if record is None or record.data_source_id is None:
@@ -585,7 +616,7 @@ class EventRecordService(
             data_source = data_sources_by_id.get(record.data_source_id)
             if data_source is None:
                 continue
-            dispatches.append((record, data_source, detail))
+            dispatches.append((*_webhook_snapshot(record, data_source), detail))
 
         if not dispatches:
             return
@@ -593,7 +624,10 @@ class EventRecordService(
         @sa_event.listens_for(db_session, "after_commit", once=True)
         def _dispatch_bulk_webhooks(session: DbSession) -> None:  # noqa: ARG001
             for record, data_source, detail in dispatches:
-                self._emit_event_record_webhook(record, data_source, detail)
+                try:
+                    self._emit_event_record_webhook(record, data_source, detail)  # ty:ignore[invalid-argument-type]
+                except Exception:
+                    _webhook_logger.exception("Outgoing event record webhook failed")
 
     @handle_exceptions
     def _get_records_with_filters(

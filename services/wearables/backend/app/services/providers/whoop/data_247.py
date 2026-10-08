@@ -465,10 +465,13 @@ class Whoop247Data(Base247DataTemplate):
             "body_measurement_samples_synced": 0,
         }
 
+        failed: dict[str, Exception] = {}
+
         try:
             results["sleep_sessions_synced"] = self.load_and_save_sleep(db, user_id, start_time, end_time)
         except Exception as e:
             db.rollback()
+            failed["sleep"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -482,6 +485,7 @@ class Whoop247Data(Base247DataTemplate):
             results["recovery_samples_synced"] = self.load_and_save_recovery(db, user_id, start_time, end_time)
         except Exception as e:
             db.rollback()
+            failed["recovery"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -495,6 +499,7 @@ class Whoop247Data(Base247DataTemplate):
             results["body_measurement_samples_synced"] = self.load_and_save_body_measurement(db, user_id)
         except Exception as e:
             db.rollback()
+            failed["body_measurement"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -508,6 +513,7 @@ class Whoop247Data(Base247DataTemplate):
             results["cycle_samples_synced"] = self.load_and_save_cycle(db, user_id, start_time, end_time)
         except Exception as e:
             db.rollback()
+            failed["cycle"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -516,6 +522,13 @@ class Whoop247Data(Base247DataTemplate):
                 task="load_and_save_all",
                 user_id=str(user_id),
             )
+
+        # All core streams failing means nothing was reachable (offline,
+        # expired token) — surface it so the caller doesn't advance
+        # last_synced_at past a window that was never fetched. Body
+        # measurement is left out: it swallows its own fetch errors.
+        if all(name in failed for name in ("sleep", "recovery", "cycle")):
+            raise RuntimeError(f"All Whoop data types failed to sync: {failed['cycle']}")
 
         return results
 

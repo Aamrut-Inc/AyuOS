@@ -1171,12 +1171,14 @@ class Oura247Data(Base247DataTemplate):
         }
 
         results: dict[str, int] = {}
+        failed: list[str] = []
         for data_type, fn in tasks.items():
             try:
                 results[data_type] = fn()
             except Exception as e:
                 db.rollback()
                 results[data_type] = 0
+                failed.append(data_type)
                 log_structured(
                     self.logger,
                     "error",
@@ -1186,6 +1188,12 @@ class Oura247Data(Base247DataTemplate):
                     user_id=str(user_id),
                     error=str(e),
                 )
+
+        # Every type failing means nothing was reachable (offline, expired
+        # token) — surface it so the caller doesn't advance last_synced_at
+        # past a window that was never fetched.
+        if failed and len(failed) == len(tasks):
+            raise RuntimeError(f"All Oura data types failed to sync: {', '.join(failed)}")
 
         return results
 

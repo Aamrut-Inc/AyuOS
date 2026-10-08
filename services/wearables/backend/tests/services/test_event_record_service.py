@@ -167,6 +167,46 @@ class TestEventRecordServiceBulkCreateDetails:
         mock_workout.assert_not_called()
 
 
+class TestEventRecordServiceWebhookAfterCommit:
+    """The after_commit webhook must not touch expired ORM attributes.
+
+    Before the fix, create_detail's listener read record.category after commit,
+    which lazy-loaded inside the hook and raised "session is in 'committed'
+    state" out of commit() — breaking every later step of the Oura sync run.
+    """
+
+    def test_create_detail_commit_succeeds_and_session_stays_usable(self, db: Session) -> None:
+        data_source = DataSourceFactory(source="oura")
+        rec = EventRecordFactory(mapping=data_source, category="workout", type_="running")
+        detail = EventRecordDetailCreate(record_id=rec.id, energy_burned=Decimal("200.0"))
+
+        with (
+            patch("app.services.event_record_service.svix_service.is_enabled", return_value=True),
+            patch("app.services.event_record_service.on_workout_created") as mock_workout,
+        ):
+            event_record_service.create_detail(db, detail)
+            db.expire_all()  # what a real commit does to every loaded object
+            db.commit()
+
+        mock_workout.assert_called_once()
+        assert mock_workout.call_args.kwargs["record_id"] == rec.id
+        assert db.get(DataSource, data_source.id) is not None
+
+    def test_webhook_failure_does_not_break_commit(self, db: Session) -> None:
+        data_source = DataSourceFactory(source="oura")
+        rec = EventRecordFactory(mapping=data_source, category="workout", type_="running")
+        detail = EventRecordDetailCreate(record_id=rec.id, energy_burned=Decimal("200.0"))
+
+        with (
+            patch("app.services.event_record_service.svix_service.is_enabled", return_value=True),
+            patch("app.services.event_record_service.on_workout_created", side_effect=RuntimeError("svix down")),
+        ):
+            event_record_service.create_detail(db, detail)
+            db.commit()
+
+        assert db.get(DataSource, data_source.id) is not None
+
+
 class TestEventRecordServiceGetRecordsResponse:
     """Test getting formatted event records."""
 
