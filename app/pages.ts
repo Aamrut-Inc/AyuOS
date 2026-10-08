@@ -1,4 +1,13 @@
 import type { WearableConnection } from "../extract/wearables/oauth";
+import type { SyncRunSummary } from "../load/sync-runs";
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 const STYLE = `
   body { font-family: -apple-system, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
@@ -14,6 +23,10 @@ const STYLE = `
   .meta { color: #777; font-size: 12px; margin: 4px 0 16px; }
   .dropzone { border: 2px dashed #ccc; border-radius: 8px; padding: 28px; text-align: center; color: #999; font-size: 13px; transition: border-color .15s, color .15s; }
   .dropzone.drag-over { border-color: #111; color: #111; }
+  .warning { color: #9a6700; font-size: 12px; margin: 6px 0 0; }
+  .failing { color: #cf222e; }
+  .status-table td { vertical-align: top; }
+  button.button { background: #111; color: #fff; padding: 8px 18px; border-radius: 6px; border: 0; font-size: 14px; cursor: pointer; }
 `;
 
 const DROPZONE_SCRIPT = `
@@ -67,6 +80,59 @@ interface LoginPageMeta {
   ehrLastFetched: string | null;
   ehrResourceCount: number;
   lastReadingByProvider: Map<string, string>;
+  jobs: SyncRunSummary[];
+  syncing: boolean;
+}
+
+// The wearables backend pulls from each provider hourly; a connection that
+// hasn't managed to for this long is broken (expired/revoked token), and the
+// fix is a reconnect.
+const PROVIDER_STALE_MS = 6 * 60 * 60 * 1000;
+
+const JOB_LABELS: Record<string, string> = {
+  "wearables-provider-pull": "Wearables: catch-up pull after wake",
+  "wearables-mirror": "Wearables: copy into AyuOS database",
+  "apple-health-upload": "Apple Health upload",
+  "lab-pdf-upload": "Lab PDF upload"
+};
+
+function jobLabel(job: string): string {
+  if (job.startsWith("ehr-import:")) return `EHR import (${job.slice("ehr-import:".length)})`;
+  return JOB_LABELS[job] ?? job;
+}
+
+function syncStatusSection(jobs: SyncRunSummary[], syncing: boolean): string {
+  const rows = jobs
+    .map((j) => {
+      const state =
+        j.lastStatus === "running"
+          ? "Running…"
+          : j.lastStatus === "success"
+            ? "✓ OK"
+            : `<span class="failing">✗ Failing${j.consecutiveFailures > 1 ? ` (${j.consecutiveFailures}×)` : ""}</span>`;
+      const error =
+        j.lastStatus === "failed" && j.lastError
+          ? `<div class="warning">${escapeHtml(j.lastError.slice(0, 300))}</div>`
+          : "";
+      return `<tr><td>${jobLabel(j.job)}</td><td>${state}${error}</td><td>${formatWhen(j.lastSuccessAt)}</td></tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="source-row" style="flex-direction: column; align-items: stretch;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <strong>Background sync</strong>
+        <form method="post" action="/sync/now" style="margin: 0;"><button class="button" type="submit">Sync now</button></form>
+      </div>
+      ${syncing ? `<p class="meta" style="margin: 6px 0 0;">Sync requested — new data lands over the next few minutes.</p>` : ""}
+      <p class="meta" style="margin: 6px 0 0;">Wearables sync automatically every 15 minutes and catch up as soon as the laptop wakes.</p>
+      ${
+        rows
+          ? `<table class="status-table"><tr><th>Job</th><th>Status</th><th>Last success</th></tr>${rows}</table>`
+          : `<p class="meta">No sync has run yet.</p>`
+      }
+    </div>
+  `;
 }
 
 function formatWhen(iso: string | null | undefined): string {
@@ -95,6 +161,14 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
     if (!connectedFlag) {
       return `<div class="source-row"><strong>${label}</strong><span><a class="button" href="${connectHref}">Connect</a></span></div>`;
     }
+    const providerKey = connectHref.split("/").pop() ?? "";
+    const providerSyncedAt = byProvider.get(providerKey)?.last_synced_at;
+    const stale =
+      providerSyncedAt !== undefined &&
+      (providerSyncedAt === null || Date.now() - new Date(providerSyncedAt).getTime() > PROVIDER_STALE_MS);
+    const staleWarning = stale
+      ? `<p class="warning">⚠ ${label} hasn't synced with ${label}'s servers since ${providerSyncedAt ? formatWhen(providerSyncedAt) : "it was connected"} — its login has probably expired. Click Reconnect.</p>`
+      : "";
     return `
       <div class="source-row" style="flex-direction: column; align-items: stretch;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -106,13 +180,15 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
           ${connectedSince ? ` · Connected since ${new Date(connectedSince).toLocaleDateString()}` : ""}
           · <a href="${viewDataHref}">View data</a>
         </p>
+        ${staleWarning}
       </div>
     `;
   }
 
   const body = `
     <h1>Welcome to AyuOS</h1>
-    <p class="meta">Please login:</p>
+    ${syncStatusSection(meta.jobs, meta.syncing)}
+    <p class="meta">Connect your data sources:</p>
 
     ${sourceRow(
       "Oura",

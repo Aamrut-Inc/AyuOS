@@ -71,3 +71,24 @@ export async function* fetchTimeseries(
     cursor = payload.pagination.next_cursor;
   }
 }
+
+// Ask the wearables backend to pull new data from the provider now instead of
+// waiting for its hourly schedule (used right after the laptop wakes). The
+// backend queues the sync and resumes from its own per-connection cursor.
+export async function requestProviderSync(
+  config: WearablesConfig,
+  provider: string,
+  userId: string
+): Promise<void> {
+  const url = `${config.apiBaseUrl}/api/v1/providers/${provider}/users/${userId}/sync`;
+  const response = await guardedFetch(
+    url,
+    { method: "POST", headers: { "X-Open-Wearables-API-Key": config.apiKey } },
+    config
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Requesting ${provider} sync failed (${response.status}): ${text}`);
+  }
+}

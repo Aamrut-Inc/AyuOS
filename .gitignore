@@ -7,4 +7,3 @@ node_modules/
 
 services/wearables/backend/.local/
 
-.ensure-stack-up.launchd.log

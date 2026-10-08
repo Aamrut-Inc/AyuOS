@@ -3,24 +3,28 @@ import { loadWearablesConfig } from "../extract/wearables/config";
 import { getOrCreateUserId } from "../extract/wearables/provision";
 import { getConnections, getAuthorizationUrl, type WearableProvider } from "../extract/wearables/oauth";
 import { syncWearables } from "../extract/wearables/sync";
+import { requestProviderSync } from "../extract/wearables/client";
 import { parseVitalsFromZip } from "../extract/apple-health/parse-vitals";
 import { TimeseriesStore } from "../load/timeseries";
 import { loadProviderConfig } from "../extract/ehr/config";
 import { beginSmartOAuth, type PendingAuthorization } from "../extract/ehr/auth/smart-oauth";
 import { importEhr, requirePatientId } from "../extract/ehr/sync";
-import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
+import { loadPostgresConfig } from "../load/config";
+import { SyncRunStore } from "../load/sync-runs";
 import { RawFhirStore } from "../load/raw-store";
 import { runTransform } from "../transform/run";
 import { loginPage, wearablesDataPage, ehrDataPage } from "./pages";
+import { Scheduler } from "./scheduler";
+import { ensureStack } from "./stack";
 
 const PORT = 3000;
 const wearablesConfig = loadWearablesConfig();
 
 try {
-  await assertPostgresReachable(loadPostgresConfig());
+  await ensureStack(loadPostgresConfig());
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
+  process.exit(1); // the login agent restarts us and we try again
 }
 
 // Only one EHR OAuth attempt can hold the local callback port (8765) at a
@@ -29,23 +33,56 @@ try {
 // otherwise the next attempt fails with EADDRINUSE.
 let pendingEhrAuth: PendingAuthorization | null = null;
 
-// timeseries.readings only gets refreshed when /connect/wearables/callback
-// fires (i.e. right after a fresh OAuth connect) — nothing keeps it current
-// after that. Re-run the sync on an interval so it doesn't silently go stale
-// between connects, independent of whether anyone reconnects a provider.
-const WEARABLES_RESYNC_INTERVAL_MS = 15 * 60 * 1000;
+const WEARABLES_MIRROR_INTERVAL_MS = 15 * 60 * 1000;
+// Give the backend's provider pull (nudged on wake) time to land before
+// copying from it.
+const WEARABLES_MIRROR_WAKE_DELAY_MS = 3 * 60 * 1000;
 
-async function resyncWearables(): Promise<void> {
-  if (!wearablesConfig.userId) return;
+const scheduler = new Scheduler(loadPostgresConfig(), [
+  {
+    // The backend polls Oura/Whoop hourly on its own; after the laptop wakes,
+    // nudge it so the gap is filled now instead of up to an hour later.
+    name: "wearables-provider-pull",
+    intervalMs: Infinity,
+    onWakeOnly: true,
+    run: async () => {
+      if (!wearablesConfig.userId) return { skipped: "no wearables user yet" };
+      const connections = await getConnections(wearablesConfig, wearablesConfig.userId);
+      const providers = connections.filter((c) => c.status === "active").map((c) => c.provider);
+      for (const provider of providers) {
+        await requestProviderSync(wearablesConfig, provider, wearablesConfig.userId);
+      }
+      return { requested: providers };
+    }
+  },
+  {
+    // Copies new readings from the wearables backend into timeseries.readings.
+    name: "wearables-mirror",
+    intervalMs: WEARABLES_MIRROR_INTERVAL_MS,
+    wakeDelayMs: WEARABLES_MIRROR_WAKE_DELAY_MS,
+    run: async () => {
+      if (!wearablesConfig.userId) return { skipped: "no wearables user yet" };
+      return syncWearables(wearablesConfig, wearablesConfig.userId);
+    }
+  }
+]);
+
+// One-off, user-triggered work (EHR import, Apple Health upload) is logged to
+// the same run history as scheduled jobs so the status panel covers both.
+async function recordRun<T>(job: string, trigger: string, work: () => Promise<T>): Promise<T> {
+  const runs = new SyncRunStore(loadPostgresConfig());
+  const runId = await runs.start(job, trigger);
   try {
-    await syncWearables(wearablesConfig, wearablesConfig.userId);
+    const result = await work();
+    await runs.succeed(runId, result);
+    return result;
   } catch (error) {
-    console.error("Periodic wearables resync failed:", error instanceof Error ? error.message : error);
+    await runs.fail(runId, error instanceof Error ? error.message : String(error));
+    throw error;
+  } finally {
+    await runs.close();
   }
 }
-
-resyncWearables();
-setInterval(resyncWearables, WEARABLES_RESYNC_INTERVAL_MS);
 
 function html(body: string): Response {
   return new Response(body, { headers: { "content-type": "text/html" } });
@@ -87,17 +124,31 @@ Bun.serve({
         await sql.close();
       }
 
-      return html(loginPage(connections, ehrConnected, { ehrLastFetched, ehrResourceCount, lastReadingByProvider }));
+      const runs = new SyncRunStore(loadPostgresConfig());
+      let jobs;
+      try {
+        jobs = await runs.summaries();
+      } finally {
+        await runs.close();
+      }
+
+      return html(
+        loginPage(connections, ehrConnected, {
+          ehrLastFetched,
+          ehrResourceCount,
+          lastReadingByProvider,
+          jobs,
+          syncing: url.searchParams.get("syncing") === "1"
+        })
+      );
     }
 
     const simulateMatch = url.pathname.match(/^\/simulate\/(oura|whoop)$/);
     if (simulateMatch) {
       const provider = simulateMatch[1] as WearableProvider;
       void provider; // both providers trigger the same full sync — see plan notes
-      const userId = await getOrCreateUserId(wearablesConfig);
-      syncWearables(wearablesConfig, userId).catch((error) => {
-        console.error("Background wearables sync failed:", error instanceof Error ? error.message : error);
-      });
+      await getOrCreateUserId(wearablesConfig);
+      void scheduler.runNow("wearables-mirror", "manual");
       return Response.redirect(`http://127.0.0.1:${PORT}/data/wearables?syncing=1`, 302);
     }
 
@@ -119,11 +170,26 @@ Bun.serve({
       // here. Pull the newly-synced data into AyuOS's own timeseries.readings —
       // without this, the connection succeeds server-side but never shows up
       // in our own UI, which reads from our local copy, not the wearables DB.
-      const userId = await getOrCreateUserId(wearablesConfig);
-      syncWearables(wearablesConfig, userId).catch((error) => {
-        console.error("Background wearables sync failed:", error instanceof Error ? error.message : error);
-      });
+      await getOrCreateUserId(wearablesConfig);
+      void scheduler.runNow("wearables-mirror", "connect");
       return Response.redirect(`http://127.0.0.1:${PORT}/data/wearables?syncing=1`, 302);
+    }
+
+    if (url.pathname === "/sync/now" && req.method === "POST") {
+      void scheduler
+        .runNow("wearables-provider-pull", "manual")
+        .finally(() => Bun.sleep(WEARABLES_MIRROR_WAKE_DELAY_MS))
+        .then(() => scheduler.runNow("wearables-mirror", "manual"));
+      return Response.redirect(`http://127.0.0.1:${PORT}/?syncing=1`, 303);
+    }
+
+    if (url.pathname === "/api/status") {
+      const runs = new SyncRunStore(loadPostgresConfig());
+      try {
+        return Response.json({ jobs: await runs.summaries() });
+      } finally {
+        await runs.close();
+      }
     }
 
     if (url.pathname === "/connect/ehr") {
@@ -142,18 +208,22 @@ Bun.serve({
       pending
         .waitForToken()
         .then(async (token) => {
-          const patientId = requirePatientId(token.patient);
-          const postgresConfig = loadPostgresConfig();
-          const store = new RawFhirStore(postgresConfig);
-          try {
-            await importEhr(providerConfig, token, patientId, store);
-          } finally {
-            await store.close();
-          }
-          // Keep clinical.patient/observation/etc. in sync with the raw data
-          // we just stored — without this, new data silently doesn't show up
-          // in the structured tables until someone remembers to run it by hand.
-          await runTransform(postgresConfig);
+          await recordRun(`ehr-import:${providerConfig.name}`, "manual", async () => {
+            const patientId = requirePatientId(token.patient);
+            const postgresConfig = loadPostgresConfig();
+            const store = new RawFhirStore(postgresConfig);
+            let fetched: Record<string, number>;
+            try {
+              fetched = await importEhr(providerConfig, token, patientId, store);
+            } finally {
+              await store.close();
+            }
+            // Keep clinical.patient/observation/etc. in sync with the raw data
+            // we just stored — without this, new data silently doesn't show up
+            // in the structured tables until someone remembers to run it by hand.
+            const transformed = await runTransform(postgresConfig);
+            return { fetched, transformed };
+          });
         })
         .catch((error) => {
           console.error("Background EHR import failed:", error instanceof Error ? error.message : error);
@@ -175,19 +245,21 @@ Bun.serve({
 
         const userId = await getOrCreateUserId(wearablesConfig);
         const zipData = Buffer.from(await file.arrayBuffer());
-        const readings = await parseVitalsFromZip(zipData, userId);
-
-        const store = new TimeseriesStore(loadPostgresConfig());
-        try {
-          const BATCH_SIZE = 500; // keep bulk INSERT parameter count well under Postgres's limit
-          for (let i = 0; i < readings.length; i += BATCH_SIZE) {
-            await store.upsertReadings(readings.slice(i, i + BATCH_SIZE));
+        const { stored } = await recordRun("apple-health-upload", "manual", async () => {
+          const readings = await parseVitalsFromZip(zipData, userId);
+          const store = new TimeseriesStore(loadPostgresConfig());
+          try {
+            const BATCH_SIZE = 500; // keep bulk INSERT parameter count well under Postgres's limit
+            for (let i = 0; i < readings.length; i += BATCH_SIZE) {
+              await store.upsertReadings(readings.slice(i, i + BATCH_SIZE));
+            }
+          } finally {
+            await store.close();
           }
-        } finally {
-          await store.close();
-        }
+          return { stored: readings.length };
+        });
 
-        return new Response(JSON.stringify({ stored: readings.length }), {
+        return new Response(JSON.stringify({ stored }), {
           headers: { "content-type": "application/json" }
         });
       } catch (error) {
@@ -279,3 +351,4 @@ Bun.serve({
 });
 
 console.log(`AyuOS app running at http://127.0.0.1:${PORT}`);
+await scheduler.start();

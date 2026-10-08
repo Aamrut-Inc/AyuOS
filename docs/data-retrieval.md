@@ -108,7 +108,7 @@ PRIMARY KEY (user_id, metric_type, ts, source_provider)
 ```
 Currently has partitions from `2024_07` through `2026_08` (whatever months have data). Upserts on conflict (same user+metric+timestamp+provider → updates value/unit/device, doesn't duplicate).
 
-**Important**: this table is a downstream *copy*. It is not automatically populated — it only fills when `extract/wearables/sync.ts`'s `syncWearables()` is explicitly called (see §4/§6 — this was a real gap found and fixed this project).
+**Important**: this table is a downstream *copy*, filled by `extract/wearables/sync.ts`'s `syncWearables()`. The app's scheduler (`app/scheduler.ts`) runs it every 15 minutes, on startup, and after wake; runs are logged to `ops.sync_runs`. The request window starts from whichever connected provider is furthest behind locally (minus a 3-day overlap for late uploads), so a provider connected after another one still gets its full history.
 
 ### 3b. `wearables-db` (the Open Wearables backend's own database — port 5434 locally)
 

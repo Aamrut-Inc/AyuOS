@@ -14,9 +14,9 @@ cd AyuOS
 That brings up Postgres for AyuOS itself, plus the whole `services/wearables`
 backend (its own Postgres, Redis, Celery workers, and the Svix webhook
 service) locally — no external deployment required — wires the auto-seeded
-local API key into `.env` automatically, starts the AyuOS app at
-`http://127.0.0.1:3000`, and (on macOS) sets things up so Docker and the
-stack come back on their own after a reboot.
+local API key into `.env` automatically, and starts the AyuOS app at
+`http://127.0.0.1:3000`. On macOS the app is installed as a login agent, so it
+keeps running in the background (see below).
 
 **Real credentials are not in this repo, on purpose — they're real secrets.**
 Ask a teammate for:
@@ -46,3 +46,26 @@ bun install
 bun run migrate
 bun run dev:app
 ```
+
+## Background sync (macOS)
+
+`start.command` runs `scripts/install-agent.sh`, which copies the app to
+`~/Library/Application Support/AyuOS/app` and registers it with launchd
+(`com.ayuos.app`). macOS blocks background processes from reading
+Desktop/Documents/Downloads, which is why it runs from a copy.
+
+- Starts at login and restarts within 30s if it crashes.
+- On startup it launches Docker Desktop if needed and starts the containers.
+- Wearables are copied into `timeseries.readings` every 15 minutes. After the
+  laptop wakes (or the app starts), it asks the wearables backend to pull from
+  Oura/Whoop immediately, waits for the network to be back, then catches up
+  everything missed while it was closed.
+- Failed runs retry with backoff (1, 2, 4 … 30 min). Every run is logged in
+  `ops.sync_runs` and shown under "Background sync" on the home page, along
+  with a warning when a provider's login has expired and needs a reconnect.
+
+**After pulling new code, re-run `./scripts/install-agent.sh`** — the agent
+runs the installed copy, not your checkout. Logs:
+`~/Library/Logs/AyuOS/app.log`. Remove with `./scripts/uninstall-agent.sh`.
+To run from the checkout instead (`bun run dev:app`), uninstall the agent
+first, since both use port 3000.
