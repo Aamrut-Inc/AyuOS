@@ -130,8 +130,12 @@ export class Scheduler {
     state.lastAttemptAt = Date.now();
     state.wakePending = false;
 
-    const runId = await this.runs.start(job.name, trigger);
+    // Executions are fire-and-forget, so nothing here may throw: a database
+    // hiccup while logging must count as a failed run (and be retried), not
+    // become an unhandled rejection that takes the app down.
+    let runId: number | null = null;
     try {
+      runId = await this.runs.start(job.name, trigger);
       const detail = await job.run();
       await this.runs.succeed(runId, detail);
       state.lastSuccessAt = Date.now();
@@ -139,7 +143,7 @@ export class Scheduler {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`Job ${job.name} failed:`, message);
-      await this.runs.fail(runId, message);
+      if (runId !== null) await this.runs.fail(runId, message).catch(() => {});
       state.failures += 1;
     } finally {
       state.running = false;

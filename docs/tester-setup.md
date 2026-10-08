@@ -42,9 +42,10 @@ you're an early tester, not a end user of the finished thing.
    ```
    ./scripts/start.command
    ```
-   This brings up the database and backend, sets everything up, and opens
-   your browser to `http://127.0.0.1:3000` automatically. First run takes a
-   few minutes.
+   This brings up the database and backend, sets everything up, installs
+   AyuOS to run in the background (it starts by itself when you log in and
+   keeps syncing), and opens your browser to `http://127.0.0.1:3000`. First
+   run takes a few minutes.
 
 5. On the page that opens, click **Connect** next to Oura or Whoop, and log
    into *your own* account when it redirects you — same as connecting Oura
@@ -52,18 +53,28 @@ you're an early tester, not a end user of the finished thing.
    pulling your real history in the background (give it a few minutes for a
    full sync, especially if you have a lot of history).
 
-6. To see the data itself, go to `http://127.0.0.1:3000/data/wearables`.
+6. Click **View my health record** for everything in one place, or go to
+   `http://127.0.0.1:3000/data/wearables` for the raw readings. You can also
+   drag lab report PDFs onto the home page; you'll be asked to check the
+   values it read before they're saved.
+
+From now on you don't need to run anything: close the laptop whenever you
+like, and when you open it again AyuOS catches up on what it missed. The
+**Background sync** box on the home page shows when it last synced and any
+problems (for example a wearable whose login expired and needs **Reconnect**).
+After pulling new code, run `./scripts/install-agent.sh` to update the
+background copy.
 
 ## If something goes wrong
 
 - **Nothing happens / times out waiting for Docker** — make sure Docker
   Desktop is actually open (not just installed), then run
   `./scripts/start.command` again.
-- **A message about a "login helper" not being able to run** — harmless,
-  ignore it. It just means the automatic "restart everything after a reboot"
-  convenience couldn't set itself up because of a macOS permission thing.
-  Everything else still works; you'd just need to reopen Docker Desktop
-  yourself if you ever restart your laptop.
+- **The page doesn't load after a restart** — give it a minute (it waits for
+  Docker to start). If it still doesn't, check
+  `~/Library/Logs/AyuOS/app.log` and send it to the team.
+- **Lab PDF upload says it can't compile the PDF reader** — run
+  `xcode-select --install` once, then try again.
 - **Connect fails immediately with an error page** — double-check the
   credential values in `services/wearables/backend/config/.env` were pasted
   in cleanly, no extra quotes or spaces.
