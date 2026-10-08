@@ -22,6 +22,7 @@ from app.schemas.model_crud.activities import (
 from app.services.event_record_service import event_record_service
 from app.services.health_score_service import health_score_service
 from app.services.providers.api_client import make_authenticated_request
+from app.services.providers.sync_errors import is_permanent_sync_error
 from app.services.providers.templates.base_247_data import Base247DataTemplate
 from app.services.providers.templates.base_oauth import BaseOAuthTemplate
 from app.services.raw_payload_storage import store_raw_payload
@@ -471,7 +472,8 @@ class Whoop247Data(Base247DataTemplate):
             results["sleep_sessions_synced"] = self.load_and_save_sleep(db, user_id, start_time, end_time)
         except Exception as e:
             db.rollback()
-            failed["sleep"] = e
+            if not is_permanent_sync_error(e):
+                failed["sleep"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -485,7 +487,8 @@ class Whoop247Data(Base247DataTemplate):
             results["recovery_samples_synced"] = self.load_and_save_recovery(db, user_id, start_time, end_time)
         except Exception as e:
             db.rollback()
-            failed["recovery"] = e
+            if not is_permanent_sync_error(e):
+                failed["recovery"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -499,7 +502,8 @@ class Whoop247Data(Base247DataTemplate):
             results["body_measurement_samples_synced"] = self.load_and_save_body_measurement(db, user_id)
         except Exception as e:
             db.rollback()
-            failed["body_measurement"] = e
+            if not is_permanent_sync_error(e):
+                failed["body_measurement"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -513,7 +517,8 @@ class Whoop247Data(Base247DataTemplate):
             results["cycle_samples_synced"] = self.load_and_save_cycle(db, user_id, start_time, end_time)
         except Exception as e:
             db.rollback()
-            failed["cycle"] = e
+            if not is_permanent_sync_error(e):
+                failed["cycle"] = e
             log_structured(
                 self.logger,
                 "error",
@@ -523,12 +528,13 @@ class Whoop247Data(Base247DataTemplate):
                 user_id=str(user_id),
             )
 
-        # All core streams failing means nothing was reachable (offline,
-        # expired token) — surface it so the caller doesn't advance
-        # last_synced_at past a window that was never fetched. Body
-        # measurement is left out: it swallows its own fetch errors.
-        if all(name in failed for name in ("sleep", "recovery", "cycle")):
-            raise RuntimeError(f"All Whoop data types failed to sync: {failed['cycle']}")
+        # Any transient failure (offline, expired token, 5xx, rate limit)
+        # means part of the window was never fetched — surface it so the
+        # caller doesn't advance last_synced_at past it. Everything that did
+        # succeed is already saved; the retry re-fetches idempotently.
+        if failed:
+            names = ", ".join(failed)
+            raise RuntimeError(f"Whoop data types failed to sync ({names}): {next(iter(failed.values()))}")
 
         return results
 

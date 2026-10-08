@@ -101,7 +101,7 @@ export function labsPage(
       const latest = history[0];
       const previous = history
         .slice(1, 4)
-        .map((h) => `${valueCell(h)} (${e(h.collected_date ?? "?")})`)
+        .map((h) => `${e(valueCell(h))} (${e(h.collected_date ?? "?")})`)
         .join(", ");
       return `<tr>
         <td>${e(latest.analyte_name)}${latest.loinc_code ? ` <span class="meta">LOINC ${e(latest.loinc_code)}</span>` : ""}</td>

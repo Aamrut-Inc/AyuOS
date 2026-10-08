@@ -71,7 +71,7 @@ const DROPZONE_SCRIPT = `
 export function layout(title: string, body: string, script = ""): string {
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>${title}</title><style>${STYLE}</style></head>
+<head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${STYLE}</style></head>
 <body>${body}${script ? `<script>${script}</script>` : ""}</body>
 </html>`;
 }

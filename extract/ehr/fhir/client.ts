@@ -23,6 +23,13 @@ export class FhirHttpError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
   }
+
+  // The server doesn't offer this search, or the granted scopes don't cover
+  // it — skip it. Anything else (401 expired token, 429 rate limit, 5xx)
+  // means data is being missed and must fail the import, not be skipped.
+  get unsupported(): boolean {
+    return [400, 403, 404, 422].includes(this.status);
+  }
 }
 
 function resourceSearchUrl(
@@ -133,7 +140,7 @@ export async function fetchResourceType(params: {
     try {
       resources = await fetchAllPages(url, resourceType, token, config);
     } catch (error) {
-      if (error instanceof FhirHttpError && error.status >= 400 && error.status < 500) {
+      if (error instanceof FhirHttpError && error.unsupported) {
         refusals.push(error);
         continue;
       }

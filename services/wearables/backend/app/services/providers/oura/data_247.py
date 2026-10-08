@@ -33,6 +33,7 @@ from app.schemas.providers.oura.imports import OuraIntervalData, OuraPersonalInf
 from app.services.event_record_service import event_record_service
 from app.services.health_score_service import health_score_service
 from app.services.providers.api_client import make_authenticated_request
+from app.services.providers.sync_errors import is_permanent_sync_error
 from app.services.providers.templates.base_247_data import Base247DataTemplate
 from app.services.providers.templates.base_oauth import BaseOAuthTemplate
 from app.services.raw_payload_storage import store_raw_payload
@@ -1178,7 +1179,8 @@ class Oura247Data(Base247DataTemplate):
             except Exception as e:
                 db.rollback()
                 results[data_type] = 0
-                failed.append(data_type)
+                if not is_permanent_sync_error(e):
+                    failed.append(data_type)
                 log_structured(
                     self.logger,
                     "error",
@@ -1189,11 +1191,12 @@ class Oura247Data(Base247DataTemplate):
                     error=str(e),
                 )
 
-        # Every type failing means nothing was reachable (offline, expired
-        # token) — surface it so the caller doesn't advance last_synced_at
-        # past a window that was never fetched.
-        if failed and len(failed) == len(tasks):
-            raise RuntimeError(f"All Oura data types failed to sync: {', '.join(failed)}")
+        # Any transient failure (offline, expired token, 5xx, rate limit)
+        # means part of the window was never fetched — surface it so the
+        # caller doesn't advance last_synced_at past it. Everything that did
+        # succeed is already saved; the retry re-fetches idempotently.
+        if failed:
+            raise RuntimeError(f"Oura data types failed to sync: {', '.join(failed)}")
 
         return results
 

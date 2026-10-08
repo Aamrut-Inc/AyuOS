@@ -101,6 +101,23 @@ Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
+    // Only this machine's own pages may talk to the app. A Host check stops
+    // DNS rebinding (an outside domain re-pointed at 127.0.0.1 reading the
+    // health record); an Origin check stops other sites' forms from posting
+    // uploads/reviews here (CSRF).
+    const allowedHosts = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);
+    if (!allowedHosts.has(req.headers.get("host") ?? "")) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      const origin = req.headers.get("origin");
+      const site = req.headers.get("sec-fetch-site");
+      const sameOrigin = origin
+        ? [...allowedHosts].some((h) => origin === `http://${h}`)
+        : site === null || site === "same-origin" || site === "none";
+      if (!sameOrigin) return new Response("Forbidden", { status: 403 });
+    }
+
     if (url.pathname === "/") {
       const userId = await getOrCreateUserId(wearablesConfig);
       const connections = await getConnections(wearablesConfig, userId);

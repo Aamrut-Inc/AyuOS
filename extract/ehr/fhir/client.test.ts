@@ -30,6 +30,7 @@ beforeAll(() => {
         return new Response("category required", { status: 400 });
       }
       if (url.pathname === "/fhir/Goal") return new Response("forbidden", { status: 403 });
+      if (url.pathname.startsWith("/expired/")) return new Response("token expired", { status: 401 });
       return new Response("not found", { status: 404 });
     }
   });
@@ -58,4 +59,10 @@ test("pulls every Observation category, follows pagination, de-duplicates", asyn
 test("throws FhirHttpError when every search for a type is refused", async () => {
   const promise = fetchResourceType({ config, token, resourceType: "Goal", patientId: "p1" });
   await expect(promise).rejects.toBeInstanceOf(FhirHttpError);
+});
+
+test("an expired token (401) fails the fetch instead of being skipped", async () => {
+  const expired = { ...config, fhirBaseUrl: `http://127.0.0.1:${server.port}/expired` };
+  const promise = fetchResourceType({ config: expired, token, resourceType: "Observation", patientId: "p1" });
+  await expect(promise).rejects.toMatchObject({ status: 401 });
 });

@@ -35,7 +35,7 @@ export async function importEhr(
     } catch (error) {
       // Not supported by this server or not covered by the granted scopes —
       // skip it rather than losing every other resource type in the import.
-      if (error instanceof FhirHttpError && error.status >= 400 && error.status < 500) {
+      if (error instanceof FhirHttpError && error.unsupported) {
         console.warn(`${resourceType}: not available (HTTP ${error.status}), skipping`);
         continue;
       }
