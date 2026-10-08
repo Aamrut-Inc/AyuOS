@@ -26,10 +26,11 @@ The repo enforces a strict **extract → transform → load** boundary (see comm
 ## 2. Types of data coming in
 
 ### Clinical (EHR/FHIR), via Epic (or Stanford Health Care)
-Resource types actually fetched, per the live `.env`'s `FHIR_RESOURCE_TYPES`:
-`Patient, Observation, Immunization, DiagnosticReport, DocumentReference, Encounter, Procedure`
+Each import is a full-history pull. By default (`extract/ehr/config.ts`) it fetches every relevant patient-scoped resource type: `Patient, AllergyIntolerance, CarePlan, CareTeam, Condition, Device, DiagnosticReport, DocumentReference, Encounter, FamilyMemberHistory, Goal, Immunization, MedicationRequest, MedicationStatement, Observation, Procedure, QuestionnaireResponse, ServiceRequest, Specimen`. `FHIR_RESOURCE_TYPES` overrides the list.
 
-The code's *default* list (used if `FHIR_RESOURCE_TYPES` is unset) is wider — it also includes `Condition`, `MedicationRequest`, `AllergyIntolerance` (see `extract/ehr/config.ts:47-56`).
+For each type, `fetchResourceType()` (`extract/ehr/fhir/client.ts`) runs one uncategorized search plus one search per configured category, follows pagination, and de-duplicates by id. Observation is searched across every HL7/US Core/Epic category (laboratory, vital-signs, social-history, survey, exam, imaging, ..., smartdata; `FHIR_OBSERVATION_CATEGORIES` overrides), Condition across problem-list-item/encounter-diagnosis/health-concern/medical-history, DocumentReference across clinical-note. A search the server refuses with 4xx is skipped; a type whose searches are all refused is skipped by `importEhr()` with a warning, so one unsupported type or ungranted scope doesn't abort the import.
+
+Scopes default to `patient/<Type>.rs` for every resource type. A type is only actually returned if it's also enabled as an API on the Epic app registration and granted at consent.
 
 ### Wearables, via the Open Wearables backend (see §4)
 Two providers currently have real OAuth credentials configured: **Oura** and **Whoop**. The backend supports 11 providers total (see `services/wearables/backend/app/services/providers/`: apple, fitbit, garmin, google, oura, polar, samsung, strava, suunto, ultrahuman, whoop), but only Oura/Whoop are live for this project.
@@ -179,7 +180,7 @@ Merge history for context: `489c9a2` (wearables ingestion + local web app + Appl
 ## 5. Key findings from building this
 
 **EHR/FHIR side:**
-- Epic rejects `Observation` searches without a `category` param — `extract/ehr/fhir/client.ts:34-41` throws a specific error if `FHIR_OBSERVATION_CATEGORY` isn't set. Live `.env` uses `FHIR_OBSERVATION_CATEGORY=survey`.
+- Epic rejects `Observation` searches without a `category` param. Originally only one category (`survey`) was fetched, which silently missed labs and vitals; the client now loops over every category (see §2).
 - Epic's public sandbox was validated end-to-end at commit `6744e67`. **Stanford Health Care production has since been validated too**, in a separate work session whose `.env` values were never committed (correctly — `.env` is gitignored) and so aren't reflected in this repo's current checked-in state. For whoever picks this back up: production FHIR base URL is `https://sfd.stanfordmed.org/FHIR/api/FHIR/R4`, provider name is `stanford`, and the Client ID to use is Open Epic's **"Client ID" field, not "Non-Production Client ID"** (`3fdbd5b9-809b-4aa8-9c7f-992c485640d6` at time of writing). The endpoint URL was found via Epic's own official directory at `open.epic.com/MyApps/Endpoints` → Production Endpoints table → search "Stanford" → Org ID 520 (exactly one entry; a third-party mirror, `mock.health`, independently lists the same host). Real patient data (self) was successfully pulled end-to-end against this endpoint. These values aren't recoverable from git history — they need to be re-entered by hand.
 - Stanford access wasn't obtained by asking Stanford directly — the app's "Automatic Client Distribution: USCDI v3" setting in Open Epic (Cures Act–driven auto-adoption) had already propagated the production client ID to 500+ Epic customer orgs, Stanford among them (confirmed via Build Apps → the app → "Review & Manage Downloads" → search the org name → status "Keys enabled"). Any other Epic-based hospital the client ID has already reached the same way is worth checking there first, before assuming a new hospital needs a bespoke registration/approval process.
 - SMART "aud" parameter (bound to the exact FHIR base URL) is required by Epic on the authorize request — see `smart-oauth.ts`'s `buildAuthorizeUrl`.

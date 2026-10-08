@@ -1,5 +1,5 @@
 import type { ProviderConfig, TokenResponse } from "./config";
-import { fetchResourceType } from "./fhir/client";
+import { fetchResourceType, FhirHttpError } from "./fhir/client";
 import { RawFhirStore } from "../../load/raw-store";
 
 export function requirePatientId(patientId: string | undefined): string {
@@ -21,12 +21,23 @@ export async function importEhr(
   const countsByType: Record<string, number> = {};
 
   for (const resourceType of config.resourceTypes) {
-    const resources = await fetchResourceType({
-      config,
-      token,
-      resourceType,
-      patientId
-    });
+    let resources;
+    try {
+      resources = await fetchResourceType({
+        config,
+        token,
+        resourceType,
+        patientId
+      });
+    } catch (error) {
+      // Not supported by this server or not covered by the granted scopes —
+      // skip it rather than losing every other resource type in the import.
+      if (error instanceof FhirHttpError && error.status >= 400 && error.status < 500) {
+        console.warn(`${resourceType}: not available (HTTP ${error.status}), skipping`);
+        continue;
+      }
+      throw error;
+    }
 
     for (const resource of resources) {
       await store.upsertResource(resource, patientId, config.name);
