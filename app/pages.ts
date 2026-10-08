@@ -1,7 +1,7 @@
 import type { WearableConnection } from "../extract/wearables/oauth";
 import type { SyncRunSummary } from "../load/sync-runs";
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -68,7 +68,7 @@ const DROPZONE_SCRIPT = `
   }
 `;
 
-function layout(title: string, body: string, script = ""): string {
+export function layout(title: string, body: string, script = ""): string {
   return `<!doctype html>
 <html>
 <head><meta charset="utf-8"><title>${title}</title><style>${STYLE}</style></head>
@@ -82,6 +82,9 @@ interface LoginPageMeta {
   lastReadingByProvider: Map<string, string>;
   jobs: SyncRunSummary[];
   syncing: boolean;
+  // Extra source cards (e.g. lab PDF upload) and their client-side script.
+  extraCards?: string;
+  extraScript?: string;
 }
 
 // The wearables backend pulls from each provider hourly; a connection that
@@ -135,7 +138,7 @@ function syncStatusSection(jobs: SyncRunSummary[], syncing: boolean): string {
   `;
 }
 
-function formatWhen(iso: string | null | undefined): string {
+export function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "never";
   const diffMs = Date.now() - new Date(iso).getTime();
   const minutes = Math.round(diffMs / 60000);
@@ -221,8 +224,9 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
       <input type="file" id="apple-health-file-input" accept=".zip" style="display:none;">
       ${meta.lastReadingByProvider.get("apple_health") ? `<p class="meta" style="margin: 6px 0 0;">Last reading: ${formatWhen(meta.lastReadingByProvider.get("apple_health"))} · <a href="/data/wearables?source=apple_health">View data</a></p>` : ""}
     </div>
+    ${meta.extraCards ?? ""}
   `;
-  return layout("AyuOS — Login", body, DROPZONE_SCRIPT);
+  return layout("AyuOS — Login", body, DROPZONE_SCRIPT + (meta.extraScript ?? ""));
 }
 
 function liveTimestamp(): string {

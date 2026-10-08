@@ -69,3 +69,19 @@ runs the installed copy, not your checkout. Logs:
 `~/Library/Logs/AyuOS/app.log`. Remove with `./scripts/uninstall-agent.sh`.
 To run from the checkout instead (`bun run dev:app`), uninstall the agent
 first, since both use port 3000.
+
+## Lab report PDFs
+
+Drop lab report PDFs on the home page (or `/labs`). Everything happens on this
+laptop: the text layer is read with macOS PDFKit, and scanned pages are OCR'd
+with Apple's Vision framework (`extract/lab-pdf/pdf-text.swift`, compiled on
+first use — needs the Xcode Command Line Tools: `xcode-select --install`).
+
+`transform/lab-results.ts` reads each row as test name / value / flag / units /
+reference range, matches the name against common analytes
+(`transform/lab-analytes.ts`, US and Indian naming, with a suggested LOINC code),
+and detects the collection date. **Nothing counts until it's reviewed**: the
+review page shows every candidate next to the line it was read from, pre-ticks
+confident ones, and lets you fix values before saving. Originals are kept in
+`~/Library/Application Support/AyuOS/data/lab-pdfs/`; results land in
+`labs.documents` / `labs.results` (only `status = 'confirmed'` rows are real data).

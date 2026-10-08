@@ -14,9 +14,17 @@ function advance(ms: number) {
   setSystemTime(new Date(clock));
 }
 
-async function tick(scheduler: Scheduler) {
+// Jobs run fire-and-forget behind a DNS probe, so wait for the expected
+// count instead of a fixed delay (which flakes on a busy machine).
+async function until(check: () => boolean, timeoutMs = 3000) {
+  const deadline = performance.now() + timeoutMs;
+  while (!check() && performance.now() < deadline) await Bun.sleep(10);
+}
+
+async function tick(scheduler: Scheduler, expectRuns?: () => boolean) {
   await (scheduler as any).tick();
-  await Bun.sleep(50); // let fire-and-forget job executions settle
+  if (expectRuns) await until(expectRuns);
+  else await Bun.sleep(50);
 }
 
 afterAll(async () => {
@@ -33,7 +41,7 @@ test("runs on startup, waits for the interval, and catches up after a wake gap",
   ]);
   await scheduler.start();
   scheduler.stop();
-  await Bun.sleep(50);
+  await until(() => runs === 1);
   expect(runs).toBe(1);
 
   for (let i = 0; i < 4; i++) {
@@ -43,7 +51,7 @@ test("runs on startup, waits for the interval, and catches up after a wake gap",
   expect(runs).toBe(1);
 
   advance(5 * HOUR); // lid closed: no ticks for 5 hours
-  await tick(scheduler);
+  await tick(scheduler, () => runs === 2);
   expect(runs).toBe(2);
 });
 
@@ -61,7 +69,7 @@ test("wake-only jobs run after wake, honoring their delay, then not on the inter
   await tick(scheduler);
   expect(runs).toBe(0);
   advance(31 * 1000);
-  await tick(scheduler);
+  await tick(scheduler, () => runs === 1);
   expect(runs).toBe(1);
 
   for (let i = 0; i < 10; i++) {
@@ -87,20 +95,23 @@ test("failed runs retry with backoff and are recorded", async () => {
   ]);
   await scheduler.start();
   scheduler.stop();
-  await Bun.sleep(50);
+  await until(() => attempts === 1);
+  await Bun.sleep(50); // let the failure be recorded
   expect(attempts).toBe(1);
 
   advance(30 * 1000);
   await tick(scheduler);
   expect(attempts).toBe(1); // 1 min backoff not elapsed
   advance(31 * 1000);
-  await tick(scheduler);
+  await tick(scheduler, () => attempts === 2);
+  await Bun.sleep(50);
   expect(attempts).toBe(2);
   advance(60 * 1000);
   await tick(scheduler);
   expect(attempts).toBe(2); // backoff doubled to 2 min
   advance(61 * 1000);
-  await tick(scheduler);
+  await tick(scheduler, () => attempts === 3);
+  await Bun.sleep(100); // let the success be recorded
   expect(attempts).toBe(3);
 
   const rows = await sql`SELECT status FROM ops.sync_runs WHERE job = ${name} ORDER BY id`;

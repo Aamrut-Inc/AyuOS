@@ -15,9 +15,14 @@ import { RawFhirStore } from "../load/raw-store";
 import { runTransform } from "../transform/run";
 import { loginPage, wearablesDataPage, ehrDataPage } from "./pages";
 import { Scheduler } from "./scheduler";
+import { importLabPdf, reparseLabPdf } from "./lab-import";
+import { warmPdfReader } from "../extract/lab-pdf/pdf-text";
+import { LAB_DROPZONE_SCRIPT, labReviewPage, labsPage, labUploadCard } from "./lab-pages";
+import { LabStore, type ReviewedResult } from "../load/lab-store";
+import { parseReference, parseValue } from "../transform/lab-results";
 import { ensureStack } from "./stack";
 
-const PORT = 3000;
+const PORT = Number(process.env.AYUOS_PORT ?? 3000);
 const wearablesConfig = loadWearablesConfig();
 
 try {
@@ -125,12 +130,20 @@ Bun.serve({
       }
 
       const runs = new SyncRunStore(loadPostgresConfig());
+      const labs = new LabStore(loadPostgresConfig());
       let jobs;
+      let labDocs;
       try {
         jobs = await runs.summaries();
+        labDocs = await labs.listDocuments();
       } finally {
         await runs.close();
+        await labs.close();
       }
+      const labCard = labUploadCard(
+        labDocs.filter((d) => d.status === "needs_review").length,
+        labDocs.reduce((sum, d) => sum + d.confirmed, 0)
+      );
 
       return html(
         loginPage(connections, ehrConnected, {
@@ -138,7 +151,9 @@ Bun.serve({
           ehrResourceCount,
           lastReadingByProvider,
           jobs,
-          syncing: url.searchParams.get("syncing") === "1"
+          syncing: url.searchParams.get("syncing") === "1",
+          extraCards: labCard,
+          extraScript: LAB_DROPZONE_SCRIPT
         })
       );
     }
@@ -271,6 +286,97 @@ Bun.serve({
       }
     }
 
+    if (url.pathname === "/upload/lab-pdf" && req.method === "POST") {
+      try {
+        const formData = await req.formData();
+        const files = formData.getAll("file").filter((f): f is File => f instanceof File);
+        if (files.length === 0) {
+          return Response.json({ error: "No file uploaded" }, { status: 400 });
+        }
+        const documents = [];
+        for (const file of files) {
+          documents.push(
+            await recordRun("lab-pdf-upload", "manual", async () =>
+              importLabPdf(loadPostgresConfig(), file.name, new Uint8Array(await file.arrayBuffer()))
+            )
+          );
+        }
+        return Response.json({ documents });
+      } catch (error) {
+        console.error("Lab PDF upload failed:", error instanceof Error ? error.message : error);
+        return Response.json(
+          { error: error instanceof Error ? error.message : "Upload failed" },
+          { status: 500 }
+        );
+      }
+    }
+
+    if (url.pathname === "/labs") {
+      const labs = new LabStore(loadPostgresConfig());
+      try {
+        return html(labsPage(await labs.listDocuments(), await labs.confirmedResults()));
+      } finally {
+        await labs.close();
+      }
+    }
+
+    const labMatch = url.pathname.match(/^\/labs\/(\d+)(\/file|\/review|\/reparse)?$/);
+    if (labMatch) {
+      const documentId = Number(labMatch[1]);
+      const action = labMatch[2];
+      const labs = new LabStore(loadPostgresConfig());
+      try {
+        const doc = await labs.getDocument(documentId);
+        if (!doc) return new Response("Not found", { status: 404 });
+
+        if (action === "/file") {
+          return new Response(Bun.file(doc.file_path), {
+            headers: {
+              "content-type": "application/pdf",
+              "content-disposition": `inline; filename="${doc.filename.replace(/"/g, "")}"`
+            }
+          });
+        }
+
+        if (action === "/reparse" && req.method === "POST") {
+          await reparseLabPdf(loadPostgresConfig(), documentId).catch((error) => {
+            console.error("Lab PDF re-read failed:", error instanceof Error ? error.message : error);
+          });
+          return Response.redirect(`http://127.0.0.1:${PORT}/labs/${documentId}`, 303);
+        }
+
+        if (action === "/review" && req.method === "POST") {
+          const form = await req.formData();
+          const field = (name: string) => String(form.get(name) ?? "").trim();
+          const collectedDate = /^\d{4}-\d{2}-\d{2}$/.test(field("collected_date")) ? field("collected_date") : null;
+          const reviewed: ReviewedResult[] = (await labs.resultsForDocument(documentId)).map((r) => {
+            const value = parseValue(field(`value_${r.id}`));
+            const ref = parseReference(field(`ref_${r.id}`));
+            const flag = field(`flag_${r.id}`);
+            return {
+              id: r.id,
+              accept: form.get(`accept_${r.id}`) === "on",
+              analyteName: field(`name_${r.id}`) || r.analyte_name,
+              valueNum: value.valueNum,
+              valueText: value.valueText,
+              comparator: value.comparator,
+              unit: field(`unit_${r.id}`) || null,
+              refText: ref.refText,
+              refLow: ref.refLow,
+              refHigh: ref.refHigh,
+              flag: ["H", "L", "A"].includes(flag) ? flag : null
+            };
+          });
+          await labs.saveReview(documentId, collectedDate, reviewed);
+          return Response.redirect(`http://127.0.0.1:${PORT}/labs`, 303);
+        }
+
+        return html(labReviewPage(doc, await labs.resultsForDocument(documentId)));
+      } finally {
+        await labs.close();
+      }
+    }
+
     if (url.pathname === "/data/wearables") {
       const userId = await getOrCreateUserId(wearablesConfig);
       const source = url.searchParams.get("source"); // null = all sources
@@ -351,4 +457,8 @@ Bun.serve({
 });
 
 console.log(`AyuOS app running at http://127.0.0.1:${PORT}`);
-await scheduler.start();
+warmPdfReader().catch((error) => {
+  console.warn("Lab PDF reader unavailable:", error instanceof Error ? error.message : error);
+});
+// Off for test instances pointed at a scratch database.
+if (process.env.AYUOS_DISABLE_SCHEDULER !== "1") await scheduler.start();
