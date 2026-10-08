@@ -12,6 +12,7 @@ import { importEhr, requirePatientId } from "../extract/ehr/sync";
 import { loadPostgresConfig } from "../load/config";
 import { SyncRunStore } from "../load/sync-runs";
 import { RawFhirStore } from "../load/raw-store";
+import { AttachmentStore } from "../load/attachment-store";
 import { runTransform } from "../transform/run";
 import { loginPage, wearablesDataPage, ehrDataPage } from "./pages";
 import { Scheduler } from "./scheduler";
@@ -227,11 +228,13 @@ Bun.serve({
             const patientId = requirePatientId(token.patient);
             const postgresConfig = loadPostgresConfig();
             const store = new RawFhirStore(postgresConfig);
+            const attachments = new AttachmentStore(postgresConfig);
             let fetched: Record<string, number>;
             try {
-              fetched = await importEhr(providerConfig, token, patientId, store);
+              fetched = await importEhr(providerConfig, token, patientId, store, attachments);
             } finally {
               await store.close();
+              await attachments.close();
             }
             // Keep clinical.patient/observation/etc. in sync with the raw data
             // we just stored — without this, new data silently doesn't show up

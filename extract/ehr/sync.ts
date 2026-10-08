@@ -1,6 +1,8 @@
 import type { ProviderConfig, TokenResponse } from "./config";
 import { fetchResourceType, FhirHttpError } from "./fhir/client";
 import { RawFhirStore } from "../../load/raw-store";
+import type { AttachmentStore } from "../../load/attachment-store";
+import { attachmentRefs, downloadAttachment } from "./fhir/attachments";
 
 export function requirePatientId(patientId: string | undefined): string {
   if (!patientId) {
@@ -16,7 +18,8 @@ export async function importEhr(
   config: ProviderConfig,
   token: TokenResponse,
   patientId: string,
-  store: RawFhirStore
+  store: RawFhirStore,
+  attachments?: AttachmentStore
 ): Promise<Record<string, number>> {
   const countsByType: Record<string, number> = {};
 
@@ -44,6 +47,18 @@ export async function importEhr(
     }
 
     countsByType[resourceType] = resources.length;
+
+    if (attachments) {
+      // Attachment links need this session's token, so fetch them now.
+      const already = await attachments.downloadedUrls(config.name);
+      for (const ref of resources.flatMap(attachmentRefs)) {
+        if (ref.url && already.has(ref.url)) continue;
+        const downloaded = await downloadAttachment(config, token, ref);
+        await attachments.save(config.name, downloaded);
+        const key = downloaded.error ? "attachments_failed" : "attachments";
+        countsByType[key] = (countsByType[key] ?? 0) + 1;
+      }
+    }
   }
 
   return countsByType;

@@ -122,7 +122,9 @@ function parseSearchCategories(): Record<string, string[]> {
 // One read/search scope per resource type, so the consent screen asks for
 // exactly what the import will fetch.
 function defaultScopes(resourceTypes: string[]): string {
-  return ["launch/patient", "openid", "fhirUser", ...resourceTypes.map((type) => `patient/${type}.rs`)].join(" ");
+  // Binary isn't searched, but reading attachment files needs it.
+  const scopes = [...resourceTypes.map((type) => `patient/${type}.rs`), "patient/Binary.r"];
+  return ["launch/patient", "openid", "fhirUser", ...scopes].join(" ");
 }
 
 export function loadProviderConfig(): ProviderConfig {
