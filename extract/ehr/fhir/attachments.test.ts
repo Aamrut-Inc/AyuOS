@@ -28,6 +28,7 @@ beforeAll(() => {
     fhirBaseUrl: `http://127.0.0.1:${server.port}/fhir`,
     clientId: "test",
     redirectUri: "http://127.0.0.1/callback",
+    callbackListenUri: "http://127.0.0.1/callback",
     scopes: "",
     searchCategories: {},
     resourceTypes: [],

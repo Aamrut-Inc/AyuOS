@@ -7,6 +7,11 @@ export interface ProviderConfig {
   tokenUrl?: string;
   clientId: string;
   redirectUri: string;
+  // Where the local process listens for the login callback. Same as
+  // redirectUri when that is a loopback address; when redirectUri is a public
+  // https forwarding page (required by Epic for production apps), the page
+  // bounces the browser here.
+  callbackListenUri: string;
   scopes: string;
   searchCategories: Record<string, string[]>;
   resourceTypes: string[];
@@ -127,15 +132,26 @@ function defaultScopes(resourceTypes: string[]): string {
   return ["launch/patient", "openid", "fhirUser", ...scopes].join(" ");
 }
 
+const DEFAULT_CALLBACK_LISTEN_URI = "http://127.0.0.1:8765";
+
+function callbackListenUri(redirectUri: string): string {
+  const explicit = optionalEnv("FHIR_CALLBACK_LISTEN_URI");
+  if (explicit) return explicit;
+  const host = new URL(redirectUri).hostname;
+  return host === "127.0.0.1" || host === "localhost" ? redirectUri : DEFAULT_CALLBACK_LISTEN_URI;
+}
+
 export function loadProviderConfig(): ProviderConfig {
   const resourceTypes = parseResourceTypes();
+  const redirectUri = requiredEnv("FHIR_REDIRECT_URI");
   return {
     name: parseProviderName(),
     fhirBaseUrl: requiredEnv("FHIR_BASE_URL").replace(/\/$/, ""),
     authUrl: optionalEnv("FHIR_AUTH_URL"),
     tokenUrl: optionalEnv("FHIR_TOKEN_URL"),
     clientId: requiredEnv("FHIR_CLIENT_ID"),
-    redirectUri: requiredEnv("FHIR_REDIRECT_URI"),
+    redirectUri,
+    callbackListenUri: callbackListenUri(redirectUri),
     scopes: process.env.FHIR_SCOPES?.trim() || defaultScopes(resourceTypes),
     searchCategories: parseSearchCategories(),
     resourceTypes,

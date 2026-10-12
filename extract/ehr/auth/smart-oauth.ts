@@ -119,7 +119,7 @@ export async function beginSmartOAuth(
   const { codeVerifier, codeChallenge } = await createPkcePair();
   const state = randomUrlSafeString(32);
   const callbackServer = await startLocalCallbackServer(
-    config.redirectUri,
+    config.callbackListenUri,
     state,
     successRedirectUrl
   );
