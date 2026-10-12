@@ -58,25 +58,27 @@ export class WearableConnectionStore {
   // whole login if one is replayed, so two syncs must never refresh with the
   // same token. `force` refreshes even if not expired (after a 401).
   async accessToken(provider: WearableProvider, force = false): Promise<string> {
-    return this.sql.begin(async (tx) => {
+    // The transaction returns the outcome instead of throwing for a refused
+    // refresh: throwing inside begin() would roll back the needs_reconnect
+    // marker along with everything else.
+    const outcome = await this.sql.begin(async (tx) => {
       const [row] = await tx`SELECT * FROM ops.wearable_connections WHERE provider = ${provider} FOR UPDATE`;
-      if (!row) throw new ReconnectRequiredError(`${provider} isn't connected`);
-      if (row.status === "needs_reconnect") throw new ReconnectRequiredError(`${provider} needs to be reconnected`);
+      if (!row) return { reconnect: `${provider} isn't connected` };
+      if (row.status === "needs_reconnect") return { reconnect: `${provider} needs to be reconnected` };
 
       const expiresAt = row.token_expires_at ? new Date(row.token_expires_at).getTime() : Infinity;
-      if (!force && expiresAt - Date.now() > REFRESH_MARGIN_MS) return decryptSecret(row.access_token_enc);
-      if (!row.refresh_token_enc) throw new ReconnectRequiredError(`${provider} login expired and can't be renewed`);
+      if (!force && expiresAt - Date.now() > REFRESH_MARGIN_MS) return { token: decryptSecret(row.access_token_enc) };
+      if (!row.refresh_token_enc) return { dead: `${provider} login expired and can't be renewed` };
 
+      // The refresh call stays inside the lock so no other sync can replay
+      // the same refresh token. If the provider rotates it but this UPDATE or
+      // the commit then fails, the new token is lost and the login with it —
+      // unavoidable without the provider supporting idempotent refreshes.
       let tokens: TokenSet;
       try {
         tokens = await refreshTokens(provider, decryptSecret(row.refresh_token_enc));
       } catch (error) {
-        if (error instanceof ReconnectRequiredError) {
-          await tx`
-            UPDATE ops.wearable_connections SET status = 'needs_reconnect', last_error = ${error.message}
-            WHERE provider = ${provider}
-          `;
-        }
+        if (error instanceof ReconnectRequiredError) return { dead: error.message };
         throw error;
       }
       await tx`
@@ -87,8 +89,18 @@ export class WearableConnectionStore {
           last_error = NULL
         WHERE provider = ${provider}
       `;
-      return tokens.accessToken;
+      return { token: tokens.accessToken };
     });
+
+    if ("token" in outcome) return outcome.token!;
+    if ("dead" in outcome) {
+      await this.sql`
+        UPDATE ops.wearable_connections SET status = 'needs_reconnect', last_error = ${outcome.dead}
+        WHERE provider = ${provider}
+      `;
+      throw new ReconnectRequiredError(outcome.dead!);
+    }
+    throw new ReconnectRequiredError(outcome.reconnect!);
   }
 
   async lastSyncedAt(provider: WearableProvider): Promise<Date | null> {

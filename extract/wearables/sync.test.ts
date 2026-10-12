@@ -140,3 +140,20 @@ test("a sync saves readings and advances; a transient failure holds the resume p
     await store.close();
   }
 });
+
+test("a refused refresh marks the login as needing reconnect (and it sticks)", async () => {
+  process.env.WHOOP_CLIENT_ID = "test-client";
+  process.env.WHOOP_CLIENT_SECRET = "test-secret";
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ error: "invalid_request" }), { status: 400 })) as unknown as typeof fetch;
+  const store = new WearableConnectionStore(loadPostgresConfig());
+  try {
+    await store.save("whoop", { accessToken: "a", refreshToken: "dead", expiresAt: new Date(Date.now() - 1000), scope: null });
+    await expect(store.accessToken("whoop")).rejects.toThrow();
+    const [row] = await sql`SELECT status, last_error FROM ops.wearable_connections WHERE provider = 'whoop'`;
+    expect(row.status).toBe("needs_reconnect");
+    expect(row.last_error).toContain("invalid_request");
+  } finally {
+    await store.close();
+  }
+});

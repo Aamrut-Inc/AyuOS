@@ -63,15 +63,38 @@ async function main(): Promise<void> {
   const target = new SQL(loadPostgresConfig().connectionString);
 
   try {
-    const [{ n }] = await target`
-      SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'clinical'
-    `.catch(() => [{ n: 0 }]);
-    if (n > 0) {
-      const [{ rows }] = await target`SELECT count(*)::int AS rows FROM clinical.fhir_resources`;
-      if (rows > 0) throw new Error("The embedded database already has data; refusing to copy over it.");
+    await runMigrations(loadPostgresConfig(), false);
+
+    // A previous run may have copied the data and then stopped before
+    // finishing; don't copy twice (it would fail on duplicate keys).
+    const [{ copied }] = await target`
+      SELECT (EXISTS (SELECT 1 FROM clinical.fhir_resources)
+           OR EXISTS (SELECT 1 FROM timeseries.readings)
+           OR EXISTS (SELECT 1 FROM ops.sync_runs)) AS copied
+    `;
+    if (copied) {
+      console.log("Your data is already in the new database — finishing the remaining steps.");
+    } else {
+      await copyData(target);
     }
 
-    await runMigrations(loadPostgresConfig(), false);
+    // From here on .env no longer points at Docker, so a re-run can't redo
+    // the copy, whatever happens to the steps below.
+    finishEnv(env);
+    await moveWearableLogins(target, env, encryptSecret).catch((error) => {
+      console.warn(
+        `Couldn't move the Oura/Whoop logins (${error instanceof Error ? error.message : error}). ` +
+          "Just reconnect them from the AyuOS home page."
+      );
+    });
+  } finally {
+    await target.close();
+  }
+  console.log("\nDone. Docker is no longer needed — its data is untouched if you ever want it.");
+}
+
+async function copyData(target: SQL): Promise<void> {
+  {
 
     // Monthly partitions of timeseries.readings must exist before their rows arrive.
     const partitions = dockerExec("ayuos-db", [
@@ -104,8 +127,16 @@ async function main(): Promise<void> {
              (SELECT count(*) FROM labs.results)::int AS lab_results
     `;
     console.log("Copied:", counts[0]);
+  }
+}
 
-    // Wearable logins from the old backend, for this install's user.
+// Wearable logins from the old backend, for this install's user.
+async function moveWearableLogins(
+  target: SQL,
+  env: Map<string, string>,
+  encryptSecret: (plain: string) => string
+): Promise<void> {
+  {
     const userId = env.get("OPEN_WEARABLES_USER_ID") ?? "";
     if (userId) {
       const rows = dockerExec("wearables-db", [
@@ -130,10 +161,10 @@ async function main(): Promise<void> {
         console.log(`Moved ${provider} login (${status}).`);
       }
     }
-  } finally {
-    await target.close();
   }
+}
 
+function finishEnv(env: Map<string, string>): void {
   // Client credentials move from the backend's .env to AyuOS's.
   const wearablesEnv = readEnv(WEARABLES_ENV);
   const set: Record<string, string> = {};
@@ -144,7 +175,6 @@ async function main(): Promise<void> {
   if (env.get("OPEN_WEARABLES_USER_ID")) set.AYUOS_USER_ID = env.get("OPEN_WEARABLES_USER_ID")!;
   editEnv(ENV_FILE, set, ["DATABASE_URL", "OPEN_WEARABLES_API_BASE_URL", "OPEN_WEARABLES_API_KEY", "OPEN_WEARABLES_USER_ID"]);
   console.log("Updated .env (credentials moved; Docker settings removed).");
-  console.log("\nDone. Docker is no longer needed — its data is untouched if you ever want it.");
 }
 
 main().catch((error) => {
