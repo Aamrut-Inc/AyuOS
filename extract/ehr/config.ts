@@ -1,4 +1,7 @@
-export type ProviderName = "epic_sandbox" | "stanford";
+// Short name for the connected health system ("epic_sandbox", "stanford",
+// "ucsf", ...). Stored as the `source` of every record, so records from
+// different hospitals stay distinguishable.
+export type ProviderName = string;
 
 export interface ProviderConfig {
   name: ProviderName;
@@ -43,8 +46,10 @@ function optionalEnv(name: string): string | undefined {
 
 function parseProviderName(): ProviderName {
   const value = process.env.FHIR_PROVIDER?.trim() || "epic_sandbox";
-  if (value !== "epic_sandbox" && value !== "stanford") {
-    throw new Error(`Unsupported FHIR_PROVIDER: ${value}`);
+  if (!/^[a-z0-9_]{2,40}$/.test(value)) {
+    throw new Error(
+      `FHIR_PROVIDER must be a short lowercase name like "stanford" or "ucsf" (letters, digits, underscores): ${value}`
+    );
   }
   return value;
 }
