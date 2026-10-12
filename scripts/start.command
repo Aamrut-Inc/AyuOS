@@ -104,5 +104,13 @@ fi
 # crashes, and catches up on data missed while the laptop was closed.
 "$REPO_ROOT/scripts/install-agent.sh"
 
-say "All set. AyuOS is opening in your browser."
-open "http://127.0.0.1:3000"
+# The AyuOS app: its own window, Dock icon, and menu-bar sync status.
+"$REPO_ROOT/mac/build-app.sh" || true
+
+if [ -d "$HOME/Applications/AyuOS.app" ]; then
+  say "All set. Opening AyuOS (also in Launchpad and Spotlight)."
+  open "$HOME/Applications/AyuOS.app"
+else
+  say "All set. AyuOS is opening in your browser."
+  open "http://127.0.0.1:3000"
+fi

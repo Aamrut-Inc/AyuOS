@@ -47,6 +47,13 @@ bun run migrate
 bun run dev:app
 ```
 
+## The AyuOS app (macOS)
+
+`start.command` also builds `~/Applications/AyuOS.app` (`mac/build-app.sh`): a
+native window onto the local app, plus a menu-bar item ("Ayu ●") showing sync
+status with **Sync wearables now**. It starts in the menu bar at login. Quitting
+it only closes the window — syncing is done by the background app below.
+
 ## Background sync (macOS)
 
 `start.command` runs `scripts/install-agent.sh`, which copies the app to
