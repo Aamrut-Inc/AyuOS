@@ -220,10 +220,10 @@ export async function recordPage(config: PostgresConfig, userId: string | null):
 
     const body = `
       <h1>My health record</h1>
-      <p><a href="/">← back</a> · <span class="meta">Everything below lives on this laptop. Generated ${formatWhen(new Date().toISOString())}.</span></p>
-      ${sections.map((s) => `<h2>${s.title}</h2>${s.html}`).join("")}
+      <p class="lede">Everything below lives on this Mac. Updated ${formatWhen(new Date().toISOString())}.</p>
+      ${sections.map((s) => `<section class="card"><h2 style="margin-top: 0;">${s.title}</h2>${s.html}</section>`).join("")}
     `;
-    return layout("AyuOS — Health record", body);
+    return layout("AyuOS — Health record", body, "", "/record");
   } finally {
     await sql.close();
   }

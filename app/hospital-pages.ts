@@ -26,40 +26,50 @@ export function findDirectoryHospital(url: string): DirectoryHospital | null {
   return directoryHospitals().find((h) => h.url === normalized) ?? null;
 }
 
-// Home page card: one row per connected health system, each with its own
+// Home page card: one line per connected health system, each with its own
 // sync button, plus "Add a hospital".
-export function hospitalsCard(connections: EhrConnection[]): string {
+export function hospitalsCard(connections: EhrConnection[], showAddButton = true): string {
+  const failed = connections.some((c) => c.lastImportStatus === "failed");
+  const downloaded = connections.filter((c) => c.lastImportAt).length;
+  const pill =
+    connections.length === 0
+      ? `<span class="pill off">Not connected</span>`
+      : failed
+        ? `<span class="pill warn">Needs attention</span>`
+        : downloaded === 0
+          ? `<span class="pill off">Not downloaded yet</span>`
+          : `<span class="pill ok">${downloaded} connected</span>`;
+
   const rows = connections
     .map((c) => {
-      const failed = c.lastImportStatus === "failed";
+      const status =
+        c.lastImportStatus === "running"
+          ? "downloading now…"
+          : c.lastImportAt
+            ? `downloaded ${formatWhen(c.lastImportAt)}`
+            : "not downloaded yet";
       return `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid #eee;">
-          <span>
-            ${e(c.displayName)}
-            <span class="meta" style="display: block; margin: 2px 0 0;">
-              ${c.lastImportAt ? `Last download: ${formatWhen(c.lastImportAt)}` : "Not downloaded yet"}
-              ${c.lastImportStatus === "running" ? " · downloading now…" : ""}
-              ${failed ? `<span class="failing"> · last download failed</span>` : ""}
-              · <a href="/record">View records</a>
-            </span>
-            ${failed && c.lastImportError ? `<span class="warning" style="display: block;">${e(c.lastImportError.slice(0, 200))}</span>` : ""}
+        <div class="row" style="padding: 8px 0; border-top: 1px solid var(--line);">
+          <span style="min-width: 0;">
+            <strong style="font-size: 14px;">${e(c.displayName)}</strong>
+            <span class="meta" style="display: block; margin: 0;">${status}${
+              c.lastImportStatus === "failed" ? ` · <span class="failing">last download failed</span>` : ""
+            }</span>
           </span>
-          <a class="button" href="/connect/ehr?hospital=${encodeURIComponent(c.slug)}">${c.lastImportAt ? "Sync" : "Connect"}</a>
+          <a class="btn secondary" href="/connect/ehr?hospital=${encodeURIComponent(c.slug)}">${c.lastImportAt ? "Sync" : "Connect"}</a>
         </div>`;
     })
     .join("");
 
   return `
-    <div class="source-row" style="flex-direction: column; align-items: stretch;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong>Hospital records (Epic MyChart)</strong>
-        <a href="/hospitals">+ Add a hospital</a>
-      </div>
-      ${rows || `<p class="meta" style="margin: 8px 0 0;">No hospital connected yet. <a href="/hospitals">Find yours</a> — most large US health systems use Epic.</p>`}
-      <p class="meta" style="margin: 8px 0 0;">
-        Hospital records are a one-time download (the hospital's login only lasts an hour):
-        press <strong>Sync</strong> after a visit to pick up new results.
-      </p>
+    <div class="card">
+      <div class="card-head"><div class="icon">🏥</div><h3>Hospital records</h3>${pill}</div>
+      ${
+        rows ||
+        `<p class="meta">Log in with your hospital's MyChart account to download your full record. Most large US health systems use Epic.</p>`
+      }
+      <p class="meta" style="margin-top: 8px;">Press <strong>Sync</strong> after a visit to pick up new results.</p>
+      ${showAddButton ? `<div class="card-actions"><a class="btn${connections.length ? " secondary" : ""}" href="/hospitals">+ Add a hospital</a></div>` : ""}
     </div>
   `;
 }
@@ -84,35 +94,40 @@ const PICKER_SCRIPT = `
   input.focus();
 `;
 
-export function hospitalPickerPage(connectedUrls: Set<string>): string {
+export function hospitalPickerPage(connections: EhrConnection[]): string {
+  const connectedUrls = new Set(connections.map((c) => c.fhirBaseUrl));
   const items = directoryHospitals()
     .map((h) => {
       const connected = connectedUrls.has(h.url);
-      return `<li data-name="${e(h.name.toLowerCase())}"${h.sandbox ? ' data-featured="1"' : ""} style="display:none; padding: 6px 0; border-bottom: 1px solid #eee;">
+      return `<li data-name="${e(h.name.toLowerCase())}"${h.sandbox ? ' data-featured="1"' : ""} style="display:none; padding: 8px 0; border-bottom: 1px solid var(--line);">
         <form method="post" action="/hospitals/add" style="margin: 0; display: flex; justify-content: space-between; align-items: center;">
           <input type="hidden" name="url" value="${e(h.url)}">
           <span>${e(h.name)}</span>
-          ${connected ? `<span class="connected">✓ Connected</span>` : `<button class="button" type="submit">Connect</button>`}
+          ${connected ? `<span class="pill ok">Connected</span>` : `<button class="btn" type="submit">Connect</button>`}
         </form>
       </li>`;
     })
     .join("");
 
   const body = `
-    <h1>Add a hospital</h1>
-    <p><a href="/">← back</a></p>
-    <p class="meta">
-      Search for the health system whose MyChart you use. You'll log in on its own MyChart page,
-      and AyuOS downloads your records straight to this computer.
+    <h1>Hospitals</h1>
+    <p class="lede">
+      Connect the health systems whose MyChart you use. You log in on their own MyChart page,
+      and AyuOS downloads your records straight to this Mac.
     </p>
-    <input id="hospital-search" type="search" placeholder="Search, e.g. Stanford, Mayo, UCSF…"
-      style="width: 100%; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px;">
-    <ul id="hospital-list" style="list-style: none; padding: 0;">${items}</ul>
-    <p id="hospital-empty" class="meta" style="display:none;">
-      No match. Not every health system uses Epic — if yours isn't listed, AyuOS can't connect to it yet.
-    </p>
+    ${connections.length ? `<div class="grid" style="grid-template-columns: 1fr; margin-bottom: 14px;">${hospitalsCard(connections, false)}</div>` : ""}
+    <h2>Add a hospital</h2>
+    <div class="card">
+      <input id="hospital-search" type="search" placeholder="Search, e.g. Stanford, Mayo, UCSF…"
+        style="width: 100%; padding: 11px 14px; font-size: 15px; border-radius: 10px;">
+      <p class="meta" style="margin: 8px 0 0;">Start typing to search ${directoryHospitals().length - 1} health systems that use Epic MyChart.</p>
+      <ul id="hospital-list" style="list-style: none; padding: 0; margin: 8px 0 0;">${items}</ul>
+      <p id="hospital-empty" class="meta" style="display:none;">
+        No match. Not every health system uses Epic — if yours isn't listed, AyuOS can't connect to it yet.
+      </p>
+    </div>
   `;
-  return layout("AyuOS — Add a hospital", body, PICKER_SCRIPT);
+  return layout("AyuOS — Add a hospital", body, PICKER_SCRIPT, "/hospitals");
 }
 
 export function hospitalUnavailablePage(name: string, status: "unknown" | "rejected"): string {
@@ -123,7 +138,7 @@ export function hospitalUnavailablePage(name: string, status: "unknown" | "rejec
   const body = `
     <h1>Not available at ${e(name)} yet</h1>
     <p>${e(explanation)}</p>
-    <p><a class="button" href="/hospitals">Back to hospitals</a> &nbsp; <a href="/">Home</a></p>
+    <p><a class="btn" href="/hospitals">Back to hospitals</a> &nbsp; <a href="/">Home</a></p>
   `;
-  return layout("AyuOS — Not available yet", body);
+  return layout("AyuOS — Not available yet", body, "", "/hospitals");
 }

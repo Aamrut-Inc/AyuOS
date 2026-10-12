@@ -10,25 +10,126 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// One stylesheet for every page. Colors are tokens so dark mode (following
+// the Mac's appearance) is a single override block.
 const STYLE = `
-  body { font-family: -apple-system, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
-  h1 { font-size: 22px; }
-  h2 { font-size: 15px; color: #444; }
-  table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 13px; }
-  th { background: #f5f5f5; }
-  .source-row { display: flex; align-items: center; justify-content: space-between; padding: 14px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; }
-  .connected { color: #1a7f37; font-weight: 600; font-size: 13px; margin-right: 12px; }
-  a.button { background: #111; color: #fff; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-size: 14px; }
-  a.button.disabled { background: #ccc; pointer-events: none; }
-  .meta { color: #777; font-size: 12px; margin: 4px 0 16px; }
-  .dropzone { border: 2px dashed #ccc; border-radius: 8px; padding: 28px; text-align: center; color: #999; font-size: 13px; transition: border-color .15s, color .15s; }
-  .dropzone.drag-over { border-color: #111; color: #111; }
-  .warning { color: #9a6700; font-size: 12px; margin: 6px 0 0; }
-  .failing { color: #cf222e; }
-  .status-table td { vertical-align: top; }
-  button.button { background: #111; color: #fff; padding: 8px 18px; border-radius: 6px; border: 0; font-size: 14px; cursor: pointer; }
+  :root {
+    --bg: #f4f6f6; --card: #ffffff; --text: #1d2524; --muted: #6b7776; --line: #e3e8e7;
+    --brand: #1f8f7a; --brand-dark: #146673; --brand-soft: #e3f4f0;
+    --ok: #1a7f5a; --ok-soft: #e2f4ec; --warn: #9a6700; --warn-soft: #fff6dd;
+    --bad: #c4312b; --bad-soft: #fdecea; --off: #6b7776; --off-soft: #eef1f1;
+    --shadow: 0 1px 2px rgba(16, 40, 36, .06), 0 2px 8px rgba(16, 40, 36, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121716; --card: #1b2220; --text: #e4ebe9; --muted: #95a3a0; --line: #2c3634;
+      --brand: #3cb89f; --brand-dark: #2a9a86; --brand-soft: #18332d;
+      --ok: #4cc79a; --ok-soft: #173229; --warn: #e3b341; --warn-soft: #33290f;
+      --bad: #f2756d; --bad-soft: #3a1c1a; --off: #95a3a0; --off-soft: #242d2b;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  main { max-width: 960px; margin: 0 auto; padding: 28px 24px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 17px; margin: 28px 0 10px; }
+  h3 { font-size: 15px; margin: 0; }
+  .lede { color: var(--muted); margin: 0 0 22px; }
+
+  /* Header */
+  .topbar { background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .topbar-inner { max-width: 960px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--text); }
+  .brand:hover { text-decoration: none; }
+  .brand-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .brand-name span { color: var(--brand); }
+  .nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+  .nav a { color: var(--muted); padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+  .nav a:hover { background: var(--off-soft); color: var(--text); text-decoration: none; }
+  .nav a.active { background: var(--brand-soft); color: var(--brand); }
+
+  /* Cards and layout */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .grid .card { margin-bottom: 0; display: flex; flex-direction: column; }
+  .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .card-head .pill { margin-left: auto; }
+  .card-actions { margin-top: auto; padding-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; background: var(--brand-soft); flex: none; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+  /* Buttons, pills, alerts */
+  .btn, a.button, button.button { display: inline-block; background: var(--brand); color: #fff; border: 0; border-radius: 9px;
+    padding: 8px 16px; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1.3; cursor: pointer; text-decoration: none; }
+  .btn:hover, a.button:hover, button.button:hover { background: var(--brand-dark); text-decoration: none; }
+  .btn.secondary { background: var(--off-soft); color: var(--text); }
+  .btn.secondary:hover { background: var(--line); }
+  .btn.big { padding: 11px 20px; font-size: 15px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.bad { background: var(--bad-soft); color: var(--bad); }
+  .pill.off { background: var(--off-soft); color: var(--off); }
+  .alert { border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; font-size: 14px; border: 1px solid transparent; }
+  .alert.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .alert.bad { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+  .alert.ok { background: var(--ok-soft); }
+
+  /* Setup steps */
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .step { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); align-items: flex-start; }
+  .step:first-child { border-top: 0; padding-top: 4px; }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    font-weight: 700; font-size: 14px; background: var(--off-soft); color: var(--muted); }
+  .step.done .step-num { background: var(--ok-soft); color: var(--ok); }
+  .step.next .step-num { background: var(--brand); color: #fff; }
+  .step-body { flex: 1; }
+  .step-body p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+  .step.done h3 { color: var(--muted); }
+  .step-action { flex: none; align-self: center; }
+
+  /* Tables, text, misc (shared with older pages) */
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; background: var(--card); }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  .meta { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
+  .warning { color: var(--warn); font-size: 13px; margin: 6px 0 0; }
+  .failing { color: var(--bad); }
+  .connected { color: var(--ok); font-weight: 600; font-size: 13px; }
+  .source-row { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow); }
+  .dropzone { border: 2px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted);
+    font-size: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .dropzone:hover, .dropzone.drag-over { border-color: var(--brand); background: var(--brand-soft); color: var(--text); }
+  details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  input, select { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+  code { background: var(--off-soft); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+  .help-section { margin-bottom: 18px; }
+  .help-section ol, .help-section ul { padding-left: 22px; margin: 8px 0 0; }
+  .help-section li { margin: 6px 0; }
+  footer { max-width: 960px; margin: 0 auto; padding: 0 24px 32px; color: var(--muted); font-size: 12px; }
 `;
+
+// The app icon, drawn small for the header.
+const LOGO_SVG = `<svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true">
+  <defs><linearGradient id="ayu-g" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#29a085"/><stop offset="1" stop-color="#146673"/></linearGradient></defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#ayu-g)"/>
+  <path d="M32 50 C18 40 12 33 12 24 C12 17 17 13 22.5 13 C26.5 13 30 15.5 32 19 C34 15.5 37.5 13 41.5 13 C47 13 52 17 52 24 C52 33 46 40 32 50 Z" fill="#fff"/>
+  <polyline points="17,30 25,30 28,24 32,37 36,26 38,30 47,30" fill="none" stroke="#1a807a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+const NAV: Array<[string, string]> = [
+  ["/", "Home"],
+  ["/record", "My record"],
+  ["/labs", "Lab results"],
+  ["/hospitals", "Hospitals"],
+  ["/help", "Help"]
+];
 
 const DROPZONE_SCRIPT = `
   const zone = document.getElementById('apple-health-dropzone');
@@ -69,11 +170,26 @@ const DROPZONE_SCRIPT = `
   }
 `;
 
-export function layout(title: string, body: string, script = ""): string {
+export function layout(title: string, body: string, script = "", active = ""): string {
+  const nav = NAV.map(([href, label]) => `<a href="${href}"${href === active ? ' class="active"' : ""}>${label}</a>`).join("");
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${STYLE}</style></head>
-<body>${body}${script ? `<script>${script}</script>` : ""}</body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>${escapeHtml(title)}</title>
+<style>${STYLE}</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <a class="brand" href="/">${LOGO_SVG}<span class="brand-name">Ayu<span>OS</span></span></a>
+  <nav class="nav">${nav}</nav>
+</div></header>
+<main>${body}</main>
+<footer>Everything in AyuOS stays on this Mac.</footer>
+${script ? `<script>${script}</script>` : ""}
+</body>
 </html>`;
 }
 
@@ -108,33 +224,80 @@ function jobLabel(job: string): string {
   return JOB_LABELS[job] ?? job;
 }
 
-// Shown until each source has been set up once.
-export function gettingStarted(checklist: { wearable: boolean; hospital: boolean; labs: boolean } | undefined): string {
-  if (!checklist || (checklist.wearable && checklist.hospital && checklist.labs)) return "";
-  const step = (done: boolean, text: string) =>
-    `<li style="margin: 4px 0;">${done ? "✅" : "⬜️"} ${done ? `<span style="color:#777">${text}</span>` : text}</li>`;
+interface Checklist {
+  wearable: boolean;
+  hospital: boolean;
+  labs: boolean;
+}
+
+// The numbered setup guide at the top of the home page. Each step says what
+// to do and has a button for it; the first unfinished step is highlighted.
+// Once everything is set up it shrinks to a one-line confirmation.
+export function setupGuide(checklist: Checklist | undefined): string {
+  if (!checklist) return "";
+  if (checklist.wearable && checklist.hospital && checklist.labs) {
+    return `<div class="alert ok row"><span>✓ <strong>You're all set.</strong> AyuOS keeps your data up to date in the background.</span><a href="/help">Setup guide</a></div>`;
+  }
+
+  const steps = [
+    {
+      done: true,
+      title: "AyuOS is running",
+      text: "It starts with your Mac and keeps collecting in the background — you never need to open it to stay in sync.",
+      action: ""
+    },
+    {
+      done: checklist.wearable,
+      title: "Connect your wearable",
+      text: "Log into your Oura or Whoop account. Your full history downloads, then new data arrives every 30 minutes.",
+      action: `<a class="btn" href="/connect/oura">Connect Oura</a> <a class="btn secondary" href="/connect/whoop">Connect Whoop</a>`
+    },
+    {
+      done: checklist.hospital,
+      title: "Add your hospital",
+      text: "Find your health system and log in with your MyChart account. Your records — labs, medications, conditions, visits — download to this Mac.",
+      action: `<a class="btn" href="/hospitals">Find my hospital</a>`
+    },
+    {
+      done: checklist.labs,
+      title: "Add lab reports (optional)",
+      text: "Drop lab report PDFs below. AyuOS reads them on this Mac and asks you to check the values before saving.",
+      action: `<a class="btn secondary" href="#labs">Upload PDFs</a>`
+    },
+    {
+      done: false,
+      title: "See everything in one place",
+      text: "Your health record combines all of it: problems, medications, labs, visits and wearable trends.",
+      action: `<a class="btn secondary" href="/record">Open my record</a>`
+    }
+  ];
+  const next = steps.findIndex((step) => !step.done);
+  const items = steps
+    .map(
+      (step, i) => `
+      <li class="step ${step.done ? "done" : i === next ? "next" : ""}">
+        <div class="step-num">${step.done ? "✓" : i + 1}</div>
+        <div class="step-body"><h3>${step.title}</h3><p>${step.text}</p></div>
+        ${step.done || !step.action ? "" : `<div class="step-action">${step.action}</div>`}
+      </li>`
+    )
+    .join("");
+
   return `
-    <div class="source-row" style="flex-direction: column; align-items: stretch; background: #f6f8fa;">
-      <strong>Getting started</strong>
-      <ul style="list-style: none; padding: 0; margin: 8px 0 0;">
-        ${step(true, "AyuOS is running and will keep syncing in the background, even after a restart")}
-        ${step(checklist.wearable, "Connect your Oura or Whoop below")}
-        ${step(checklist.hospital, `Connect your hospital — <a href="/hospitals">find it here</a>`)}
-        ${step(checklist.labs, "Drop in a lab report PDF (optional)")}
-      </ul>
-    </div>`;
+    <section class="card">
+      <div class="row"><h2 style="margin: 0;">Set up AyuOS</h2><a href="/help">Step-by-step guide →</a></div>
+      <ol class="steps" style="margin-top: 10px;">${items}</ol>
+    </section>`;
 }
 
 export function fileVaultNotice(on: boolean | null | undefined): string {
   if (on !== false) return "";
   return `
-    <div class="source-row" style="border-color: #d4a72c; background: #fffbea;">
-      <span>
-        <strong>Turn on FileVault to encrypt your health data on this Mac.</strong>
-        FileVault is off, so anyone with this computer's disk could read the files AyuOS stores.
-        Open <a href="x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension">System Settings → Privacy &amp; Security → FileVault</a>
-        and click <em>Turn On</em> (keep the recovery key somewhere safe).
-      </span>
+    <div class="alert warn">
+      <strong>Turn on FileVault to encrypt your health data on this Mac.</strong>
+      It's off, so anyone with this computer's disk could read the files AyuOS stores.
+      Open <a href="x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension">System Settings → Privacy &amp; Security → FileVault</a>
+      and click <em>Turn On</em> (keep the recovery key somewhere safe).
     </div>`;
 }
 
@@ -143,47 +306,40 @@ export function diskWarning(freeBytes: number | null): string {
   const gb = (freeBytes / 2 ** 30).toFixed(1);
   const critical = freeBytes < DISK_CRITICAL_BYTES;
   return `
-    <div class="source-row" style="border-color: ${critical ? "#cf222e" : "#d4a72c"}; background: ${critical ? "#fff5f5" : "#fffbea"};">
-      <span>
-        <strong class="${critical ? "failing" : ""}">${critical ? "Your disk is almost full" : "Disk space is running low"}</strong> — ${gb} GB free.
-        ${critical ? "Syncing will stop when it fills up." : "Syncing stops if the disk fills up."}
-        Free some space (empty the Trash, delete large downloads, or clear app caches).
-      </span>
+    <div class="alert ${critical ? "bad" : "warn"}">
+      <strong>${critical ? "Your disk is almost full" : "Disk space is running low"}</strong> — ${gb} GB free.
+      ${critical ? "Syncing will stop when it fills up." : "Syncing stops if the disk fills up."}
+      Free some space (empty the Trash, delete large downloads, or clear app caches).
     </div>`;
 }
 
-function syncStatusSection(jobs: SyncRunSummary[], syncing: boolean): string {
+function syncActivity(jobs: SyncRunSummary[]): string {
   const rows = jobs
     .map((j) => {
       const state =
         j.lastStatus === "running"
-          ? "Running…"
+          ? `<span class="pill off">Running…</span>`
           : j.lastStatus === "success"
-            ? "✓ OK"
-            : `<span class="failing">✗ Failing${j.consecutiveFailures > 1 ? ` (${j.consecutiveFailures}×)` : ""}</span>`;
+            ? `<span class="pill ok">OK</span>`
+            : `<span class="pill bad">Failing${j.consecutiveFailures > 1 ? ` ×${j.consecutiveFailures}` : ""}</span>`;
       const error =
         j.lastStatus === "failed" && j.lastError
           ? `<div class="warning">${escapeHtml(j.lastError.slice(0, 300))}</div>`
           : "";
-      return `<tr><td>${jobLabel(j.job)}</td><td>${state}${error}</td><td>${formatWhen(j.lastSuccessAt)}</td></tr>`;
+      return `<tr><td>${escapeHtml(jobLabel(j.job))}</td><td>${state}${error}</td><td>${formatWhen(j.lastSuccessAt)}</td></tr>`;
     })
     .join("");
-
+  const failing = jobs.filter((j) => j.lastStatus === "failed").length;
   return `
-    <div class="source-row" style="flex-direction: column; align-items: stretch;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong>Background sync</strong>
-        <form method="post" action="/sync/now" style="margin: 0;"><button class="button" type="submit">Sync now</button></form>
-      </div>
-      ${syncing ? `<p class="meta" style="margin: 6px 0 0;">Sync requested — new data lands over the next few minutes.</p>` : ""}
-      <p class="meta" style="margin: 6px 0 0;">Wearables sync automatically every 30 minutes and catch up as soon as the laptop wakes.</p>
-      ${
-        rows
-          ? `<table class="status-table"><tr><th>Job</th><th>Status</th><th>Last success</th></tr>${rows}</table>`
-          : `<p class="meta">No sync has run yet.</p>`
-      }
-    </div>
-  `;
+    <details class="card" ${failing ? "open" : ""}>
+      <summary>Sync activity ${failing ? `<span class="pill bad">${failing} problem${failing > 1 ? "s" : ""}</span>` : `<span class="pill ok">All good</span>`}</summary>
+      <p class="meta" style="margin-top: 10px;">Wearables sync every 30 minutes and catch up as soon as your Mac wakes. Hospital records and uploads happen when you start them.</p>
+      ${rows ? `<table><tr><th>What</th><th>Status</th><th>Last success</th></tr>${rows}</table>` : `<p class="meta">Nothing has synced yet.</p>`}
+    </details>`;
+}
+
+function statusPill(kind: "ok" | "warn" | "bad" | "off", text: string): string {
+  return `<span class="pill ${kind}">${text}</span>`;
 }
 
 export function formatWhen(iso: string | null | undefined): string {
@@ -198,84 +354,78 @@ export function formatWhen(iso: string | null | undefined): string {
 }
 
 export function loginPage(connections: WearableConnection[], ehrConnected: boolean, meta: LoginPageMeta): string {
+  void ehrConnected;
   const byProvider = new Map(connections.map((c) => [c.provider as string, c]));
-  const isConnected = (provider: string) => byProvider.has(provider);
 
-  function sourceRow(
-    label: string,
-    connectHref: string,
-    connectedFlag: boolean,
-    lastReading: string | null,
-    connectedSince: string | undefined,
-    viewDataHref: string
-  ): string {
-    if (!connectedFlag) {
-      return `<div class="source-row"><strong>${label}</strong><span><a class="button" href="${connectHref}">Connect</a></span></div>`;
-    }
-    const connection = byProvider.get(connectHref.split("/").pop() ?? "");
-    let staleWarning = "";
-    if (connection?.status === "needs_reconnect") {
-      staleWarning = `<p class="warning">⚠ ${label}'s login has expired or was revoked, so AyuOS can't fetch new data. Click Reconnect.</p>`;
-    } else if (connection) {
+  function wearableCard(provider: "oura" | "whoop", name: string, icon: string): string {
+    const connection = byProvider.get(provider);
+    const lastReading = meta.lastReadingByProvider.get(provider) ?? null;
+    let pill = statusPill("off", "Not connected");
+    let note = `<p class="meta">Log in once; AyuOS downloads your full history and keeps it up to date.</p>`;
+    let actions = `<a class="btn" href="/connect/${provider}">Connect ${name}</a>`;
+
+    if (connection) {
       const lastSync = connection.lastSyncedAt ?? connection.connectedAt;
-      if (Date.now() - new Date(lastSync).getTime() > PROVIDER_STALE_MS) {
-        staleWarning = `<p class="warning">⚠ ${label} hasn't synced since ${formatWhen(lastSync)}${
-          connection.lastError ? ` — ${escapeHtml(connection.lastError.slice(0, 200))}` : ""
+      if (connection.status === "needs_reconnect") {
+        pill = statusPill("bad", "Needs reconnecting");
+        note = `<p class="warning">${name}'s login expired or was revoked, so new data can't be fetched. Reconnect to fix it.</p>`;
+        actions = `<a class="btn" href="/connect/${provider}">Reconnect ${name}</a>`;
+      } else if (Date.now() - new Date(lastSync).getTime() > PROVIDER_STALE_MS) {
+        pill = statusPill("warn", "Not syncing");
+        note = `<p class="warning">No successful sync since ${formatWhen(lastSync)}${
+          connection.lastError ? ` — ${escapeHtml(connection.lastError.slice(0, 160))}` : ""
         }</p>`;
+        actions = `<a class="btn secondary" href="/connect/${provider}">Reconnect</a>`;
+      } else {
+        pill = statusPill("ok", "Connected");
+        note = `<p class="meta">Synced ${formatWhen(lastSync)} · newest reading ${formatWhen(lastReading)}</p>`;
+        actions = `<a class="btn secondary" href="/data/wearables?source=${provider}">View data</a>`;
       }
     }
     return `
-      <div class="source-row" style="flex-direction: column; align-items: stretch;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <strong>${label}</strong>
-          <span><span class="connected">✓ Connected</span> <a class="button" href="${connectHref}">Reconnect</a></span>
-        </div>
-        <p class="meta" style="margin: 6px 0 0;">
-          Last reading: ${formatWhen(lastReading)}
-          ${connectedSince ? ` · Connected since ${new Date(connectedSince).toLocaleDateString()}` : ""}
-          · <a href="${viewDataHref}">View data</a>
-        </p>
-        ${staleWarning}
-      </div>
-    `;
+      <div class="card">
+        <div class="card-head"><div class="icon">${icon}</div><h3>${name}</h3>${pill}</div>
+        ${note}
+        <div class="card-actions">${actions}</div>
+      </div>`;
   }
 
+  const appleLast = meta.lastReadingByProvider.get("apple_health");
+  const appleCard = `
+    <div class="card">
+      <div class="card-head"><div class="icon">❤️</div><h3>Apple Health</h3>${appleLast ? statusPill("ok", "Imported") : statusPill("off", "Optional")}</div>
+      <p class="meta">Export from the Health app on your iPhone and drop the <code>export.zip</code> here. <a href="/help#apple-health">How?</a></p>
+      <div class="dropzone" id="apple-health-dropzone">Drop export.zip here, or click to choose</div>
+      <input type="file" id="apple-health-file-input" accept=".zip" style="display:none;">
+      ${appleLast ? `<p class="meta" style="margin: 8px 0 0;">Newest reading ${formatWhen(appleLast)} · <a href="/data/wearables?source=apple_health">View data</a></p>` : ""}
+    </div>`;
+
   const body = `
-    <h1>Welcome to AyuOS</h1>
+    <h1>Your health, in one place</h1>
+    <p class="lede">AyuOS collects your wearable, hospital and lab data on this Mac — automatically and privately.</p>
     ${diskWarning(meta.freeDiskBytes)}
     ${fileVaultNotice(meta.fileVaultOn)}
-    ${gettingStarted(meta.checklist)}
-    <p><a class="button" href="/record">View my health record</a></p>
-    ${syncStatusSection(meta.jobs, meta.syncing)}
-    <p class="meta">Connect your data sources:</p>
+    ${meta.syncing ? `<div class="alert ok">Sync started — new data will appear over the next few minutes.</div>` : ""}
+    ${setupGuide(meta.checklist)}
 
-    ${sourceRow(
-      "Oura",
-      "/connect/oura",
-      isConnected("oura"),
-      meta.lastReadingByProvider.get("oura") ?? null,
-      byProvider.get("oura")?.connectedAt,
-      "/data/wearables?source=oura"
-    )}
-    ${sourceRow(
-      "Whoop",
-      "/connect/whoop",
-      isConnected("whoop"),
-      meta.lastReadingByProvider.get("whoop") ?? null,
-      byProvider.get("whoop")?.connectedAt,
-      "/data/wearables?source=whoop"
-    )}
-    ${meta.hospitalsCard ?? ""}
-
-    <div class="source-row" style="flex-direction: column; align-items: stretch;">
-      <strong style="margin-bottom: 10px;">Apple Health</strong>
-      <div class="dropzone" id="apple-health-dropzone">Drag and drop your export.zip here, or click to choose a file</div>
-      <input type="file" id="apple-health-file-input" accept=".zip" style="display:none;">
-      ${meta.lastReadingByProvider.get("apple_health") ? `<p class="meta" style="margin: 6px 0 0;">Last reading: ${formatWhen(meta.lastReadingByProvider.get("apple_health"))} · <a href="/data/wearables?source=apple_health">View data</a></p>` : ""}
+    <div class="row" style="margin: 22px 0 12px;">
+      <a class="btn big" href="/record">Open my health record</a>
+      <form method="post" action="/sync/now" style="margin: 0;"><button class="btn secondary" type="submit">Sync wearables now</button></form>
     </div>
-    ${meta.extraCards ?? ""}
+
+    <h2>Your data sources</h2>
+    <div class="grid">
+      ${wearableCard("oura", "Oura", "💍")}
+      ${wearableCard("whoop", "Whoop", "⌚")}
+      ${meta.hospitalsCard ?? ""}
+      ${meta.extraCards ?? ""}
+      ${appleCard}
+    </div>
+
+    <h2>Behind the scenes</h2>
+    ${syncActivity(meta.jobs)}
   `;
-  return layout("AyuOS — Login", body, DROPZONE_SCRIPT + (meta.extraScript ?? ""));
+  return layout("AyuOS", body, DROPZONE_SCRIPT + (meta.extraScript ?? ""), "/");
 }
 
 function liveTimestamp(): string {
@@ -351,8 +501,8 @@ export function wearablesDataPage(
   `;
 
   const body = `
-    <h1>timeseries.readings</h1>
-    <p><a href="/">← back</a></p>
+    <h1>Wearable readings</h1>
+    <p class="lede">Every reading from your wearables and Apple Health. <a href="/">← Home</a></p>
     ${syncingBanner}
     ${liveTimestamp()}
     ${filterBar}
@@ -394,8 +544,8 @@ export function ehrDataPage(
     : "";
 
   const body = `
-    <h1>clinical.fhir_resources</h1>
-    <p><a href="/">← back</a></p>
+    <h1>Hospital records (raw)</h1>
+    <p class="lede">Every record downloaded from your hospitals, as received. <a href="/record">See them organized →</a></p>
     ${syncingBanner}
     ${liveTimestamp()}
     <h2>Row counts by resource type</h2>
@@ -422,7 +572,7 @@ export function wearableConnectErrorPage(provider: string, error: string, descri
     <h1>Couldn't connect ${escapeHtml(name)}</h1>
     <p>${escapeHtml(explanation)}</p>
     <p class="meta">Details from ${escapeHtml(name)}: ${escapeHtml(error)}${description ? ` — ${escapeHtml(description)}` : ""}</p>
-    <p><a class="button" href="/connect/${encodeURIComponent(provider)}">Try again</a> &nbsp; <a href="/">Back to AyuOS</a></p>
+    <p><a class="btn" href="/connect/${encodeURIComponent(provider)}">Try again</a> &nbsp; <a href="/">Back to AyuOS</a> &nbsp; <a href="/help#troubleshooting">Help</a></p>
   `;
   return layout(`AyuOS — Couldn't connect ${name}`, body);
 }

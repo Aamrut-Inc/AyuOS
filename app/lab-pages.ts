@@ -41,17 +41,20 @@ export const LAB_DROPZONE_SCRIPT = `
 `;
 
 export function labUploadCard(pendingReview: number, confirmedCount: number): string {
+  const pill = pendingReview
+    ? `<span class="pill warn">${pendingReview} to review</span>`
+    : confirmedCount
+      ? `<span class="pill ok">${confirmedCount} results</span>`
+      : `<span class="pill off">Optional</span>`;
   return `
-    <div class="source-row" style="flex-direction: column; align-items: stretch;">
-      <strong style="margin-bottom: 10px;">Lab reports (PDF)</strong>
-      <div class="dropzone" id="lab-pdf-dropzone">Drag and drop lab report PDFs here, or click to choose files</div>
+    <div class="card" id="labs">
+      <div class="card-head"><div class="icon">🧪</div><h3>Lab reports</h3>${pill}</div>
+      <p class="meta">Drop PDFs from any lab. They're read on this Mac (even scanned ones) — nothing is uploaded anywhere.</p>
+      <div class="dropzone" id="lab-pdf-dropzone">Drop lab report PDFs here, or click to choose</div>
       <input type="file" id="lab-pdf-file-input" accept=".pdf,application/pdf" multiple style="display:none;">
-      <p class="meta" style="margin: 6px 0 0;">
-        Read on this laptop (scanned reports via on-device OCR) — nothing is uploaded anywhere.
-        ${confirmedCount ? `${confirmedCount} confirmed result(s).` : ""}
-        ${pendingReview ? `<strong>${pendingReview} report(s) waiting for review.</strong>` : ""}
-        <a href="/labs">View lab results</a>
-      </p>
+      <div class="card-actions">
+        ${pendingReview ? `<a class="btn" href="/labs">Review results</a>` : `<a class="btn secondary" href="/labs">View lab results</a>`}
+      </div>
     </div>
   `;
 }
@@ -115,7 +118,7 @@ export function labsPage(
 
   const body = `
     <h1>Lab results</h1>
-    <p><a href="/">← back</a></p>
+    <p class="lede">Results from your uploaded lab reports, after you've checked them.</p>
     ${labUploadCard(0, 0)}
     <h2>Confirmed results (latest per test)</h2>
     ${
@@ -130,7 +133,7 @@ export function labsPage(
         : `<p class="meta">No reports uploaded yet.</p>`
     }
   `;
-  return layout("AyuOS — Lab results", body, LAB_DROPZONE_SCRIPT);
+  return layout("AyuOS — Lab results", body, LAB_DROPZONE_SCRIPT, "/labs");
 }
 
 export function labReviewPage(doc: LabDocument, results: LabResultRow[]): string {
@@ -157,7 +160,7 @@ export function labReviewPage(doc: LabDocument, results: LabResultRow[]): string
 
   const body = `
     <h1>Review: ${e(doc.filename)}</h1>
-    <p><a href="/labs">← all lab results</a> · <a href="/labs/${doc.id}/file" target="_blank">open the original PDF</a></p>
+    <p><a href="/labs">← All lab results</a> · <a href="/labs/${doc.id}/file" target="_blank">Open the original PDF</a></p>
     <p class="meta">
       Read via ${e(doc.extraction_method ?? "?")} from ${doc.page_count ?? "?"} page(s).
       Check each value against the PDF — ticked rows are saved as your results, unticked rows are discarded.
@@ -183,5 +186,5 @@ export function labReviewPage(doc: LabDocument, results: LabResultRow[]): string
       <span class="meta">(keeps rows you already reviewed)</span>
     </form>
   `;
-  return layout(`AyuOS — Review ${doc.filename}`, body);
+  return layout(`AyuOS — Review ${doc.filename}`, body, "", "/labs");
 }

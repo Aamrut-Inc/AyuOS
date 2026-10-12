@@ -25,6 +25,7 @@ import { runTransform } from "../transform/run";
 import { loginPage, wearablesDataPage, ehrDataPage, wearableConnectErrorPage } from "./pages";
 import { Scheduler } from "./scheduler";
 import { recordPage } from "./record";
+import { helpPage } from "./help-page";
 import { importLabPdf, reparseLabPdf } from "./lab-import";
 import { warmPdfReader } from "../extract/lab-pdf/pdf-text";
 import { LAB_DROPZONE_SCRIPT, labReviewPage, labsPage, labUploadCard } from "./lab-pages";
@@ -265,8 +266,7 @@ Bun.serve({
     if (url.pathname === "/hospitals") {
       const store = new EhrConnectionStore(loadPostgresConfig());
       try {
-        const connected = new Set((await store.list()).map((c) => c.fhirBaseUrl));
-        return html(hospitalPickerPage(connected));
+        return html(hospitalPickerPage(await store.list()));
       } finally {
         await store.close();
       }
@@ -384,6 +384,10 @@ Bun.serve({
           { status: 500, headers: { "content-type": "application/json" } }
         );
       }
+    }
+
+    if (url.pathname === "/help") {
+      return html(helpPage());
     }
 
     if (url.pathname === "/record") {
