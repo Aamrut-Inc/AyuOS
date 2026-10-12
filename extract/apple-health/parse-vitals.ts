@@ -1,6 +1,6 @@
 import unzipper from "unzipper";
 import { XMLParser } from "fast-xml-parser";
-import type { WearableReading } from "../wearables/client";
+import type { WearableReading } from "../wearables/readings";
 
 const LOINC_TO_METRIC_TYPE: Record<string, string> = {
   "8302-2": "height",

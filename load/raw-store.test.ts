@@ -62,3 +62,12 @@ test("upserting changed content appends a new version", async () => {
   expect(rows[1].version).toBe(2);
   expect(rows[1].is_current).toBe(true);
 });
+
+test("resources are stored as JSON objects, not JSON strings", async () => {
+  await store.upsertResource({ resourceType: "Patient", id: "json-shape" }, null, testSource);
+  const [row] = await sql`
+    SELECT jsonb_typeof(json) AS kind, json->>'id' AS id FROM clinical.fhir_resources
+    WHERE source = ${testSource} AND resource_id = 'json-shape'
+  `;
+  expect([row.kind, row.id]).toEqual(["object", "json-shape"]);
+});

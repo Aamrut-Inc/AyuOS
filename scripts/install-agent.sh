@@ -38,16 +38,15 @@ fi
 
 mkdir -p "$APP_DIR" "$LOG_DIR"
 
-# The installed app may have created the wearables user and written its id to
-# its own .env. Carry it back so the copy below doesn't drop it — losing it
-# would make the app create a second, empty user.
-installed_user_id="$(grep -E '^OPEN_WEARABLES_USER_ID=.+' "$APP_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
-repo_user_id="$(grep -E '^OPEN_WEARABLES_USER_ID=.+' "$REPO_ROOT/.env" | head -1 | cut -d= -f2- || true)"
+# Keep the installed copy's user id if only it has one, so the copy below
+# doesn't drop it (readings are stored under it).
+installed_user_id="$(grep -E '^AYUOS_USER_ID=.+' "$APP_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+repo_user_id="$(grep -E '^AYUOS_USER_ID=.+' "$REPO_ROOT/.env" | head -1 | cut -d= -f2- || true)"
 if [[ -n "$installed_user_id" && -z "$repo_user_id" ]]; then
-  if grep -q '^OPEN_WEARABLES_USER_ID=' "$REPO_ROOT/.env"; then
-    sed -i '' "s|^OPEN_WEARABLES_USER_ID=.*|OPEN_WEARABLES_USER_ID=$installed_user_id|" "$REPO_ROOT/.env"
+  if grep -q '^AYUOS_USER_ID=' "$REPO_ROOT/.env"; then
+    sed -i '' "s|^AYUOS_USER_ID=.*|AYUOS_USER_ID=$installed_user_id|" "$REPO_ROOT/.env"
   else
-    echo "OPEN_WEARABLES_USER_ID=$installed_user_id" >> "$REPO_ROOT/.env"
+    echo "AYUOS_USER_ID=$installed_user_id" >> "$REPO_ROOT/.env"
   fi
 fi
 
@@ -84,7 +83,7 @@ cat > "$PLIST" <<PLIST
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>$(dirname "$BUN"):/usr/local/bin:/opt/homebrew/bin:$HOME/.docker/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>$(dirname "$BUN"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>AYUOS_DATA_DIR</key>
         <string>$SUPPORT_DIR/data</string>
     </dict>

@@ -59,8 +59,11 @@ export function conceptText(concept: CodeableConcept | undefined): string | null
 // instant of the period), or null if it isn't a date at all.
 export function fhirInstant(value: string | undefined | null): string | null {
   if (!value) return null;
-  if (/^\d{4}$/.test(value)) return `${value}-01-01`;
-  if (/^\d{4}-\d{2}$/.test(value)) return `${value}-01`;
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
+  // Date-only values are pinned to UTC midnight explicitly, so they don't
+  // shift a day depending on the database server's time zone.
+  if (/^\d{4}$/.test(value)) return `${value}-01-01T00:00:00Z`;
+  if (/^\d{4}-\d{2}$/.test(value)) return `${value}-01T00:00:00Z`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value}T00:00:00Z`;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return value;
   return null;
 }

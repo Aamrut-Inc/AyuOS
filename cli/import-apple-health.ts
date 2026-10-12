@@ -1,7 +1,8 @@
 import { loadAppleHealthConfig } from "../extract/apple-health/config";
 import { findClinicalDocuments } from "../extract/apple-health/parse-export";
 import { convertCcdaToFhir } from "../extract/apple-health/ccda-converter";
-import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
+import { loadPostgresConfig } from "../load/config";
+import { ensureDatabase } from "../load/database";
 import { RawFhirStore } from "../load/raw-store";
 import { runTransform } from "../transform/run";
 import type { FhirResource } from "../shared/types";
@@ -22,7 +23,7 @@ function patientIdFor(resource: FhirResource): string | null {
 
 async function main(): Promise<void> {
   const postgresConfig = loadPostgresConfig();
-  await assertPostgresReachable(postgresConfig);
+  await ensureDatabase();
 
   const config = loadAppleHealthConfig();
   const store = new RawFhirStore(postgresConfig);

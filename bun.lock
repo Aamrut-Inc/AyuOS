@@ -13,9 +13,21 @@
         "@types/unzipper": "^0.10.11",
         "typescript": "^5",
       },
+      "optionalDependencies": {
+        "@embedded-postgres/darwin-arm64": "17.5.0-beta.15",
+        "@embedded-postgres/darwin-x64": "17.5.0-beta.15",
+      },
     },
   },
+  "trustedDependencies": [
+    "@embedded-postgres/darwin-x64",
+    "@embedded-postgres/darwin-arm64",
+  ],
   "packages": {
+    "@embedded-postgres/darwin-arm64": ["@embedded-postgres/darwin-arm64@17.5.0-beta.15", "", { "os": "darwin", "cpu": "arm64" }, "sha512-pTtVdnRHKhrBIDpAvaPwFSRymUKFvPRdTfZwAPLxnTsdA6T//vCTTmgq87Cwqs1ET/LVaggpSChAeabtgAXzew=="],
+
+    "@embedded-postgres/darwin-x64": ["@embedded-postgres/darwin-x64@17.5.0-beta.15", "", { "os": "darwin", "cpu": "x64" }, "sha512-GNQPnpfzQlrrABH6f15+GY32A6ucKxxUXqJjLqpDd6cUekJqytNdjLbkLF3OjXGgmFk7dg6eqw1yb5ZVP0zwcQ=="],
+
     "@nodable/entities": ["@nodable/entities@3.0.0", "", {}, "sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw=="],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],

@@ -1,97 +1,64 @@
-import type { WearablesConfig } from "./config";
+import { credentialsFor, PROVIDERS, redirectUriFor, type WearableProvider } from "./providers";
 import { guardedFetch } from "./security/network-guard";
 
-export type WearableProvider = "oura" | "whoop";
-
-interface AuthorizationUrlResponse {
-  authorization_url: string;
-  state: string;
+export interface TokenSet {
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: Date | null;
+  scope: string | null;
 }
 
-export async function getAuthorizationUrl(
-  config: WearablesConfig,
-  provider: WearableProvider,
-  userId: string,
-  redirectUri: string
-): Promise<string> {
-  const url = new URL(`${config.apiBaseUrl}/api/v1/oauth/${provider}/authorize`);
-  url.searchParams.set("user_id", userId);
-  url.searchParams.set("redirect_uri", redirectUri);
+// A refresh/exchange the provider refused outright (revoked or reused refresh
+// token, wrong credentials): only a fresh login fixes it.
+export class ReconnectRequiredError extends Error {}
 
-  const response = await guardedFetch(
-    url.toString(),
-    { headers: { "X-Open-Wearables-API-Key": config.apiKey } },
-    config
-  );
+export function authorizeUrl(provider: WearableProvider, state: string): string {
+  const info = PROVIDERS[provider];
+  const credentials = credentialsFor(provider);
+  if (!credentials) {
+    throw new Error(`${info.name} isn't set up on this computer yet (missing client ID/secret — run scripts/start.command).`);
+  }
+  const url = new URL(info.authorizeUrl);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", credentials.clientId);
+  url.searchParams.set("redirect_uri", redirectUriFor(provider));
+  url.searchParams.set("scope", info.scope);
+  url.searchParams.set("state", state);
+  return url.toString();
+}
 
+async function tokenRequest(provider: WearableProvider, params: Record<string, string>): Promise<TokenSet> {
+  const info = PROVIDERS[provider];
+  const credentials = credentialsFor(provider);
+  if (!credentials) throw new ReconnectRequiredError(`${info.name} client credentials are missing`);
+
+  const response = await guardedFetch(info.tokenUrl, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+    body: new URLSearchParams({ ...params, client_id: credentials.clientId, client_secret: credentials.clientSecret })
+  });
+  const text = await response.text();
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to get authorization URL (${response.status}): ${text}`);
+    const message = `${info.name} token request failed (${response.status}): ${text.slice(0, 300)}`;
+    // 400/401 from the token endpoint means the grant itself is dead.
+    if (response.status === 400 || response.status === 401) throw new ReconnectRequiredError(message);
+    throw new Error(message);
   }
 
-  const payload = (await response.json()) as AuthorizationUrlResponse;
-  return payload.authorization_url;
+  const body = JSON.parse(text) as { access_token: string; refresh_token?: string; expires_in?: number; scope?: string };
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token ?? null,
+    expiresAt: body.expires_in ? new Date(Date.now() + body.expires_in * 1000) : null,
+    scope: body.scope ?? null
+  };
 }
 
-export interface WearableConnection {
-  provider: string;
-  status: string;
-  created_at?: string;
-  last_synced_at?: string | null;
-  provider_user_id?: string | null;
+export function exchangeCode(provider: WearableProvider, code: string): Promise<TokenSet> {
+  return tokenRequest(provider, { grant_type: "authorization_code", code, redirect_uri: redirectUriFor(provider) });
 }
 
-export async function getConnections(
-  config: WearablesConfig,
-  userId: string
-): Promise<WearableConnection[]> {
-  const response = await guardedFetch(
-    `${config.apiBaseUrl}/api/v1/users/${userId}/connections`,
-    { headers: { "X-Open-Wearables-API-Key": config.apiKey } },
-    config
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to get connections (${response.status}): ${text}`);
-  }
-
-  return (await response.json()) as WearableConnection[];
-}
-
-export function waitForConnectCallback(redirectUri: string): Promise<{
-  result: Promise<void>;
-  stop: () => void;
-}> {
-  const callbackUrl = new URL(redirectUri);
-  const port = Number(callbackUrl.port || "80");
-  const path = callbackUrl.pathname;
-
-  let resolveResult!: () => void;
-
-  const result = new Promise<void>((resolve) => {
-    resolveResult = resolve;
-  });
-
-  const server = Bun.serve({
-    hostname: callbackUrl.hostname,
-    port,
-    fetch(req) {
-      const url = new URL(req.url);
-
-      if (url.pathname !== path) {
-        return new Response("Not found", { status: 404 });
-      }
-
-      resolveResult();
-      return new Response(
-        "Wearable connected. You can close this tab and return to the terminal."
-      );
-    }
-  });
-
-  return Promise.resolve({
-    result,
-    stop: () => server.stop(true)
-  });
+export function refreshTokens(provider: WearableProvider, refreshToken: string): Promise<TokenSet> {
+  const scope = PROVIDERS[provider].refreshScope;
+  return tokenRequest(provider, { grant_type: "refresh_token", refresh_token: refreshToken, ...(scope ? { scope } : {}) });
 }

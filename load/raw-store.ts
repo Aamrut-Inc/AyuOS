@@ -74,7 +74,7 @@ export class RawFhirStore {
           ${resource.id},
           ${nextVersion},
           true,
-          ${json}::jsonb,
+          ${json}::text::jsonb,
           ${contentHash}
         )
       `;

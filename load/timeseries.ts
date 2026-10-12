@@ -1,6 +1,6 @@
 import { SQL } from "bun";
 import type { PostgresConfig } from "./config";
-import type { WearableReading } from "../extract/wearables/client";
+import type { WearableReading } from "../extract/wearables/readings";
 
 const READING_COLUMNS = [
   "user_id",
@@ -40,7 +40,15 @@ export class TimeseriesStore {
     this.ensuredPartitions.add(label);
   }
 
-  async upsertReadings(readings: WearableReading[]): Promise<void> {
+  async upsertReadings(input: WearableReading[]): Promise<void> {
+    // One INSERT ... ON CONFLICT can't touch the same row twice, and sources
+    // do repeat a reading (Oura at 30-day request boundaries, or the same
+    // instant from two feeds): keep the last of each key.
+    const byKey = new Map<string, WearableReading>();
+    for (const r of input) {
+      byKey.set(`${r.userId}|${r.metricType}|${new Date(r.ts).toISOString()}|${r.sourceProvider}`, r);
+    }
+    const readings = [...byKey.values()];
     if (readings.length === 0) return;
 
     for (const reading of readings) {

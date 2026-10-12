@@ -1,4 +1,4 @@
-import type { WearableConnection } from "../extract/wearables/oauth";
+import type { WearableConnection } from "../load/wearable-connections";
 import type { SyncRunSummary } from "../load/sync-runs";
 import { DISK_CRITICAL_BYTES, DISK_WARN_BYTES } from "../shared/disk";
 
@@ -91,14 +91,13 @@ interface LoginPageMeta {
   extraScript?: string;
 }
 
-// The wearables backend pulls from each provider hourly; a connection that
-// hasn't managed to for this long is broken (expired/revoked token), and the
-// fix is a reconnect.
+// Wearables sync every 30 minutes; one that hasn't managed to for this long
+// has a problem worth surfacing even before its login is known to be dead.
 const PROVIDER_STALE_MS = 6 * 60 * 60 * 1000;
 
 const JOB_LABELS: Record<string, string> = {
-  "wearables-provider-pull": "Wearables: catch-up pull after wake",
-  "wearables-mirror": "Wearables: copy into AyuOS database",
+  "wearables-oura": "Oura",
+  "wearables-whoop": "Whoop",
   "apple-health-upload": "Apple Health upload",
   "lab-pdf-upload": "Lab PDF upload"
 };
@@ -163,7 +162,7 @@ function syncStatusSection(jobs: SyncRunSummary[], syncing: boolean): string {
         <form method="post" action="/sync/now" style="margin: 0;"><button class="button" type="submit">Sync now</button></form>
       </div>
       ${syncing ? `<p class="meta" style="margin: 6px 0 0;">Sync requested — new data lands over the next few minutes.</p>` : ""}
-      <p class="meta" style="margin: 6px 0 0;">Wearables sync automatically every 15 minutes and catch up as soon as the laptop wakes.</p>
+      <p class="meta" style="margin: 6px 0 0;">Wearables sync automatically every 30 minutes and catch up as soon as the laptop wakes.</p>
       ${
         rows
           ? `<table class="status-table"><tr><th>Job</th><th>Status</th><th>Last success</th></tr>${rows}</table>`
@@ -185,8 +184,8 @@ export function formatWhen(iso: string | null | undefined): string {
 }
 
 export function loginPage(connections: WearableConnection[], ehrConnected: boolean, meta: LoginPageMeta): string {
-  const byProvider = new Map(connections.map((c) => [c.provider, c]));
-  const isConnected = (provider: string) => byProvider.get(provider)?.status === "active";
+  const byProvider = new Map(connections.map((c) => [c.provider as string, c]));
+  const isConnected = (provider: string) => byProvider.has(provider);
 
   function sourceRow(
     label: string,
@@ -199,14 +198,18 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
     if (!connectedFlag) {
       return `<div class="source-row"><strong>${label}</strong><span><a class="button" href="${connectHref}">Connect</a></span></div>`;
     }
-    const providerKey = connectHref.split("/").pop() ?? "";
-    const providerSyncedAt = byProvider.get(providerKey)?.last_synced_at;
-    const stale =
-      providerSyncedAt !== undefined &&
-      (providerSyncedAt === null || Date.now() - new Date(providerSyncedAt).getTime() > PROVIDER_STALE_MS);
-    const staleWarning = stale
-      ? `<p class="warning">⚠ ${label} hasn't synced with ${label}'s servers since ${providerSyncedAt ? formatWhen(providerSyncedAt) : "it was connected"} — its login has probably expired. Click Reconnect.</p>`
-      : "";
+    const connection = byProvider.get(connectHref.split("/").pop() ?? "");
+    let staleWarning = "";
+    if (connection?.status === "needs_reconnect") {
+      staleWarning = `<p class="warning">⚠ ${label}'s login has expired or was revoked, so AyuOS can't fetch new data. Click Reconnect.</p>`;
+    } else if (connection) {
+      const lastSync = connection.lastSyncedAt ?? connection.connectedAt;
+      if (Date.now() - new Date(lastSync).getTime() > PROVIDER_STALE_MS) {
+        staleWarning = `<p class="warning">⚠ ${label} hasn't synced since ${formatWhen(lastSync)}${
+          connection.lastError ? ` — ${escapeHtml(connection.lastError.slice(0, 200))}` : ""
+        }</p>`;
+      }
+    }
     return `
       <div class="source-row" style="flex-direction: column; align-items: stretch;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -236,7 +239,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
       "/connect/oura",
       isConnected("oura"),
       meta.lastReadingByProvider.get("oura") ?? null,
-      byProvider.get("oura")?.created_at,
+      byProvider.get("oura")?.connectedAt,
       "/data/wearables?source=oura"
     )}
     ${sourceRow(
@@ -244,7 +247,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
       "/connect/whoop",
       isConnected("whoop"),
       meta.lastReadingByProvider.get("whoop") ?? null,
-      byProvider.get("whoop")?.created_at,
+      byProvider.get("whoop")?.connectedAt,
       "/data/wearables?source=whoop"
     )}
     ${meta.hospitalsCard ?? ""}
@@ -271,14 +274,15 @@ function viewCompleteDatabaseBlock(): string {
       <p class="meta">
         This page only shows the most recent 100 rows. To browse everything, connect any
         Postgres client (e.g. <a href="https://eggerapps.at/postico2/" target="_blank">Postico</a>)
-        with these details:
+        with these details. The password is unique to this computer and kept in the macOS Keychain;
+        print it in Terminal with
+        <code>security find-generic-password -s AyuOS -a database-password -w</code>
       </p>
       <table>
-        <tr><th>Host</th><td>localhost</td></tr>
-        <tr><th>Port</th><td>5433</td></tr>
+        <tr><th>Host</th><td>127.0.0.1</td></tr>
+        <tr><th>Port</th><td>${process.env.AYUOS_DB_PORT ?? 5435}</td></tr>
         <tr><th>Database</th><td>ayuos</td></tr>
         <tr><th>User</th><td>ayuos</td></tr>
-        <tr><th>Password</th><td>ayuos</td></tr>
       </table>
     </details>
   `;

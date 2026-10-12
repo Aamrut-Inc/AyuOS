@@ -1,14 +1,15 @@
 import { loadProviderConfig } from "../extract/ehr/config";
 import { runSmartOAuth } from "../extract/ehr/auth/smart-oauth";
 import { importEhr, requirePatientId } from "../extract/ehr/sync";
-import { loadPostgresConfig, assertPostgresReachable } from "../load/config";
+import { loadPostgresConfig } from "../load/config";
+import { ensureDatabase } from "../load/database";
 import { RawFhirStore } from "../load/raw-store";
 import { AttachmentStore } from "../load/attachment-store";
 import { runTransform } from "../transform/run";
 
 async function main(): Promise<void> {
   const postgresConfig = loadPostgresConfig();
-  await assertPostgresReachable(postgresConfig);
+  await ensureDatabase();
 
   const providerConfig = loadProviderConfig();
   const store = new RawFhirStore(postgresConfig);

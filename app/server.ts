@@ -1,9 +1,9 @@
 import { SQL } from "bun";
-import { loadWearablesConfig } from "../extract/wearables/config";
-import { getOrCreateUserId } from "../extract/wearables/provision";
-import { getConnections, getAuthorizationUrl, type WearableProvider } from "../extract/wearables/oauth";
-import { syncWearables } from "../extract/wearables/sync";
-import { requestProviderSync } from "../extract/wearables/client";
+import { syncProvider } from "../extract/wearables/sync";
+import { authorizeUrl } from "../extract/wearables/oauth";
+import { credentialsFor, localUserId, PROVIDERS, type WearableProvider } from "../extract/wearables/providers";
+import { WearableConnectionStore } from "../load/wearable-connections";
+import { newLoginState, startWearableCallbackServer } from "./wearable-callback";
 import { parseVitalsFromZip } from "../extract/apple-health/parse-vitals";
 import { TimeseriesStore } from "../load/timeseries";
 import { loadProviderConfig, type Hospital } from "../extract/ehr/config";
@@ -34,10 +34,10 @@ import { ensureStack } from "./stack";
 import { freeDiskBytes } from "../shared/disk";
 
 const PORT = Number(process.env.AYUOS_PORT ?? 3000);
-const wearablesConfig = loadWearablesConfig();
+const userId = localUserId();
 
 try {
-  await ensureStack(loadPostgresConfig());
+  await ensureStack();
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1); // the login agent restarts us and we try again
@@ -68,39 +68,31 @@ await seedHospitalFromEnv();
 // otherwise the next attempt fails with EADDRINUSE.
 let pendingEhrAuth: PendingAuthorization | null = null;
 
-const WEARABLES_MIRROR_INTERVAL_MS = 15 * 60 * 1000;
-// Give the backend's provider pull (nudged on wake) time to land before
-// copying from it.
-const WEARABLES_MIRROR_WAKE_DELAY_MS = 3 * 60 * 1000;
+// Oura and Whoop are pulled directly, each on its own schedule and resume
+// point; a wake from sleep runs both straight away (see Scheduler).
+const WEARABLE_SYNC_INTERVAL_MS = 30 * 60 * 1000;
 
-const scheduler = new Scheduler(loadPostgresConfig(), [
-  {
-    // The backend polls Oura/Whoop hourly on its own; after the laptop wakes,
-    // nudge it so the gap is filled now instead of up to an hour later.
-    name: "wearables-provider-pull",
-    intervalMs: Infinity,
-    onWakeOnly: true,
+function wearableJob(provider: WearableProvider) {
+  return {
+    name: `wearables-${provider}`,
+    intervalMs: WEARABLE_SYNC_INTERVAL_MS,
     run: async () => {
-      if (!wearablesConfig.userId) return { skipped: "no wearables user yet" };
-      const connections = await getConnections(wearablesConfig, wearablesConfig.userId);
-      const providers = connections.filter((c) => c.status === "active").map((c) => c.provider);
-      for (const provider of providers) {
-        await requestProviderSync(wearablesConfig, provider, wearablesConfig.userId);
+      const store = new WearableConnectionStore(loadPostgresConfig());
+      try {
+        const connection = (await store.list()).find((c) => c.provider === provider);
+        if (!connection) return { skipped: "not connected" };
+        if (connection.status === "needs_reconnect") {
+          throw new Error(`${PROVIDERS[provider].name}'s login expired or was revoked — click Reconnect on the home page.`);
+        }
+        return await syncProvider(store, provider, userId);
+      } finally {
+        await store.close();
       }
-      return { requested: providers };
     }
-  },
-  {
-    // Copies new readings from the wearables backend into timeseries.readings.
-    name: "wearables-mirror",
-    intervalMs: WEARABLES_MIRROR_INTERVAL_MS,
-    wakeDelayMs: WEARABLES_MIRROR_WAKE_DELAY_MS,
-    run: async () => {
-      if (!wearablesConfig.userId) return { skipped: "no wearables user yet" };
-      return syncWearables(wearablesConfig, wearablesConfig.userId);
-    }
-  }
-]);
+  };
+}
+
+const scheduler = new Scheduler(loadPostgresConfig(), [wearableJob("oura"), wearableJob("whoop")]);
 
 // One-off, user-triggered work (EHR import, Apple Health upload) is logged to
 // the same run history as scheduled jobs so the status panel covers both.
@@ -147,8 +139,13 @@ Bun.serve({
     }
 
     if (url.pathname === "/") {
-      const userId = await getOrCreateUserId(wearablesConfig);
-      const connections = await getConnections(wearablesConfig, userId);
+      const wearables = new WearableConnectionStore(loadPostgresConfig());
+      let connections;
+      try {
+        connections = await wearables.list();
+      } finally {
+        await wearables.close();
+      }
 
       const sql = new SQL(loadPostgresConfig().connectionString);
       let ehrConnected = false;
@@ -219,53 +216,36 @@ Bun.serve({
       );
     }
 
-    const simulateMatch = url.pathname.match(/^\/simulate\/(oura|whoop)$/);
-    if (simulateMatch) {
-      const provider = simulateMatch[1] as WearableProvider;
-      void provider; // both providers trigger the same full sync — see plan notes
-      await getOrCreateUserId(wearablesConfig);
-      void scheduler.runNow("wearables-mirror", "manual");
-      return Response.redirect(`http://127.0.0.1:${PORT}/data/wearables?syncing=1`, 302);
-    }
-
     const connectMatch = url.pathname.match(/^\/connect\/(oura|whoop)$/);
     if (connectMatch) {
       const provider = connectMatch[1] as WearableProvider;
-      const userId = await getOrCreateUserId(wearablesConfig);
-      const authorizeUrl = await getAuthorizationUrl(
-        wearablesConfig,
-        provider,
-        userId,
-        `http://127.0.0.1:${PORT}/connect/wearables/callback`
-      );
-      return Response.redirect(authorizeUrl, 302);
-    }
-
-    if (url.pathname === "/connect/wearables/callback") {
-      const loginError = url.searchParams.get("error");
-      if (loginError) {
+      if (!credentialsFor(provider)) {
         return html(
           wearableConnectErrorPage(
-            url.searchParams.get("provider") ?? "the device",
-            loginError,
-            url.searchParams.get("error_description")
+            provider,
+            "not_configured",
+            `${PROVIDERS[provider].name} isn't set up on this computer yet. Run scripts/start.command and enter the ${PROVIDERS[provider].name} client ID and secret from the AyuOS team.`
           )
         );
       }
-      // The wearables service just finished OAuth and bounced the browser back
-      // here. Pull the newly-synced data into AyuOS's own timeseries.readings —
-      // without this, the connection succeeds server-side but never shows up
-      // in our own UI, which reads from our local copy, not the wearables DB.
-      await getOrCreateUserId(wearablesConfig);
-      void scheduler.runNow("wearables-mirror", "connect");
-      return Response.redirect(`http://127.0.0.1:${PORT}/data/wearables?syncing=1`, 302);
+      return Response.redirect(authorizeUrl(provider, newLoginState(provider)), 302);
+    }
+
+    if (url.pathname === "/connect/wearables/callback") {
+      // Only reached with an error now: successful logins go straight home
+      // (see app/wearable-callback.ts).
+      return html(
+        wearableConnectErrorPage(
+          url.searchParams.get("provider") ?? "the device",
+          url.searchParams.get("error") ?? "unknown_error",
+          url.searchParams.get("error_description")
+        )
+      );
     }
 
     if (url.pathname === "/sync/now" && req.method === "POST") {
-      void scheduler
-        .runNow("wearables-provider-pull", "manual")
-        .finally(() => Bun.sleep(WEARABLES_MIRROR_WAKE_DELAY_MS))
-        .then(() => scheduler.runNow("wearables-mirror", "manual"));
+      void scheduler.runNow("wearables-oura", "manual");
+      void scheduler.runNow("wearables-whoop", "manual");
       return Response.redirect(`http://127.0.0.1:${PORT}/?syncing=1`, 303);
     }
 
@@ -375,7 +355,6 @@ Bun.serve({
           return new Response("No file uploaded", { status: 400 });
         }
 
-        const userId = await getOrCreateUserId(wearablesConfig);
         const zipData = Buffer.from(await file.arrayBuffer());
         const { stored } = await recordRun("apple-health-upload", "manual", async () => {
           const readings = await parseVitalsFromZip(zipData, userId);
@@ -404,7 +383,7 @@ Bun.serve({
     }
 
     if (url.pathname === "/record") {
-      return html(await recordPage(loadPostgresConfig(), wearablesConfig.userId));
+      return html(await recordPage(loadPostgresConfig(), userId));
     }
 
     const attachmentMatch = url.pathname.match(/^\/attachments\/(\d+)$/);
@@ -521,7 +500,6 @@ Bun.serve({
     }
 
     if (url.pathname === "/data/wearables") {
-      const userId = await getOrCreateUserId(wearablesConfig);
       const source = url.searchParams.get("source"); // null = all sources
       const sql = new SQL(loadPostgresConfig().connectionString);
       try {
@@ -600,6 +578,11 @@ Bun.serve({
 });
 
 console.log(`AyuOS app running at http://127.0.0.1:${PORT}`);
+
+// Oura/Whoop logins come back here; pull the new device's history right away.
+startWearableCallbackServer(`http://127.0.0.1:${PORT}`, (provider) => {
+  void scheduler.runNow(`wearables-${provider}`, "connect");
+});
 warmPdfReader().catch((error) => {
   console.warn("Lab PDF reader unavailable:", error instanceof Error ? error.message : error);
 });

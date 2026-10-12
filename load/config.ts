@@ -1,14 +1,14 @@
 import { SQL } from "bun";
+import { embeddedDatabaseUrl } from "./db-server";
 
 export interface PostgresConfig {
   connectionString: string;
 }
 
+// DATABASE_URL points at an external Postgres (e.g. the old Docker one);
+// without it, AyuOS uses its own embedded database (load/db-server.ts).
 export function loadPostgresConfig(): PostgresConfig {
-  const connectionString = process.env.DATABASE_URL?.trim();
-  if (!connectionString) {
-    throw new Error("Missing required environment variable: DATABASE_URL");
-  }
+  const connectionString = process.env.DATABASE_URL?.trim() || embeddedDatabaseUrl();
   return { connectionString };
 }
 
@@ -23,11 +23,8 @@ export async function assertPostgresReachable(config: PostgresConfig): Promise<v
     await sql`SELECT 1`;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Could not connect to Postgres at ${config.connectionString}\n` +
-        `Is it running? On this machine: brew services start postgresql@15\n` +
-        `Underlying error: ${reason}`
-    );
+    const where = config.connectionString.replace(/\/\/([^:]+):[^@]*@/, "//$1:***@");
+    throw new Error(`Could not connect to the database at ${where}\nUnderlying error: ${reason}`);
   } finally {
     await sql.close();
   }

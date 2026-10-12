@@ -16,6 +16,10 @@ export interface SyncRunSummary {
 // Runs left 'running' by a process that died mid-job (crash, laptop lid
 // closed then killed) are marked failed on startup so they don't show as
 // in-progress forever.
+// Jobs from the Docker-based wearables backend; their history stays in the
+// table but they no longer run, so they're left off the status panel.
+const RETIRED_JOBS = ["wearables-mirror", "wearables-provider-pull"];
+
 const STALE_RUNNING_MESSAGE = "Interrupted: the app stopped before this run finished";
 
 export class SyncRunStore {
@@ -37,7 +41,7 @@ export class SyncRunStore {
   async succeed(id: number, detail: unknown): Promise<void> {
     await this.sql`
       UPDATE ops.sync_runs
-      SET status = 'success', finished_at = now(), detail = ${JSON.stringify(detail ?? null)}::jsonb
+      SET status = 'success', finished_at = now(), detail = ${JSON.stringify(detail ?? null)}::text::jsonb
       WHERE id = ${id}
     `;
   }
@@ -90,6 +94,7 @@ export class SyncRunStore {
       FROM latest l
       LEFT JOIN last_success s ON s.job = l.job
       LEFT JOIN failures f ON f.job = l.job
+      WHERE l.job <> ALL (${this.sql.array(RETIRED_JOBS, "text")})
       ORDER BY l.job
     `;
     return rows.map((row: any) => ({
