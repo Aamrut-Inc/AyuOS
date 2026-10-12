@@ -1,7 +1,7 @@
 import { statfsSync } from "node:fs";
 import { homedir } from "node:os";
 
-// Below these, Docker (and with it all syncing) starts failing in confusing
+// Below these, the database (and with it all syncing) starts failing in confusing
 // ways, so the home page warns well before that point.
 export const DISK_WARN_BYTES = 5 * 2 ** 30;
 export const DISK_CRITICAL_BYTES = 2 * 2 ** 30;

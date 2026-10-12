@@ -1,69 +1,46 @@
 # AyuOS — tester setup guide
 
-This gets AyuOS running on your own laptop so you can connect your own Oura
-and/or Whoop account and see your own data flow in. This is a developer-style
-setup for now (Docker + a terminal command), not a polished installer yet —
-you're an early tester, not a end user of the finished thing.
+This gets AyuOS running on your own Mac so you can connect your own Oura or
+Whoop, your hospital's records, and lab report PDFs, and watch them collect
+automatically. It's an early tester build: one setup command, then everything
+happens in the AyuOS app.
 
 ## What you need first
 
-- A Mac.
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — install
-  it, then open it once so it's running.
-- [Bun](https://bun.sh) — install with:
-  ```
-  curl -fsSL https://bun.sh/install | bash
-  ```
-- Real credential values from the team (ask directly, not over a public
-  channel — these are real secrets): `OURA_CLIENT_ID`, `OURA_CLIENT_SECRET`,
-  `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`. Hospital records need no secrets;
-  see "Connecting your hospital" below.
+- A Mac (Apple Silicon or Intel).
+- The Oura and/or Whoop **client ID and secret** from the AyuOS team. Ask
+  directly, not over a public channel — these are real secrets. Hospital
+  records need no secrets.
 
 ## Setup
 
-1. Open Terminal and clone the repo:
+1. Open Terminal and run:
    ```
    git clone https://github.com/Aamrut-Inc/AyuOS.git
    cd AyuOS
-   ```
-
-2. Create your local config files from the templates:
-   ```
-   cp .env.example .env
-   cp services/wearables/backend/config/.env.example services/wearables/backend/config/.env
-   ```
-
-3. Open `services/wearables/backend/config/.env` in any text editor and
-   replace the placeholder values for `OURA_CLIENT_ID`, `OURA_CLIENT_SECRET`,
-   `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET` with the real ones the team gave
-   you. Leave everything else as-is.
-
-4. Run:
-   ```
    ./scripts/start.command
    ```
-   This brings up the database and backend, sets everything up, installs
-   AyuOS to run in the background (it starts by itself when you log in and
-   keeps syncing), and opens your browser to `http://127.0.0.1:3000`. First
-   run takes a few minutes.
+   It installs what's missing (Bun, and Apple's Command Line Tools — click
+   **Install** if a system dialog appears), then asks for the Oura and Whoop
+   credentials (press Enter to skip one). First run takes a few minutes.
 
-5. On the page that opens, click **Connect** next to Oura or Whoop, and log
-   into *your own* account when it redirects you — same as connecting Oura
-   or Whoop to any app. Once you approve access, it automatically starts
-   pulling your real history in the background (give it a few minutes for a
-   full sync, especially if you have a lot of history).
+2. The **AyuOS** app opens (it's also in Launchpad and Spotlight, and shows
+   "Ayu ●" in your menu bar). Follow the **Getting started** checklist:
+   - **Oura / Whoop:** click **Connect** and log into *your own* account. Your
+     full history starts downloading in the background.
+   - **Hospital:** click **+ Add a hospital** (details below).
+   - **Lab reports:** drag PDFs onto the home page; you'll check the values it
+     read before they're saved.
 
-6. Click **View my health record** for everything in one place, or go to
-   `http://127.0.0.1:3000/data/wearables` for the raw readings. You can also
-   drag lab report PDFs onto the home page; you'll be asked to check the
-   values it read before they're saved.
+3. Click **View my health record** to see everything in one place.
 
-From now on you don't need to run anything: close the laptop whenever you
-like, and when you open it again AyuOS catches up on what it missed. The
-**Background sync** box on the home page shows when it last synced and any
-problems (for example a wearable whose login expired and needs **Reconnect**).
-After pulling new code, run `./scripts/install-agent.sh` to update the
-background copy.
+From now on you don't need to run anything: AyuOS starts by itself when you log
+in, syncs wearables every 30 minutes, and when you open the laptop after it's
+been closed it catches up on what it missed. The **Background sync** box on the
+home page (and the menu-bar item) shows when it last synced and any problems,
+for example a wearable whose login expired and needs **Reconnect**.
+
+To update after the team ships changes: `cd AyuOS && git pull && ./scripts/start.command`.
 
 ## Connecting your hospital (Epic)
 
@@ -86,23 +63,18 @@ hospital after a new visit. You can connect more than one hospital.
 
 ## If something goes wrong
 
-- **Nothing happens / times out waiting for Docker** — make sure Docker
-  Desktop is actually open (not just installed), then run
-  `./scripts/start.command` again.
-- **The page doesn't load after a restart** — give it a minute (it waits for
-  Docker to start). If it still doesn't, check
+- **The app says "AyuOS is starting…" for more than a minute** — check
   `~/Library/Logs/AyuOS/app.log` and send it to the team.
-- **Lab PDF upload says it can't compile the PDF reader** — run
-  `xcode-select --install` once, then try again.
-- **Connect fails immediately with an error page** — double-check the
-  credential values in `services/wearables/backend/config/.env` were pasted
-  in cleanly, no extra quotes or spaces.
+- **Wearable connect says "Couldn't connect"** — the page explains why; send
+  the team a screenshot.
+- **"Disk space is running low"** — free some space; syncing stops if the
+  disk fills up.
 - **Hospital login shows "An error has occurred" or "The request is invalid"**
   — send the team a screenshot, plus the output of
   `./scripts/check-epic-client.sh <hospital address> 92928c9b-8eb2-4b11-b06a-c388150d45ce`
   (the address is on https://open.epic.com/MyApps/Endpoints).
-- **Wearable connect says "Couldn't connect"** — the page explains why; send
-  the team a screenshot.
+- **Lab PDF upload says it can't read the PDF** — run `xcode-select --install`
+  once, then try again.
 - Anything else — message the team with what you see on screen.
 
 ## What this actually is, briefly

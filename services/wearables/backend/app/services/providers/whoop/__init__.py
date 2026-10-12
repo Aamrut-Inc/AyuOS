@@ -1,1 +1,0 @@
-# Whoop provider integration

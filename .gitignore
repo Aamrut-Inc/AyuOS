@@ -5,5 +5,4 @@
 node_modules/
 .DS_Store
 
-services/wearables/backend/.local/
 

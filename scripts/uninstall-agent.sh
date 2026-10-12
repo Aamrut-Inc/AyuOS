@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stops AyuOS from running in the background and at login. Your data (the
-# Docker databases and ~/Library/Application Support/AyuOS/data) is kept.
+# database and files in ~/Library/Application Support/AyuOS/data) are kept.
 set -euo pipefail
 
 LABEL="com.ayuos.app"

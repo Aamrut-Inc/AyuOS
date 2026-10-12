@@ -1,9 +1,10 @@
 # AyuOS
 
-## Getting started
+A personal health record that lives on your own Mac: wearables (Oura, Whoop,
+Apple Health export), hospital records (any Epic health system, via MyChart),
+and lab report PDFs, collected automatically into a local database.
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and
-[Bun](https://bun.sh) (`curl -fsSL https://bun.sh/install | bash`), then:
+## Getting started
 
 ```
 git clone https://github.com/Aamrut-Inc/AyuOS.git
@@ -11,41 +12,31 @@ cd AyuOS
 ./scripts/start.command
 ```
 
-That brings up Postgres for AyuOS itself, plus the whole `services/wearables`
-backend (its own Postgres, Redis, Celery workers, and the Svix webhook
-service) locally — no external deployment required — wires the auto-seeded
-local API key into `.env` automatically, and starts the AyuOS app at
-`http://127.0.0.1:3000`. On macOS the app is installed as a login agent, so it
-keeps running in the background (see below).
+That's the whole setup (macOS; no Docker). `start.command`:
 
-**Real credentials are not in this repo, on purpose — they're real secrets.**
-Ask a teammate for:
-- `OURA_CLIENT_ID`/`OURA_CLIENT_SECRET`, `WHOOP_CLIENT_ID`/`WHOOP_CLIENT_SECRET`
-  → put in `services/wearables/backend/config/.env`
-- `FHIR_CLIENT_ID` (Epic sandbox — lower stakes, no paired secret, no real
-  patient data; you can also just register your own free sandbox app at
-  https://fhir.epic.com) → put in `.env`
+- installs [Bun](https://bun.sh) if needed and Apple's Command Line Tools
+  (for lab PDF reading and the Mac app),
+- asks once for the team's Oura/Whoop app credentials (Enter skips),
+- creates AyuOS's own database (embedded Postgres, `load/db-server.ts`),
+- installs the background app and `~/Applications/AyuOS.app`, then opens it.
 
-The redirect URI `http://localhost:8000/api/v1/oauth/{provider}/callback`
-already needs to be, and already is, allow-listed on Oura's and Whoop's side
-— that's shared across everyone running locally, nothing to redo per-person.
+Then connect wearables and hospitals from the home page. Older installs that
+used Docker are migrated automatically on the next `start.command`
+(`scripts/migrate-off-docker.ts`).
 
-### Manual steps (what `start.command` does, for reference)
+**Credentials:** the Oura/Whoop client secrets are real secrets and aren't in
+this repo — ask a teammate. Their registered redirect URI is
+`http://localhost:8000/api/v1/oauth/{provider}/callback`, which AyuOS serves
+itself. Epic client IDs are public and already in `.env.example`.
 
-```
-cp .env.example .env
-cp services/wearables/backend/config/.env.example services/wearables/backend/config/.env
+### Where things live
 
-docker compose up -d
-
-# API key is auto-seeded on container startup and written to
-# services/wearables/backend/.local/dev-api-key — copy that value into
-# .env as OPEN_WEARABLES_API_KEY.
-
-bun install
-bun run migrate
-bun run dev:app
-```
+| What | Where |
+|---|---|
+| Database | embedded Postgres, `~/Library/Application Support/AyuOS/data/postgres` (127.0.0.1:5435; password in the Keychain) |
+| Uploaded lab PDFs, downloaded record attachments | `~/Library/Application Support/AyuOS/data/` |
+| Secrets (DB password, token key) | macOS Keychain, service "AyuOS" |
+| Logs | `~/Library/Logs/AyuOS/app.log` |
 
 ## The AyuOS app (macOS)
 
@@ -61,12 +52,13 @@ it only closes the window — syncing is done by the background app below.
 (`com.ayuos.app`). macOS blocks background processes from reading
 Desktop/Documents/Downloads, which is why it runs from a copy.
 
-- Starts at login and restarts within 30s if it crashes.
-- On startup it launches Docker Desktop if needed and starts the containers.
-- Wearables are copied into `timeseries.readings` every 15 minutes. After the
-  laptop wakes (or the app starts), it asks the wearables backend to pull from
-  Oura/Whoop immediately, waits for the network to be back, then catches up
+- Starts at login and restarts within 30s if it crashes; starts the database.
+- Pulls Oura and Whoop every 30 minutes, each from its own resume point (with a
+  3-day overlap for late uploads); a newly connected device gets its full
+  history. After the laptop wakes it waits for the network, then catches up
   everything missed while it was closed.
+- OAuth tokens are encrypted with a Keychain key and refreshed under a row
+  lock (providers revoke the login if a refresh token is reused).
 - Failed runs retry with backoff (1, 2, 4 … 30 min). Every run is logged in
   `ops.sync_runs` and shown under "Background sync" on the home page, along
   with a warning when a provider's login has expired and needs a reconnect.
@@ -92,3 +84,8 @@ review page shows every candidate next to the line it was read from, pre-ticks
 confident ones, and lets you fix values before saving. Originals are kept in
 `~/Library/Application Support/AyuOS/data/lab-pdfs/`; results land in
 `labs.documents` / `labs.results` (only `status = 'confirmed'` rows are real data).
+
+## Tests
+
+`bun test` runs against a separate `ayuos_test` database (`test/setup.ts`),
+never your real data.
