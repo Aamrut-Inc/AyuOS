@@ -28,7 +28,7 @@ async function discoverSmartConfiguration(
   return response.json() as Promise<SmartConfiguration>;
 }
 
-async function resolveEndpoints(config: ProviderConfig): Promise<{
+export async function resolveEndpoints(config: ProviderConfig): Promise<{
   authUrl: string;
   tokenUrl: string;
 }> {

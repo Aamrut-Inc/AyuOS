@@ -84,6 +84,8 @@ interface LoginPageMeta {
   jobs: SyncRunSummary[];
   syncing: boolean;
   freeDiskBytes: number | null;
+  hospitalsCard?: string;
+  checklist?: { wearable: boolean; hospital: boolean; labs: boolean };
   // Extra source cards (e.g. lab PDF upload) and their client-side script.
   extraCards?: string;
   extraScript?: string;
@@ -104,6 +106,23 @@ const JOB_LABELS: Record<string, string> = {
 function jobLabel(job: string): string {
   if (job.startsWith("ehr-import:")) return `EHR import (${job.slice("ehr-import:".length)})`;
   return JOB_LABELS[job] ?? job;
+}
+
+// Shown until each source has been set up once.
+export function gettingStarted(checklist: { wearable: boolean; hospital: boolean; labs: boolean } | undefined): string {
+  if (!checklist || (checklist.wearable && checklist.hospital && checklist.labs)) return "";
+  const step = (done: boolean, text: string) =>
+    `<li style="margin: 4px 0;">${done ? "✅" : "⬜️"} ${done ? `<span style="color:#777">${text}</span>` : text}</li>`;
+  return `
+    <div class="source-row" style="flex-direction: column; align-items: stretch; background: #f6f8fa;">
+      <strong>Getting started</strong>
+      <ul style="list-style: none; padding: 0; margin: 8px 0 0;">
+        ${step(true, "AyuOS is running and will keep syncing in the background, even after a restart")}
+        ${step(checklist.wearable, "Connect your Oura or Whoop below")}
+        ${step(checklist.hospital, `Connect your hospital — <a href="/hospitals">find it here</a>`)}
+        ${step(checklist.labs, "Drop in a lab report PDF (optional)")}
+      </ul>
+    </div>`;
 }
 
 export function diskWarning(freeBytes: number | null): string {
@@ -207,6 +226,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
   const body = `
     <h1>Welcome to AyuOS</h1>
     ${diskWarning(meta.freeDiskBytes)}
+    ${gettingStarted(meta.checklist)}
     <p><a class="button" href="/record">View my health record</a></p>
     ${syncStatusSection(meta.jobs, meta.syncing)}
     <p class="meta">Connect your data sources:</p>
@@ -227,14 +247,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
       byProvider.get("whoop")?.created_at,
       "/data/wearables?source=whoop"
     )}
-    ${sourceRow(
-      "EHR (Epic)",
-      "/connect/ehr",
-      ehrConnected,
-      meta.ehrLastFetched,
-      undefined,
-      "/data/ehr"
-    )}
+    ${meta.hospitalsCard ?? ""}
 
     <div class="source-row" style="flex-direction: column; align-items: stretch;">
       <strong style="margin-bottom: 10px;">Apple Health</strong>

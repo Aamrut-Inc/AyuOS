@@ -69,30 +69,20 @@ background copy.
 
 AyuOS can download your full record from any US health system that uses Epic
 (most large ones do), through the same login you use for its MyChart patient
-portal. Your `.env` is set up for Stanford Health Care by default.
+portal.
 
-1. **Find your hospital's address.** Open
-   https://open.epic.com/MyApps/Endpoints, search for your health system, and
-   copy its **R4** address (it ends in `/api/FHIR/R4`).
-2. **Check that AyuOS is enabled there.** Epic rolls the app out to hospitals
-   automatically, but not all at once. In Terminal, from the AyuOS folder:
-   ```
-   ./scripts/check-epic-client.sh <R4 address> 92928c9b-8eb2-4b11-b06a-c388150d45ce
-   ```
-   "✓ This hospital knows the app" means you're good to go. "Not distributed
-   to this hospital yet" means try again in a day or two.
-3. **Point AyuOS at it.** In `.env`, set `FHIR_BASE_URL` to that address and
-   `FHIR_PROVIDER` to a short lowercase name for the hospital (e.g. `ucsf`).
-   Leave `FHIR_CLIENT_ID` and `FHIR_REDIRECT_URI` as they are. Then run
-   `./scripts/install-agent.sh`.
-4. **Connect.** On the home page click **Connect** next to **EHR (Epic)** and
-   log in with your MyChart username and password. After you approve, you'll
-   briefly see a "Returning you to AyuOS…" page, then land back in AyuOS.
-   The download takes a minute or two; then open **View my health record**.
+1. On the home page, click **+ Add a hospital**, search for your health
+   system, and click **Connect**.
+2. AyuOS first checks that it's enabled at that hospital (Epic rolls it out to
+   each one automatically, but not all at once). If it says "Not available at
+   … yet", try again in a day or two.
+3. Log in with your MyChart username and password and approve access. You'll
+   briefly see a "Returning you to AyuOS…" page, then land back in AyuOS. The
+   download takes a minute or two; then open **View my health record**.
 
-Hospital records are a one-time download: repeat step 4 after a new visit to
-pick up new results. (The hospital's login only lasts an hour, so AyuOS can't
-fetch them in the background.)
+Hospital records are a one-time download (the hospital's login only lasts an
+hour, so AyuOS can't fetch them in the background): press **Sync** next to the
+hospital after a new visit. You can connect more than one hospital.
 
 ## If something goes wrong
 
@@ -108,8 +98,9 @@ fetch them in the background.)
   credential values in `services/wearables/backend/config/.env` were pasted
   in cleanly, no extra quotes or spaces.
 - **Hospital login shows "An error has occurred" or "The request is invalid"**
-  — run the check in "Connecting your hospital", step 2, and send the team
-  its output.
+  — send the team a screenshot, plus the output of
+  `./scripts/check-epic-client.sh <hospital address> 92928c9b-8eb2-4b11-b06a-c388150d45ce`
+  (the address is on https://open.epic.com/MyApps/Endpoints).
 - **Wearable connect says "Couldn't connect"** — the page explains why; send
   the team a screenshot.
 - Anything else — message the team with what you see on screen.

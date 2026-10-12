@@ -6,7 +6,15 @@ import { syncWearables } from "../extract/wearables/sync";
 import { requestProviderSync } from "../extract/wearables/client";
 import { parseVitalsFromZip } from "../extract/apple-health/parse-vitals";
 import { TimeseriesStore } from "../load/timeseries";
-import { loadProviderConfig } from "../extract/ehr/config";
+import { loadProviderConfig, type Hospital } from "../extract/ehr/config";
+import { checkClientKnown } from "../extract/ehr/auth/check-client";
+import { EhrConnectionStore } from "../load/ehr-connections";
+import {
+  findDirectoryHospital,
+  hospitalPickerPage,
+  hospitalUnavailablePage,
+  hospitalsCard
+} from "./hospital-pages";
 import { beginSmartOAuth, type PendingAuthorization } from "../extract/ehr/auth/smart-oauth";
 import { importEhr, requirePatientId } from "../extract/ehr/sync";
 import { loadPostgresConfig } from "../load/config";
@@ -34,6 +42,25 @@ try {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1); // the login agent restarts us and we try again
 }
+
+// A hospital configured the old way (FHIR_BASE_URL in .env) shows up in the
+// hospital list like one picked in the app, keeping its source name.
+async function seedHospitalFromEnv(): Promise<void> {
+  const baseUrl = process.env.FHIR_BASE_URL?.trim();
+  if (!baseUrl) return;
+  const store = new EhrConnectionStore(loadPostgresConfig());
+  try {
+    if ((await store.list()).length > 0) return;
+    const config = loadProviderConfig();
+    const listed = findDirectoryHospital(config.fhirBaseUrl);
+    await store.add(listed?.name ?? config.name, config.fhirBaseUrl, listed?.sandbox ?? false, config.name);
+  } catch (error) {
+    console.warn("Could not add the .env hospital:", error instanceof Error ? error.message : error);
+  } finally {
+    await store.close();
+  }
+}
+await seedHospitalFromEnv();
 
 // Only one EHR OAuth attempt can hold the local callback port (8765) at a
 // time. If a previous /connect/ehr click never completed (user navigated
@@ -160,6 +187,13 @@ Bun.serve({
         await runs.close();
         await labs.close();
       }
+      const hospitals = new EhrConnectionStore(loadPostgresConfig());
+      let hospitalConnections;
+      try {
+        hospitalConnections = await hospitals.list();
+      } finally {
+        await hospitals.close();
+      }
       const labCard = labUploadCard(
         labDocs.filter((d) => d.status === "needs_review").length,
         labDocs.reduce((sum, d) => sum + d.confirmed, 0)
@@ -173,6 +207,12 @@ Bun.serve({
           jobs,
           freeDiskBytes: freeDiskBytes(),
           syncing: url.searchParams.get("syncing") === "1",
+          hospitalsCard: hospitalsCard(hospitalConnections),
+          checklist: {
+            wearable: connections.some((c) => c.status === "active"),
+            hospital: hospitalConnections.some((c) => c.lastImportStatus === "success"),
+            labs: labDocs.length > 0
+          },
           extraCards: labCard,
           extraScript: LAB_DROPZONE_SCRIPT
         })
@@ -238,16 +278,60 @@ Bun.serve({
       }
     }
 
+    if (url.pathname === "/hospitals") {
+      const store = new EhrConnectionStore(loadPostgresConfig());
+      try {
+        const connected = new Set((await store.list()).map((c) => c.fhirBaseUrl));
+        return html(hospitalPickerPage(connected));
+      } finally {
+        await store.close();
+      }
+    }
+
+    if (url.pathname === "/hospitals/add" && req.method === "POST") {
+      const form = await req.formData();
+      const listed = findDirectoryHospital(String(form.get("url") ?? ""));
+      if (!listed) return new Response("Unknown hospital", { status: 400 });
+
+      const hospital: Hospital = { slug: "check", fhirBaseUrl: listed.url, sandbox: Boolean(listed.sandbox) };
+      // Check Epic has rolled the app out there before sending the user to a
+      // login page that would only show "an error has occurred". If we can't
+      // ask (e.g. a US-only hospital from abroad), let them try anyway.
+      const status = await checkClientKnown(loadProviderConfig(hospital));
+      if (status === "unknown" || status === "rejected") {
+        return html(hospitalUnavailablePage(listed.name, status));
+      }
+
+      const store = new EhrConnectionStore(loadPostgresConfig());
+      try {
+        const slug = await store.add(listed.name, listed.url, Boolean(listed.sandbox));
+        return Response.redirect(`http://127.0.0.1:${PORT}/connect/ehr?hospital=${encodeURIComponent(slug)}`, 303);
+      } finally {
+        await store.close();
+      }
+    }
+
     if (url.pathname === "/connect/ehr") {
+      const store = new EhrConnectionStore(loadPostgresConfig());
+      let connection;
+      try {
+        const slug = url.searchParams.get("hospital");
+        const all = await store.list();
+        connection = slug ? all.find((c) => c.slug === slug) : all.length === 1 ? all[0] : undefined;
+      } finally {
+        await store.close();
+      }
+      if (!connection) return Response.redirect(`http://127.0.0.1:${PORT}/hospitals`, 302);
+
       if (pendingEhrAuth) {
         pendingEhrAuth.cancel();
         pendingEhrAuth = null;
       }
 
-      const providerConfig = loadProviderConfig();
+      const providerConfig = loadProviderConfig(connection);
       const pending = await beginSmartOAuth(
         providerConfig,
-        `http://127.0.0.1:${PORT}/data/ehr?syncing=1`
+        `http://127.0.0.1:${PORT}/?syncing=1`
       );
       pendingEhrAuth = pending;
 

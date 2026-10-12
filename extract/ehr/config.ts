@@ -146,15 +146,38 @@ function callbackListenUri(redirectUri: string): string {
   return host === "127.0.0.1" || host === "localhost" ? redirectUri : DEFAULT_CALLBACK_LISTEN_URI;
 }
 
-export function loadProviderConfig(): ProviderConfig {
+// A health system the user connected (from Epic's directory). Without one,
+// the hospital comes from FHIR_PROVIDER / FHIR_BASE_URL in .env.
+export interface Hospital {
+  slug: string;
+  fhirBaseUrl: string;
+  sandbox: boolean;
+}
+
+export const EPIC_SANDBOX_BASE_URL = "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4";
+
+// Real hospitals use the app's production client ID (FHIR_CLIENT_ID); Epic's
+// test sandbox uses its non-production one (FHIR_SANDBOX_CLIENT_ID).
+function clientIdFor(sandbox: boolean): string {
+  if (sandbox) {
+    return optionalEnv("FHIR_SANDBOX_CLIENT_ID") ?? requiredEnv("FHIR_CLIENT_ID");
+  }
+  return requiredEnv("FHIR_CLIENT_ID");
+}
+
+export function loadProviderConfig(hospital?: Hospital): ProviderConfig {
   const resourceTypes = parseResourceTypes();
   const redirectUri = requiredEnv("FHIR_REDIRECT_URI");
+  const name = hospital?.slug ?? parseProviderName();
+  const fhirBaseUrl = (hospital?.fhirBaseUrl ?? requiredEnv("FHIR_BASE_URL")).replace(/\/+$/, "");
+  const sandbox = hospital?.sandbox ?? fhirBaseUrl === EPIC_SANDBOX_BASE_URL;
   return {
-    name: parseProviderName(),
-    fhirBaseUrl: requiredEnv("FHIR_BASE_URL").replace(/\/$/, ""),
-    authUrl: optionalEnv("FHIR_AUTH_URL"),
-    tokenUrl: optionalEnv("FHIR_TOKEN_URL"),
-    clientId: requiredEnv("FHIR_CLIENT_ID"),
+    name,
+    fhirBaseUrl,
+    // Explicit endpoint overrides only make sense for the .env hospital.
+    authUrl: hospital ? undefined : optionalEnv("FHIR_AUTH_URL"),
+    tokenUrl: hospital ? undefined : optionalEnv("FHIR_TOKEN_URL"),
+    clientId: clientIdFor(sandbox),
     redirectUri,
     callbackListenUri: callbackListenUri(redirectUri),
     scopes: process.env.FHIR_SCOPES?.trim() || defaultScopes(resourceTypes),
