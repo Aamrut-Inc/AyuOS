@@ -50,7 +50,7 @@ function initCluster(dir: string): void {
   }
   appendFileSync(
     join(dir, "postgresql.conf"),
-    `\n# AyuOS\nlisten_addresses = '127.0.0.1'\nport = ${DB_PORT}\nunix_socket_directories = '${dir}'\ntimezone = 'UTC'\nlog_timezone = 'UTC'\n`
+    `\n# AyuOS\nlisten_addresses = '127.0.0.1'\nport = ${DB_PORT}\nunix_socket_directories = ''\ntimezone = 'UTC'\nlog_timezone = 'UTC'\n`
   );
 }
 
@@ -77,7 +77,12 @@ export async function ensureEmbeddedDatabase(): Promise<void> {
 
     const status = run("pg_ctl", ["-D", dir, "status"]);
     if (!status.ok) {
-      const start = run("pg_ctl", ["-D", dir, "-l", join(dir, "server.log"), "-w", "-t", "60", "start"]);
+      // TCP only: Unix socket paths are capped at 103 bytes, which a long
+      // home-directory path can exceed (the server then refuses to start).
+      const start = run("pg_ctl", [
+        "-D", dir, "-l", join(dir, "server.log"), "-w", "-t", "60",
+        "-o", "-c unix_socket_directories=''", "start"
+      ]);
       if (!start.ok) throw new Error(`Could not start the database: ${start.output.slice(-800)}`);
     }
   }
