@@ -32,9 +32,12 @@ import { LabStore, type ReviewedResult } from "../load/lab-store";
 import { parseReference, parseValue } from "../transform/lab-results";
 import { ensureStack } from "./stack";
 import { freeDiskBytes } from "../shared/disk";
+import { ensurePrivateDataDir, fileVaultOn } from "../shared/data-protection";
 
 const PORT = Number(process.env.AYUOS_PORT ?? 3000);
 const userId = localUserId();
+
+ensurePrivateDataDir();
 
 try {
   await ensureStack();
@@ -203,6 +206,7 @@ Bun.serve({
           lastReadingByProvider,
           jobs,
           freeDiskBytes: freeDiskBytes(),
+          fileVaultOn: fileVaultOn(),
           syncing: url.searchParams.get("syncing") === "1",
           hospitalsCard: hospitalsCard(hospitalConnections),
           checklist: {

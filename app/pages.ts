@@ -84,6 +84,7 @@ interface LoginPageMeta {
   jobs: SyncRunSummary[];
   syncing: boolean;
   freeDiskBytes: number | null;
+  fileVaultOn?: boolean | null;
   hospitalsCard?: string;
   checklist?: { wearable: boolean; hospital: boolean; labs: boolean };
   // Extra source cards (e.g. lab PDF upload) and their client-side script.
@@ -121,6 +122,19 @@ export function gettingStarted(checklist: { wearable: boolean; hospital: boolean
         ${step(checklist.hospital, `Connect your hospital — <a href="/hospitals">find it here</a>`)}
         ${step(checklist.labs, "Drop in a lab report PDF (optional)")}
       </ul>
+    </div>`;
+}
+
+export function fileVaultNotice(on: boolean | null | undefined): string {
+  if (on !== false) return "";
+  return `
+    <div class="source-row" style="border-color: #d4a72c; background: #fffbea;">
+      <span>
+        <strong>Turn on FileVault to encrypt your health data on this Mac.</strong>
+        FileVault is off, so anyone with this computer's disk could read the files AyuOS stores.
+        Open <a href="x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension">System Settings → Privacy &amp; Security → FileVault</a>
+        and click <em>Turn On</em> (keep the recovery key somewhere safe).
+      </span>
     </div>`;
 }
 
@@ -229,6 +243,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
   const body = `
     <h1>Welcome to AyuOS</h1>
     ${diskWarning(meta.freeDiskBytes)}
+    ${fileVaultNotice(meta.fileVaultOn)}
     ${gettingStarted(meta.checklist)}
     <p><a class="button" href="/record">View my health record</a></p>
     ${syncStatusSection(meta.jobs, meta.syncing)}
