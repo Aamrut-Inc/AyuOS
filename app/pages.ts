@@ -1,5 +1,6 @@
 import type { WearableConnection } from "../extract/wearables/oauth";
 import type { SyncRunSummary } from "../load/sync-runs";
+import { DISK_CRITICAL_BYTES, DISK_WARN_BYTES } from "../shared/disk";
 
 export function escapeHtml(text: string): string {
   return text
@@ -82,6 +83,7 @@ interface LoginPageMeta {
   lastReadingByProvider: Map<string, string>;
   jobs: SyncRunSummary[];
   syncing: boolean;
+  freeDiskBytes: number | null;
   // Extra source cards (e.g. lab PDF upload) and their client-side script.
   extraCards?: string;
   extraScript?: string;
@@ -102,6 +104,20 @@ const JOB_LABELS: Record<string, string> = {
 function jobLabel(job: string): string {
   if (job.startsWith("ehr-import:")) return `EHR import (${job.slice("ehr-import:".length)})`;
   return JOB_LABELS[job] ?? job;
+}
+
+export function diskWarning(freeBytes: number | null): string {
+  if (freeBytes === null || freeBytes >= DISK_WARN_BYTES) return "";
+  const gb = (freeBytes / 2 ** 30).toFixed(1);
+  const critical = freeBytes < DISK_CRITICAL_BYTES;
+  return `
+    <div class="source-row" style="border-color: ${critical ? "#cf222e" : "#d4a72c"}; background: ${critical ? "#fff5f5" : "#fffbea"};">
+      <span>
+        <strong class="${critical ? "failing" : ""}">${critical ? "Your disk is almost full" : "Disk space is running low"}</strong> — ${gb} GB free.
+        ${critical ? "Syncing will stop when it fills up." : "Syncing stops if the disk fills up."}
+        Free some space (empty the Trash, delete large downloads, or clear app caches).
+      </span>
+    </div>`;
 }
 
 function syncStatusSection(jobs: SyncRunSummary[], syncing: boolean): string {
@@ -190,6 +206,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
 
   const body = `
     <h1>Welcome to AyuOS</h1>
+    ${diskWarning(meta.freeDiskBytes)}
     <p><a class="button" href="/record">View my health record</a></p>
     ${syncStatusSection(meta.jobs, meta.syncing)}
     <p class="meta">Connect your data sources:</p>

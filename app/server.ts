@@ -23,6 +23,7 @@ import { LAB_DROPZONE_SCRIPT, labReviewPage, labsPage, labUploadCard } from "./l
 import { LabStore, type ReviewedResult } from "../load/lab-store";
 import { parseReference, parseValue } from "../transform/lab-results";
 import { ensureStack } from "./stack";
+import { freeDiskBytes } from "../shared/disk";
 
 const PORT = Number(process.env.AYUOS_PORT ?? 3000);
 const wearablesConfig = loadWearablesConfig();
@@ -170,6 +171,7 @@ Bun.serve({
           ehrResourceCount,
           lastReadingByProvider,
           jobs,
+          freeDiskBytes: freeDiskBytes(),
           syncing: url.searchParams.get("syncing") === "1",
           extraCards: labCard,
           extraScript: LAB_DROPZONE_SCRIPT
@@ -230,7 +232,7 @@ Bun.serve({
     if (url.pathname === "/api/status") {
       const runs = new SyncRunStore(loadPostgresConfig());
       try {
-        return Response.json({ jobs: await runs.summaries() });
+        return Response.json({ jobs: await runs.summaries(), freeDiskBytes: freeDiskBytes() });
       } finally {
         await runs.close();
       }
