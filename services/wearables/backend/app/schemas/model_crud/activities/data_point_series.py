@@ -59,6 +59,10 @@ class TimeSeriesQueryParams(BaseModel):
 
     start_datetime: datetime | None = Field(None, description="Lower bound (inclusive) for recorded timestamp")
     end_datetime: datetime | None = Field(None, description="Upper bound (inclusive) for recorded timestamp")
+    written_since: datetime | None = Field(
+        None,
+        description="Only samples stored on/after this time (incremental copying, incl. late-arriving history)",
+    )
     device_model: str | None = Field(
         None,
         description="Device model filter",

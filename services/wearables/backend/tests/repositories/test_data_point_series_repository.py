@@ -354,6 +354,48 @@ class TestDataPointSeriesRepository:
             assert sample.recorded_at >= yesterday
             assert sample.recorded_at < end_datetime
 
+    def test_get_samples_written_since(self, db: Session, series_repo: DataPointSeriesRepository) -> None:
+        """written_since filters on storage time, not reading time.
+
+        A history backfill stores old readings now; an incremental copier
+        asking "what's new since my last copy" must get them even though their
+        recorded_at is far in the past.
+        """
+        user = UserFactory()
+        mapping = DataSourceFactory(user=user, device_model="device1")
+        now = datetime.now(timezone.utc)
+
+        ids = []
+        for recorded_at in [now - timedelta(days=400), now - timedelta(hours=1)]:
+            sample = TimeSeriesSampleCreate(
+                id=uuid4(),
+                user_id=user.id,
+                source="whoop",
+                device_model="device1",
+                data_source_id=mapping.id,
+                recorded_at=recorded_at,
+                value=60,
+                series_type=SeriesType.heart_rate,
+            )
+            series_repo.create(db, sample)
+            ids.append(sample.id)
+
+        # The recent reading was copied long ago; the 400-day-old one was just backfilled.
+        db.query(DataPointSeries).filter(DataPointSeries.id == ids[1]).update(
+            {DataPointSeries.created_at: now - timedelta(days=2)}
+        )
+        db.flush()
+
+        query_params = TimeSeriesQueryParams(
+            device_model="device1",
+            start_datetime=now - timedelta(days=3650),
+            end_datetime=now + timedelta(seconds=1),
+            written_since=now - timedelta(days=1),
+        )
+        results, _ = series_repo.get_samples(db, query_params, [SeriesType.heart_rate], user.id)
+
+        assert [sample.id for sample, _ in results] == [ids[0]]
+
     def test_get_samples_by_provider(self, db: Session, series_repo: DataPointSeriesRepository) -> None:
         """Test getting samples filtered by provider."""
         # Arrange

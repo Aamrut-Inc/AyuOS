@@ -1,5 +1,7 @@
+from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -75,6 +77,20 @@ def oauth_callback(
     Provider redirects here after user authorizes. Exchanges code for tokens.
     """
     if error:
+        # Send the user back to the app that started the login (with the
+        # error) instead of stranding them on this API's bare error page.
+        redirect_uri = None
+        error_strategy = get_oauth_strategy(provider)
+        if state and error_strategy.oauth:
+            with suppress(HTTPException):
+                oauth_state, _ = error_strategy.oauth._validate_state(state)
+                redirect_uri = oauth_state.redirect_uri
+        if redirect_uri:
+            query = urlencode(
+                {"error": error, "error_description": error_description or "", "provider": provider.value}
+            )
+            separator = "&" if "?" in redirect_uri else "?"
+            return RedirectResponse(url=f"{redirect_uri}{separator}{query}", status_code=303)
         return RedirectResponse(
             url=f"/api/v1/oauth/error?message={error}:+{error_description or 'Unknown+error'}",
             status_code=303,
@@ -109,7 +125,7 @@ def oauth_callback(
             from app.integrations.celery.tasks import sync_vendor_data
 
             now = datetime.now(timezone.utc)
-            start_date = (now - timedelta(days=90)).isoformat()
+            start_date = (now - timedelta(days=settings.historical_sync_on_connect_days)).isoformat()
             sync_vendor_data.delay(
                 user_id=str(oauth_state.user_id),
                 start_date=start_date,

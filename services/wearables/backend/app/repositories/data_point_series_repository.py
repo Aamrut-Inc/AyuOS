@@ -256,6 +256,9 @@ class DataPointSeriesRepository(
         if params.start_datetime:
             query = query.filter(self.model.recorded_at >= params.start_datetime)
 
+        if params.written_since:
+            query = query.filter(self.model.created_at >= params.written_since)
+
         if params.end_datetime:
             # If user didnt specify an hour, minute nor second, add 1 day to include the entire day
             end_dt = params.end_datetime

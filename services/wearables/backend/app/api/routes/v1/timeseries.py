@@ -25,11 +25,16 @@ def get_timeseries(
     resolution: Literal["raw", "1min", "5min", "15min", "1hour"] = "raw",
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    written_since: Annotated[
+        DateTimeQueryParam | None,
+        Query(description="Only samples stored on/after this time, whatever their timestamp"),
+    ] = None,
 ) -> PaginatedResponse[TimeSeriesSample]:
     """Returns granular time series data (biometrics or activity)."""
     params = TimeSeriesQueryParams(
         start_datetime=parse_query_datetime(start_time),
         end_datetime=parse_query_datetime(end_time),
+        written_since=parse_query_datetime(written_since) if written_since else None,
         limit=limit,
         cursor=cursor,
     )

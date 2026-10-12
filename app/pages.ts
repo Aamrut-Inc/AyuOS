@@ -357,3 +357,23 @@ export function ehrDataPage(
   `;
   return layout("AyuOS — EHR data", body);
 }
+
+const PROVIDER_NAMES: Record<string, string> = { oura: "Oura", whoop: "Whoop" };
+
+// Shown when the wearable's own login page refuses or the user cancels.
+export function wearableConnectErrorPage(provider: string, error: string, description: string | null): string {
+  const name = PROVIDER_NAMES[provider] ?? provider;
+  const explanation =
+    error === "access_denied"
+      ? `The ${name} login was cancelled, or access wasn't approved. Nothing was connected.`
+      : error === "request_forbidden"
+        ? `${name} didn't allow this account to connect to AyuOS. This usually means the AyuOS app at ${name} hasn't been approved for this account yet — for example, an app still in development at ${name} only accepts accounts the developer has added. Ask the AyuOS team to check the ${name} developer dashboard, then try again.`
+        : `${name} returned an error during login, so nothing was connected.`;
+  const body = `
+    <h1>Couldn't connect ${escapeHtml(name)}</h1>
+    <p>${escapeHtml(explanation)}</p>
+    <p class="meta">Details from ${escapeHtml(name)}: ${escapeHtml(error)}${description ? ` — ${escapeHtml(description)}` : ""}</p>
+    <p><a class="button" href="/connect/${encodeURIComponent(provider)}">Try again</a> &nbsp; <a href="/">Back to AyuOS</a></p>
+  `;
+  return layout(`AyuOS — Couldn't connect ${name}`, body);
+}

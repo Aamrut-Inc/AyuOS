@@ -30,7 +30,8 @@ export async function* fetchTimeseries(
   config: WearablesConfig,
   userId: string,
   startTime: Date,
-  endTime: Date
+  endTime: Date,
+  writtenSince: Date | null = null
 ): AsyncGenerator<WearableReading[]> {
   let cursor: string | null = null;
 
@@ -40,6 +41,7 @@ export async function* fetchTimeseries(
     url.searchParams.set("end_time", endTime.toISOString());
     url.searchParams.set("resolution", "raw");
     url.searchParams.set("limit", "100");
+    if (writtenSince) url.searchParams.set("written_since", writtenSince.toISOString());
     if (cursor) url.searchParams.set("cursor", cursor);
 
     const response = await guardedFetch(

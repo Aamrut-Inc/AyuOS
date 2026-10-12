@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     # Pre-0.4.2 behaviour. Set to false once your integration calls /sync/historical explicitly.
     # Will default to false in a future release.
     historical_sync_on_connect: bool = True
+    # How far back that first sync reaches. Long enough to mean "all history"
+    # for any device; Oura requests are chunked, Whoop's are paginated.
+    historical_sync_on_connect_days: int = 3650
 
     # SCORE SETTINGS
     score_backfill_days: int = 30  # How far back the missing-score query looks

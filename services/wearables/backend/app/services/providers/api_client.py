@@ -46,17 +46,36 @@ def _get_valid_token(
             detail=f"No access token available for {provider_name} (SDK-based provider?)",
         )
 
-    # Check if token is expired (with 5 minute buffer)
-    if connection.token_expires_at and connection.token_expires_at < datetime.now(timezone.utc) + timedelta(minutes=5):
+    if not _expires_soon(connection.token_expires_at):
+        return connection.access_token
+
+    # Providers like Whoop rotate refresh tokens and revoke the whole grant if
+    # an old one is replayed. Two syncs refreshing at once (the hourly sync and
+    # a wake-up catch-up, or parallel data-type fetches) would each send the
+    # same refresh token and kill the connection. Lock the row, re-read it, and
+    # only refresh if nobody else already did; update_tokens commits, which
+    # releases the lock.
+    try:
+        db.refresh(connection, with_for_update=True)
+        if not _expires_soon(connection.token_expires_at):
+            access_token = connection.access_token
+            db.commit()
+            return access_token
         if not connection.refresh_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Token expired and no refresh token available for {provider_name}",
             )
         token_response = oauth.refresh_access_token(db, user_id, connection.refresh_token)
-        return token_response.access_token
+    except Exception:
+        db.rollback()
+        raise
+    return token_response.access_token
 
-    return connection.access_token
+
+def _expires_soon(token_expires_at: datetime | None) -> bool:
+    """True if the token is expired or will be within 5 minutes."""
+    return token_expires_at is not None and token_expires_at < datetime.now(timezone.utc) + timedelta(minutes=5)
 
 
 def make_authenticated_request(

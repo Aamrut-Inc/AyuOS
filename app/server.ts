@@ -14,7 +14,7 @@ import { SyncRunStore } from "../load/sync-runs";
 import { RawFhirStore } from "../load/raw-store";
 import { AttachmentStore } from "../load/attachment-store";
 import { runTransform } from "../transform/run";
-import { loginPage, wearablesDataPage, ehrDataPage } from "./pages";
+import { loginPage, wearablesDataPage, ehrDataPage, wearableConnectErrorPage } from "./pages";
 import { Scheduler } from "./scheduler";
 import { recordPage } from "./record";
 import { importLabPdf, reparseLabPdf } from "./lab-import";
@@ -200,6 +200,16 @@ Bun.serve({
     }
 
     if (url.pathname === "/connect/wearables/callback") {
+      const loginError = url.searchParams.get("error");
+      if (loginError) {
+        return html(
+          wearableConnectErrorPage(
+            url.searchParams.get("provider") ?? "the device",
+            loginError,
+            url.searchParams.get("error_description")
+          )
+        );
+      }
       // The wearables service just finished OAuth and bounced the browser back
       // here. Pull the newly-synced data into AyuOS's own timeseries.readings —
       // without this, the connection succeeds server-side but never shows up

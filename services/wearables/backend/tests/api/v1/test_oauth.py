@@ -419,3 +419,37 @@ class TestOAuthUpdateProviderEndpoint:
             data = response.json()
             assert data["provider"] == provider
             assert data["is_enabled"] is True
+
+
+class TestOAuthCallbackErrors:
+    """A provider-side login error must send the user back to the app that started it."""
+
+    def test_error_redirects_back_to_requesting_app(self, client: TestClient, db: Session) -> None:
+        redirect_uri = "http://127.0.0.1:3000/connect/wearables/callback"
+        authorize = client.get(
+            "/api/v1/oauth/whoop/authorize",
+            params={"user_id": str(uuid4()), "redirect_uri": redirect_uri},
+        )
+        state = authorize.json()["state"]
+
+        response = client.get(
+            "/api/v1/oauth/whoop/callback",
+            params={"state": state, "error": "request_forbidden", "error_description": "The request is not allowed"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        location = response.headers["location"]
+        assert location.startswith(redirect_uri + "?")
+        assert "error=request_forbidden" in location
+        assert "provider=whoop" in location
+
+    def test_error_without_known_state_uses_api_error_page(self, client: TestClient, db: Session) -> None:
+        response = client.get(
+            "/api/v1/oauth/whoop/callback",
+            params={"state": "unknown-state", "error": "access_denied"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"].startswith("/api/v1/oauth/error")
