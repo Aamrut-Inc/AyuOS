@@ -69,7 +69,14 @@ export function hospitalsCard(connections: EhrConnection[], showAddButton = true
         `<p class="meta">Log in with your hospital's MyChart account to download your full record. Most large US health systems use Epic.</p>`
       }
       <p class="meta" style="margin-top: 8px;">Press <strong>Sync</strong> after a visit to pick up new results.</p>
-      ${showAddButton ? `<div class="card-actions"><a class="btn${connections.length ? " secondary" : ""}" href="/hospitals">+ Add a hospital</a></div>` : ""}
+      ${showAddButton || downloaded ? `<div class="card-actions">${
+        downloaded ? `<a class="btn secondary" href="/data/ehr">View records</a> ` : ""
+      }${showAddButton ? `<a class="btn${connections.length ? " secondary" : ""}" href="/hospitals">+ Add a hospital</a>` : ""}</div>` : ""}
+      ${
+        // The status line is fixed when the page is drawn: reload while a
+        // download runs so "downloading now…" turns into the result.
+        connections.some((c) => c.lastImportStatus === "running") ? `<script>setTimeout(() => location.reload(), 5000)</script>` : ""
+      }
     </div>
   `;
 }
@@ -130,15 +137,18 @@ export function hospitalPickerPage(connections: EhrConnection[]): string {
   return layout("AyuOS — Add a hospital", body, PICKER_SCRIPT, "/hospitals");
 }
 
-export function hospitalUnavailablePage(name: string, status: "unknown" | "rejected"): string {
+export function hospitalUnavailablePage(name: string, status: "unknown" | "rejected" | "unreachable"): string {
   const explanation =
     status === "unknown"
       ? `AyuOS hasn't been enabled at ${name} yet. Epic rolls apps out to each health system automatically, but not all at once — try again in a day or two.`
-      : `${name} recognized AyuOS but refused the request. Please send the AyuOS team a screenshot of this page.`;
+      : status === "rejected"
+        ? `${name} recognized AyuOS but refused the request. Please send the AyuOS team a screenshot of this page.`
+        : `AyuOS couldn't reach ${name}'s server. Many US hospitals only accept connections from inside the US, so this is expected from other countries — try again from a US network or VPN. Otherwise, check this Mac's internet connection and try again.`;
+  const title = status === "unreachable" ? `Can't reach ${name}` : `Not available at ${name} yet`;
   const body = `
-    <h1>Not available at ${e(name)} yet</h1>
+    <h1>${e(title)}</h1>
     <p>${e(explanation)}</p>
     <p><a class="btn" href="/hospitals">Back to hospitals</a> &nbsp; <a href="/">Home</a></p>
   `;
-  return layout("AyuOS — Not available yet", body, "", "/hospitals");
+  return layout(`AyuOS — ${title}`, body, "", "/hospitals");
 }

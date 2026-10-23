@@ -14,7 +14,9 @@ async function discoverSmartConfiguration(
   const discoveryUrl = `${config.fhirBaseUrl}/.well-known/smart-configuration`;
   const response = await guardedFetch(
     discoveryUrl,
-    { method: "GET" },
+    // Short limit: this runs inside a page request, which the web server
+    // drops after 10 s, and an unreachable hospital never answers.
+    { method: "GET", signal: AbortSignal.timeout(8000) },
     config,
     "SMART discovery"
   );

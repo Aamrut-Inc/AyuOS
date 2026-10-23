@@ -63,7 +63,10 @@ async function fhirGet(
       headers: {
         authorization: `Bearer ${token.access_token}`,
         accept: "application/fhir+json, application/json"
-      }
+      },
+      // A server that stops answering would otherwise leave the import
+      // "downloading" until the app restarts.
+      signal: AbortSignal.timeout(60000)
     },
     config,
     "FHIR read"

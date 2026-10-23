@@ -126,6 +126,7 @@ const LOGO_SVG = `<svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="t
 const NAV: Array<[string, string]> = [
   ["/", "Home"],
   ["/record", "My record"],
+  ["/data/ehr", "Hospital records"],
   ["/labs", "Lab results"],
   ["/hospitals", "Hospitals"],
   ["/help", "Help"]
@@ -584,7 +585,7 @@ export function ehrDataPage(
     <table><tr><th>fetched_at</th><th>resource_type</th><th>resource_id</th><th>patient_id</th><th>source</th></tr>${dataRows}</table>
     ${viewCompleteDatabaseBlock()}
   `;
-  return layout("AyuOS — EHR data", body);
+  return layout("AyuOS — Hospital records", body, "", "/data/ehr");
 }
 
 const PROVIDER_NAMES: Record<string, string> = { oura: "Oura", whoop: "Whoop" };

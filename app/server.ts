@@ -129,6 +129,9 @@ function html(body: string): Response {
 Bun.serve({
   port: PORT,
   hostname: "127.0.0.1",
+  // Some pages wait on a hospital's server (availability check, login
+  // setup); Bun's default 10 s would drop them mid-request.
+  idleTimeout: 30,
   async fetch(req) {
     const url = new URL(req.url);
 
@@ -310,10 +313,11 @@ Bun.serve({
 
       const hospital: Hospital = { slug: "check", fhirBaseUrl: listed.url, sandbox: Boolean(listed.sandbox) };
       // Check Epic has rolled the app out there before sending the user to a
-      // login page that would only show "an error has occurred". If we can't
-      // ask (e.g. a US-only hospital from abroad), let them try anyway.
+      // login page that would only show "an error has occurred". An
+      // unreachable server (e.g. a US-only hospital from abroad) can't be
+      // logged into either, so that stops here too.
       const status = await checkClientKnown(loadProviderConfig(hospital));
-      if (status === "unknown" || status === "rejected") {
+      if (status !== "known") {
         return html(hospitalUnavailablePage(listed.name, status));
       }
 
@@ -344,10 +348,13 @@ Bun.serve({
       }
 
       const providerConfig = loadProviderConfig(connection);
-      const pending = await beginSmartOAuth(
-        providerConfig,
-        `http://127.0.0.1:${PORT}/?syncing=1`
-      );
+      let pending: PendingAuthorization;
+      try {
+        pending = await beginSmartOAuth(providerConfig, `http://127.0.0.1:${PORT}/?syncing=1`);
+      } catch (error) {
+        console.warn(`Can't start ${connection.displayName} login:`, error instanceof Error ? error.message : error);
+        return html(hospitalUnavailablePage(connection.displayName, "unreachable"));
+      }
       pendingEhrAuth = pending;
 
       pending

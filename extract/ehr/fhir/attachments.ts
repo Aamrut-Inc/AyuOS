@@ -79,7 +79,8 @@ export async function downloadAttachment(
           // Ask for the document itself; servers that can't will send a FHIR
           // Binary resource with base64 data instead, handled below.
           accept: ref.contentType ? `${ref.contentType}, application/fhir+json;q=0.5` : "*/*"
-        }
+        },
+        signal: AbortSignal.timeout(120000)
       },
       config,
       "FHIR attachment"
