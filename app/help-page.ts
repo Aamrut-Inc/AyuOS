@@ -26,7 +26,7 @@ const SECTIONS = `
       <li>You're brought back to AyuOS and the card shows <span class="pill ok">Connected</span>.</li>
     </ol>
     <p>Your full history downloads in the background — a few minutes, longer if you've worn the device for years. After that, new data arrives every 30 minutes.</p>
-    <p class="meta">If it says <em>"isn't set up on this computer yet"</em>, the Oura/Whoop app credentials weren't entered during setup — ask the AyuOS team for them and run <code>scripts/start.command</code> again.</p>
+    <p class="meta">The first time, AyuOS asks for the Oura/Whoop app credentials (a client ID and secret from the AyuOS team). Paste them in once; they're saved in this Mac's Keychain. To change them later, open <a href="/setup/wearables">Set up Oura and Whoop</a>.</p>
   </div>
 
   <div class="card help-section" id="hospital">

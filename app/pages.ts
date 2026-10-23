@@ -203,6 +203,8 @@ interface LoginPageMeta {
   fileVaultOn?: boolean | null;
   hospitalsCard?: string;
   checklist?: { wearable: boolean; hospital: boolean; labs: boolean };
+  // Whether each wearable's client ID/secret has been entered on this Mac.
+  wearablesConfigured?: Record<"oura" | "whoop", boolean>;
   // Extra source cards (e.g. lab PDF upload) and their client-side script.
   extraCards?: string;
   extraScript?: string;
@@ -364,7 +366,11 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
     let note = `<p class="meta">Log in once; AyuOS downloads your full history and keeps it up to date.</p>`;
     let actions = `<a class="btn" href="/connect/${provider}">Connect ${name}</a>`;
 
-    if (connection) {
+    if (!connection && meta.wearablesConfigured?.[provider] === false) {
+      pill = statusPill("off", "Needs setup");
+      note = `<p class="meta">Enter the ${name} app credentials from the AyuOS team once, then log in with your ${name} account.</p>`;
+      actions = `<a class="btn" href="/setup/wearables?then=${provider}">Set up ${name}</a>`;
+    } else if (connection) {
       const lastSync = connection.lastSyncedAt ?? connection.connectedAt;
       if (connection.status === "needs_reconnect") {
         pill = statusPill("bad", "Needs reconnecting");
@@ -379,7 +385,8 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
       } else {
         pill = statusPill("ok", "Connected");
         note = `<p class="meta">Synced ${formatWhen(lastSync)} · newest reading ${formatWhen(lastReading)}</p>`;
-        actions = `<a class="btn secondary" href="/data/wearables?source=${provider}">View data</a>`;
+        // Reconnecting also grants data types added since the last login.
+        actions = `<a class="btn secondary" href="/data/wearables?source=${provider}">View data</a> <a href="/connect/${provider}">Reconnect</a>`;
       }
     }
     return `
@@ -426,6 +433,29 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
     ${syncActivity(meta.jobs)}
   `;
   return layout("AyuOS", body, DROPZONE_SCRIPT + (meta.extraScript ?? ""), "/");
+}
+
+// Where a teammate pastes the Oura/Whoop app credentials the AyuOS team gave
+// them. Saved to this Mac's Keychain; blank fields keep what's saved.
+export function wearableSetupPage(configured: Record<"oura" | "whoop", boolean>, then: string | null, error: string | null = null): string {
+  const section = (provider: "oura" | "whoop", name: string) => `
+    <div class="card">
+      <div class="card-head"><h3>${name}</h3>${configured[provider] ? statusPill("ok", "Saved") : statusPill("off", "Not set up")}</div>
+      <p class="meta">${configured[provider] ? "Leave these blank to keep the saved credentials, or paste new ones to replace them." : `Paste the ${name} client ID and secret from the AyuOS team. Skip this if you don't use ${name}.`}</p>
+      <label>Client ID<br><input name="${provider}_client_id" autocomplete="off" spellcheck="false" style="width: 100%;"></label>
+      <label style="display: block; margin-top: 8px;">Client secret<br><input name="${provider}_client_secret" type="password" autocomplete="off" style="width: 100%;"></label>
+    </div>`;
+  const body = `
+    <h1>Set up Oura and Whoop</h1>
+    <p class="lede">AyuOS talks to Oura and Whoop through the team's registered app. Enter its credentials once; after that you just log in with your own Oura or Whoop account and everything downloads by itself.</p>
+    ${error ? `<div class="alert bad">${escapeHtml(error)}</div>` : ""}
+    <form method="post" action="/setup/wearables">
+      ${then ? `<input type="hidden" name="then" value="${escapeHtml(then)}">` : ""}
+      <div class="grid">${section("oura", "Oura")}${section("whoop", "Whoop")}</div>
+      <p style="margin-top: 16px;"><button class="btn" type="submit">${then ? `Save and connect ${escapeHtml(PROVIDER_NAMES[then] ?? then)}` : "Save"}</button> &nbsp; <a href="/">Cancel</a></p>
+      <p class="meta">Saved in this Mac's Keychain, never in the AyuOS folder or the database.</p>
+    </form>`;
+  return layout("AyuOS — Set up wearables", body);
 }
 
 function liveTimestamp(): string {

@@ -114,12 +114,28 @@ export class WearableConnectionStore {
     `;
   }
 
+  // Resume point of one data type (see ops.wearable_sync_state).
+  async typeSyncedAt(provider: WearableProvider, dataType: string): Promise<Date | null> {
+    const [row] = await this.sql`
+      SELECT last_synced_at FROM ops.wearable_sync_state WHERE provider = ${provider} AND data_type = ${dataType}
+    `;
+    return row ? new Date(row.last_synced_at) : null;
+  }
+
+  async markTypeSynced(provider: WearableProvider, dataType: string, at: Date): Promise<void> {
+    await this.sql`
+      INSERT INTO ops.wearable_sync_state (provider, data_type, last_synced_at) VALUES (${provider}, ${dataType}, ${at})
+      ON CONFLICT (provider, data_type) DO UPDATE SET last_synced_at = EXCLUDED.last_synced_at
+    `;
+  }
+
   async recordError(provider: WearableProvider, message: string): Promise<void> {
     await this.sql`UPDATE ops.wearable_connections SET last_error = ${message} WHERE provider = ${provider}`;
   }
 
   async remove(provider: WearableProvider): Promise<void> {
     await this.sql`DELETE FROM ops.wearable_connections WHERE provider = ${provider}`;
+    await this.sql`DELETE FROM ops.wearable_sync_state WHERE provider = ${provider}`;
   }
 
   async close(): Promise<void> {

@@ -16,7 +16,7 @@ export function authorizeUrl(provider: WearableProvider, state: string): string 
   const info = PROVIDERS[provider];
   const credentials = credentialsFor(provider);
   if (!credentials) {
-    throw new Error(`${info.name} isn't set up on this computer yet (missing client ID/secret — run scripts/start.command).`);
+    throw new Error(`${info.name} isn't set up on this computer yet (missing client ID/secret — enter them at /setup/wearables).`);
   }
   const url = new URL(info.authorizeUrl);
   url.searchParams.set("response_type", "code");

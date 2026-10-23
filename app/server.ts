@@ -1,7 +1,14 @@
 import { SQL } from "bun";
 import { syncProvider } from "../extract/wearables/sync";
 import { authorizeUrl } from "../extract/wearables/oauth";
-import { credentialsFor, localUserId, PROVIDERS, type WearableProvider } from "../extract/wearables/providers";
+import {
+  credentialsFor,
+  isWearableProvider,
+  localUserId,
+  PROVIDERS,
+  saveCredentials,
+  type WearableProvider
+} from "../extract/wearables/providers";
 import { WearableConnectionStore } from "../load/wearable-connections";
 import { newLoginState, startWearableCallbackServer } from "./wearable-callback";
 import { parseVitalsFromZip } from "../extract/apple-health/parse-vitals";
@@ -22,7 +29,7 @@ import { SyncRunStore } from "../load/sync-runs";
 import { RawFhirStore } from "../load/raw-store";
 import { AttachmentStore } from "../load/attachment-store";
 import { runTransform } from "../transform/run";
-import { loginPage, wearablesDataPage, ehrDataPage, wearableConnectErrorPage } from "./pages";
+import { loginPage, wearablesDataPage, ehrDataPage, wearableConnectErrorPage, wearableSetupPage } from "./pages";
 import { Scheduler } from "./scheduler";
 import { recordPage } from "./record";
 import { helpPage } from "./help-page";
@@ -210,6 +217,7 @@ Bun.serve({
           fileVaultOn: fileVaultOn(),
           syncing: url.searchParams.get("syncing") === "1",
           hospitalsCard: hospitalsCard(hospitalConnections),
+          wearablesConfigured: { oura: credentialsFor("oura") !== null, whoop: credentialsFor("whoop") !== null },
           checklist: {
             wearable: connections.some((c) => c.status === "active"),
             hospital: hospitalConnections.some((c) => c.lastImportStatus === "success"),
@@ -225,15 +233,38 @@ Bun.serve({
     if (connectMatch) {
       const provider = connectMatch[1] as WearableProvider;
       if (!credentialsFor(provider)) {
-        return html(
-          wearableConnectErrorPage(
-            provider,
-            "not_configured",
-            `${PROVIDERS[provider].name} isn't set up on this computer yet. Run scripts/start.command and enter the ${PROVIDERS[provider].name} client ID and secret from the AyuOS team.`
-          )
-        );
+        return Response.redirect(`http://127.0.0.1:${PORT}/setup/wearables?then=${provider}`, 302);
       }
       return Response.redirect(authorizeUrl(provider, newLoginState(provider)), 302);
+    }
+
+    if (url.pathname === "/setup/wearables") {
+      const configured = { oura: credentialsFor("oura") !== null, whoop: credentialsFor("whoop") !== null };
+      if (req.method !== "POST") {
+        const then = url.searchParams.get("then");
+        return html(wearableSetupPage(configured, then && isWearableProvider(then) ? then : null));
+      }
+
+      const form = await req.formData();
+      const field = (name: string) => String(form.get(name) ?? "").trim();
+      const then = field("then");
+      const next = isWearableProvider(then) ? then : null;
+      for (const provider of ["oura", "whoop"] as const) {
+        const clientId = field(`${provider}_client_id`);
+        const clientSecret = field(`${provider}_client_secret`);
+        if (!clientId && !clientSecret) continue;
+        if (!clientId || !clientSecret) {
+          return html(wearableSetupPage(configured, next, `Enter both the ${PROVIDERS[provider].name} client ID and the client secret.`));
+        }
+        try {
+          saveCredentials(provider, { clientId, clientSecret });
+        } catch (error) {
+          return html(wearableSetupPage(configured, next, error instanceof Error ? error.message : String(error)));
+        }
+      }
+      // Straight on to the provider's login when setup was started from a Connect button.
+      if (next && credentialsFor(next)) return Response.redirect(`http://127.0.0.1:${PORT}/connect/${next}`, 303);
+      return Response.redirect(`http://127.0.0.1:${PORT}/`, 303);
     }
 
     if (url.pathname === "/connect/wearables/callback") {

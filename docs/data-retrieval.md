@@ -45,13 +45,16 @@ The code keeps a strict **extract → transform → load** boundary:
 
 ### 3b. Wearables (Oura, Whoop)
 
-- **Connecting:** `/connect/oura|whoop` → provider login → `http://localhost:8000/api/v1/oauth/<provider>/callback` (the URI registered in both developer consoles; served by `app/wearable-callback.ts`) → code exchanged with the team's client credentials (`OURA_*`/`WHOOP_*` in `.env`). Tokens in `ops.wearable_connections`, encrypted.
-- **Sync** (`extract/wearables/sync.ts`), per provider every 30 min and after wake: from `last_synced_at − 3 days` (first sync: 10 years) to now. The resume point advances only if every data type succeeded; 403/404 = not available for this account, skipped.
+- **Connecting:** `/connect/oura|whoop` → provider login → `http://localhost:8000/api/v1/oauth/<provider>/callback` (the URI registered in both developer consoles; served by `app/wearable-callback.ts`) → code exchanged with the team's client credentials, entered once on `/setup/wearables` and kept in the Keychain (`OURA_*`/`WHOOP_*` in `.env` still work as a fallback). Tokens in `ops.wearable_connections`, encrypted.
+- **Sync** (`extract/wearables/sync.ts`), per provider every 30 min and after wake. Every data type has its own resume point (`ops.wearable_sync_state`) and is fetched from `resume point − 3 days` (first time: 10 years) to now, so a newly supported type downloads its full history and one failing type doesn't hold the others back. 403/404, or a 401 that persists with a freshly renewed token (data type not shared by the user), = not available for this account, skipped.
 - **Token refresh** happens under a row lock (`load/wearable-connections.ts`), because Oura and Whoop rotate refresh tokens and revoke the whole login if one is replayed. A refused refresh marks the connection `needs_reconnect` (shown on the home page).
-- **Mapping** (same metric names/units/timestamps the old wearables backend used, so history is continuous):
-  - Oura (`extract/wearables/oura.ts`): `daily_activity` → steps / energy (active kcal) / distance_walking_running; `daily_readiness` → skin_temperature_deviation / skin_temperature_trend_deviation; `daily_cardiovascular_age` → cardiovascular_age; `daily_spo2` → oxygen_saturation / breathing_disturbance_index; `vO2_max`; `heartrate` (30-day request chunks) → heart_rate; `sleep` 5-minute series → heart_rate and heart_rate_variability_sdnn; `personal_info` → weight / height when changed.
-  - Whoop (`extract/wearables/whoop.ts`): scored `recovery` → resting_heart_rate / heart_rate_variability_rmssd / oxygen_saturation / skin_temperature (at `created_at`); scored `cycle` → average_heart_rate / max_heart_rate (at `start`); body measurement → height / weight / max_heart_rate when changed.
-- **Storage:** `timeseries.readings` (partitioned by month; key = user, metric, ts, provider). Single local user, id `AYUOS_USER_ID`.
+- **What's fetched — every data endpoint of both APIs** (Oura API v2 spec 1.42, Whoop API v2):
+  - Oura (`extract/wearables/oura.ts`): daily_activity, daily_sleep, daily_readiness, daily_spo2, daily_stress, daily_resilience, daily_cardiovascular_age, vO2_max, sleep (sessions), sleep_time, workout, session, enhanced_tag, tag, rest_mode_period, heartrate and ring_battery_level (30-day request chunks), ring_configuration, personal_info.
+  - Whoop (`extract/wearables/whoop.ts`): cycle, recovery, sleep, workout, profile, body_measurement.
+- **Storage:**
+  - `wearables.records`: every document exactly as sent, versioned like `clinical.fhir_resources` (unchanged = skipped, changed = new current version). Not kept for the dense series (heartrate, ring_battery_level), whose every field is a reading. Views: `wearables.oura_sleep`, `wearables.whoop_sleep`, `wearables.workouts`.
+  - `timeseries.readings` (partitioned by month; key = user, metric, ts, provider): every numeric value, with `context` qualifying it (heart-rate sample source, sleep type, workout sport, stress summary, ...). Names the old wearables backend used are unchanged, so history is continuous (steps, energy, heart_rate, heart_rate_variability_sdnn/rmssd, oxygen_saturation, ...). Added: scores and contributors (sleep_score, readiness_score, activity_score, `*_contributor_*`, recovery_score, strain, resilience_level), sleep sessions (sleep_*_duration, sleep_efficiency, sleep_respiratory_rate, sleep_performance, sleep_need_*, ...), sleep_stage (5-min hypnogram: 1 deep, 2 light, 3 REM, 4 awake) and sleep_movement, MET (1-min) and activity_class (5-min), workout_* and session_*, ring_battery_level, optimal bedtime. Durations are in seconds, energy in kcal (Whoop kJ converted).
+  - Single local user, id `AYUOS_USER_ID`.
 
 ### 3c. Apple Health
 
@@ -68,7 +71,8 @@ Uploaded → `extract/lab-pdf/pdf-text.swift` (PDFKit text layer; Vision OCR for
 - `clinical` — FHIR raw store + typed tables + `fhir_attachments`.
 - `timeseries` — `readings`.
 - `labs` — `documents`, `results`.
-- `ops` — `sync_runs` (run log), `ehr_connections`, `wearable_connections`.
+- `wearables` — `records` (every Oura/Whoop document) and views over it.
+- `ops` — `sync_runs` (run log), `ehr_connections`, `wearable_connections`, `wearable_sync_state` (per-type resume points).
 
 Migrations: `load/migrations/*.sql`, idempotent, applied by `bun run migrate` and on every install. Tests (`bun test`) use a separate `ayuos_test` database.
 
@@ -100,8 +104,7 @@ Migrations: `load/migrations/*.sql`, idempotent, applied by `bun run migrate` an
 ## 6. Limitations
 
 - Hospital records are a manual, one-time pull per login (no background refresh) by design.
-- Wearable OAuth secrets are shared with each install (team-only for now); a hosted token broker is the path for outside users. Oura/Whoop developer apps are capped (~10 users) until approved.
+- Wearable app credentials are shared with each teammate, who pastes them into the app (team-only for now); a hosted token broker is the path for outside users. Oura/Whoop developer apps are capped (~10 users) until approved.
 - Only Oura and Whoop are implemented directly; others (Garmin, Fitbit, …) need their own fetchers and developer registrations.
-- Sleep sessions and workouts are not stored as events, only their time series.
 - Apple Health is upload-only (automatic sync would need an iPhone app).
 - macOS only.

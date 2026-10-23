@@ -35,9 +35,14 @@ export async function providerGet<T>(
 
     const text = await response.text();
     const message = `${PROVIDERS[provider].name} ${path} failed (${response.status}): ${text.slice(0, 200)}`;
-    if (response.status === 401 && !forcedRefresh) {
-      forcedRefresh = true;
-      continue;
+    if (response.status === 401) {
+      if (!forcedRefresh) {
+        forcedRefresh = true;
+        continue;
+      }
+      // Still refused with a token that was just renewed: the login works,
+      // but the user didn't share this data type with AyuOS.
+      throw new NotAvailableError(message, response.status);
     }
     if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
       const retryAfter = Number(response.headers.get("retry-after"));

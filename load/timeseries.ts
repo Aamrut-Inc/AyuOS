@@ -9,7 +9,8 @@ const READING_COLUMNS = [
   "value",
   "unit",
   "source_provider",
-  "source_device"
+  "source_device",
+  "context"
 ] as const;
 
 function monthBounds(date: Date): { start: Date; end: Date; label: string } {
@@ -62,7 +63,8 @@ export class TimeseriesStore {
       value: r.value,
       unit: r.unit,
       source_provider: r.sourceProvider,
-      source_device: r.sourceDevice
+      source_device: r.sourceDevice,
+      context: r.context ?? null
     }));
 
     await this.sql`
@@ -71,6 +73,7 @@ export class TimeseriesStore {
         value = EXCLUDED.value,
         unit = EXCLUDED.unit,
         source_device = EXCLUDED.source_device,
+        context = EXCLUDED.context,
         fetched_at = now()
     `;
   }

@@ -1,5 +1,8 @@
-// The wearables AyuOS talks to directly. Client IDs/secrets come from .env
-// (shared by the team; see docs/tester-setup.md). The redirect URIs are the
+import { getSecret, setSecret } from "../../shared/keychain";
+
+// The wearables AyuOS talks to directly. Client IDs/secrets are entered on the
+// app's setup page (/setup/wearables) and kept in the Keychain; .env values
+// still work as a fallback for older installs. The redirect URIs are the
 // ones already registered in each provider's developer console, which is why
 // AyuOS answers them on localhost:8000 (see app/wearable-callback.ts).
 
@@ -23,7 +26,9 @@ export const PROVIDERS: Record<WearableProvider, ProviderInfo> = {
     authorizeUrl: "https://cloud.ouraring.com/oauth/authorize",
     tokenUrl: "https://api.ouraring.com/oauth/token",
     apiBase: "https://api.ouraring.com",
-    scope: "personal daily activity heartrate workout session spo2 ring_configuration heart_health"
+    // "stress" (daily_resilience) and "ring_configuration" aren't in Oura's
+    // published scope list but are enforced: without them those endpoints 401.
+    scope: "email personal daily activity heartrate workout tag session spo2 stress ring_configuration heart_health"
   },
   whoop: {
     id: "whoop",
@@ -53,12 +58,22 @@ export interface ClientCredentials {
 
 const PLACEHOLDER = /^(|public-client-id|private-secret-id|your-.*)$/;
 
+// Keychain first (what the setup page saves), then .env.
 export function credentialsFor(provider: WearableProvider): ClientCredentials | null {
+  const clientId = getSecret(`${provider}-client-id`) ?? "";
+  const clientSecret = getSecret(`${provider}-client-secret`) ?? "";
+  if (clientId && clientSecret) return { clientId, clientSecret };
+
   const prefix = provider.toUpperCase();
-  const clientId = process.env[`${prefix}_CLIENT_ID`]?.trim() ?? "";
-  const clientSecret = process.env[`${prefix}_CLIENT_SECRET`]?.trim() ?? "";
-  if (PLACEHOLDER.test(clientId) || PLACEHOLDER.test(clientSecret)) return null;
-  return { clientId, clientSecret };
+  const envId = process.env[`${prefix}_CLIENT_ID`]?.trim() ?? "";
+  const envSecret = process.env[`${prefix}_CLIENT_SECRET`]?.trim() ?? "";
+  if (PLACEHOLDER.test(envId) || PLACEHOLDER.test(envSecret)) return null;
+  return { clientId: envId, clientSecret: envSecret };
+}
+
+export function saveCredentials(provider: WearableProvider, credentials: ClientCredentials): void {
+  setSecret(`${provider}-client-id`, credentials.clientId.trim());
+  setSecret(`${provider}-client-secret`, credentials.clientSecret.trim());
 }
 
 // Single local user: readings are keyed by this id. Existing installs keep

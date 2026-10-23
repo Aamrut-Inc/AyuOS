@@ -58,3 +58,36 @@ export function getOrCreateSecret(name: string): string {
   cache.set(name, value);
   return value;
 }
+
+// Secrets the user types in (e.g. Oura/Whoop client credentials from the
+// team), as opposed to ones AyuOS generates. null when not set.
+export function getSecret(name: string): string | null {
+  if (cache.has(name)) return cache.get(name) || null;
+
+  let value = "";
+  if (process.platform === "darwin") {
+    const found = keychain(["find-generic-password", "-s", SERVICE, "-a", name, "-w"]);
+    if (found.code === 0) value = found.out;
+    else if (found.code !== NOT_FOUND) {
+      throw new Error(`Could not read the ${name} secret from the macOS Keychain (is it locked?): ${found.err}`);
+    }
+  } else {
+    const file = join(dataDir(), "secrets", name);
+    if (existsSync(file)) value = readFileSync(file, "utf8").trim();
+  }
+  cache.set(name, value);
+  return value || null;
+}
+
+export function setSecret(name: string, value: string): void {
+  if (process.platform === "darwin") {
+    // -U updates the item if it already exists.
+    const added = keychain(["add-generic-password", "-U", "-s", SERVICE, "-a", name, "-w", value]);
+    if (added.code !== 0) throw new Error(`Could not save the ${name} secret in the macOS Keychain: ${added.err}`);
+  } else {
+    const dir = join(dataDir(), "secrets");
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    writeFileSync(join(dir, name), value, { mode: 0o600 });
+  }
+  cache.set(name, value);
+}

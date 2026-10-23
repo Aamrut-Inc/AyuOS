@@ -21,13 +21,13 @@ happens in the AyuOS app.
    ./scripts/start.command
    ```
    It installs what's missing (Bun, and Apple's Command Line Tools — click
-   **Install** if a system dialog appears), then asks for the Oura and Whoop
-   credentials (press Enter to skip one). First run takes a few minutes.
+   **Install** if a system dialog appears). First run takes a few minutes.
 
 2. The **AyuOS** app opens (it's also in Launchpad and Spotlight, and shows
    "Ayu ●" in your menu bar). Follow the **Getting started** checklist:
-   - **Oura / Whoop:** click **Connect** and log into *your own* account. Your
-     full history starts downloading in the background.
+   - **Oura / Whoop:** click **Set up Oura** (or Whoop), paste the client ID
+     and secret from the team, then log into *your own* account. Your full
+     history starts downloading in the background.
    - **Hospital:** click **+ Add a hospital** (details below).
    - **Lab reports:** drag PDFs onto the home page; you'll check the values it
      read before they're saved.

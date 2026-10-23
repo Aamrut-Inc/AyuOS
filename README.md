@@ -16,16 +16,17 @@ That's the whole setup (macOS; no Docker). `start.command`:
 
 - installs [Bun](https://bun.sh) if needed and Apple's Command Line Tools
   (for lab PDF reading and the Mac app),
-- asks once for the team's Oura/Whoop app credentials (Enter skips),
 - creates AyuOS's own database (embedded Postgres, `load/db-server.ts`),
 - installs the background app and `~/Applications/AyuOS.app`, then opens it.
 
-Then connect wearables and hospitals from the home page. Older installs that
+Then connect wearables and hospitals from the home page. The first **Set up
+Oura** / **Set up Whoop** click asks for the team's app credentials and saves
+them in the Keychain; after that it goes straight to the provider's login. Older installs that
 used Docker are migrated automatically on the next `start.command`
 (`scripts/migrate-off-docker.ts`).
 
 **Credentials:** the Oura/Whoop client secrets are real secrets and aren't in
-this repo — ask a teammate. Their registered redirect URI is
+this repo — ask a teammate, then paste them into the app (`/setup/wearables`). Their registered redirect URI is
 `http://localhost:8000/api/v1/oauth/{provider}/callback`, which AyuOS serves
 itself. Epic client IDs are public and already in `.env.example`.
 
@@ -53,9 +54,11 @@ it only closes the window — syncing is done by the background app below.
 Desktop/Documents/Downloads, which is why it runs from a copy.
 
 - Starts at login and restarts within 30s if it crashes; starts the database.
-- Pulls Oura and Whoop every 30 minutes, each from its own resume point (with a
-  3-day overlap for late uploads); a newly connected device gets its full
-  history. After the laptop wakes it waits for the network, then catches up
+- Pulls everything Oura and Whoop offer every 30 minutes (every endpoint of both
+  APIs; documents kept whole in `wearables.records`, values in
+  `timeseries.readings`), each data type from its own resume point (with a
+  3-day overlap for late uploads); a newly connected device, or a newly
+  supported data type, gets its full history. After the laptop wakes it waits for the network, then catches up
   everything missed while it was closed.
 - OAuth tokens are encrypted with a Keychain key and refreshed under a row
   lock (providers revoke the login if a refresh token is reused).

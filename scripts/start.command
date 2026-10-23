@@ -50,29 +50,10 @@ if grep -q '^DATABASE_URL=.' .env; then
   docker update --restart=no ayuos-db wearables-db wearables-app wearables-celery-worker wearables-celery-beat wearables-svix-server wearables-redis >/dev/null 2>&1 || true
 fi
 
-# Ask once for each wearable's credentials (from the team) instead of having
-# people edit the file. Enter skips; that wearable just can't be connected yet.
-ask_credentials() {
-  local name="$1" prefix="$2" current
-  current="$(grep -E "^${prefix}_CLIENT_ID=" .env | cut -d= -f2-)"
-  case "$current" in
-    ""|public-client-id|your-*) ;;
-    *) return 0 ;;
-  esac
-  say "$name credentials (ask the AyuOS team; press Enter to skip $name for now)"
-  local id secret
-  read -r -p "  $name client ID: " id
-  [ -n "$id" ] || { echo "  Skipped $name."; return 0; }
-  read -r -s -p "  $name client secret (hidden as you type): " secret; echo
-  [ -n "$secret" ] || { echo "  No secret entered — skipped $name."; return 0; }
-  bun scripts/set-env.ts .env "${prefix}_CLIENT_ID" "$id"
-  bun scripts/set-env.ts .env "${prefix}_CLIENT_SECRET" "$secret"
-  echo "  Saved."
-}
-ask_credentials "Oura" OURA
-ask_credentials "Whoop" WHOOP
+# Oura/Whoop credentials are entered in the app itself (Set up Oura / Whoop
+# on the home page) and kept in the Keychain.
 
-# --- 4. App ------------------------------------------------------------------
+# --- 3. App ------------------------------------------------------------------
 say "Installing AyuOS and preparing its database..."
 bun install >/dev/null
 bun run migrate >/dev/null
