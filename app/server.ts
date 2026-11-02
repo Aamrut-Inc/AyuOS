@@ -41,6 +41,9 @@ import { parseReference, parseValue } from "../transform/lab-results";
 import { ensureStack } from "./stack";
 import { freeDiskBytes } from "../shared/disk";
 import { ensurePrivateDataDir, fileVaultOn } from "../shared/data-protection";
+import { agentAfterEhrImport, agentAfterWearableSync, agentNightlyJob } from "./agent-hooks";
+import { handleAgentRequest } from "./agent-routes";
+import { warmSandbox } from "../agent/sandbox/index";
 
 const PORT = Number(process.env.AYUOS_PORT ?? 3000);
 const userId = localUserId();
@@ -95,7 +98,9 @@ function wearableJob(provider: WearableProvider) {
         if (connection.status === "needs_reconnect") {
           throw new Error(`${PROVIDERS[provider].name}'s login expired or was revoked — click Reconnect on the home page.`);
         }
-        return await syncProvider(store, provider, userId);
+        const result = await syncProvider(store, provider, userId);
+        await agentAfterWearableSync();
+        return result;
       } finally {
         await store.close();
       }
@@ -103,7 +108,7 @@ function wearableJob(provider: WearableProvider) {
   };
 }
 
-const scheduler = new Scheduler(loadPostgresConfig(), [wearableJob("oura"), wearableJob("whoop")]);
+const scheduler = new Scheduler(loadPostgresConfig(), [wearableJob("oura"), wearableJob("whoop"), agentNightlyJob]);
 
 // One-off, user-triggered work (EHR import, Apple Health upload) is logged to
 // the same run history as scheduled jobs so the status panel covers both.
@@ -150,6 +155,11 @@ Bun.serve({
         ? [...allowedHosts].some((h) => origin === `http://${h}`)
         : site === null || site === "same-origin" || site === "none";
       if (!sameOrigin) return new Response("Forbidden", { status: 403 });
+    }
+
+    if (url.pathname === "/agent" || url.pathname.startsWith("/api/agent/")) {
+      const response = await handleAgentRequest(req, url);
+      if (response) return response;
     }
 
     if (url.pathname === "/") {
@@ -376,6 +386,7 @@ Bun.serve({
             // we just stored — without this, new data silently doesn't show up
             // in the structured tables until someone remembers to run it by hand.
             const transformed = await runTransform(postgresConfig);
+            await agentAfterEhrImport();
             return { fetched, transformed };
           });
         })
@@ -409,6 +420,7 @@ Bun.serve({
           } finally {
             await store.close();
           }
+          await agentAfterWearableSync();
           return { stored: readings.length };
         });
 
@@ -629,6 +641,8 @@ console.log(`AyuOS app running at http://127.0.0.1:${PORT}`);
 startWearableCallbackServer(`http://127.0.0.1:${PORT}`, (provider) => {
   void scheduler.runNow(`wearables-${provider}`, "connect");
 });
+// The assistant's Python sandbox takes a few seconds to start; start it now.
+warmSandbox();
 warmPdfReader().catch((error) => {
   console.warn("Lab PDF reader unavailable:", error instanceof Error ? error.message : error);
 });

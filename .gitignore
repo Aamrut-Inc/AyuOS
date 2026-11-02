@@ -6,3 +6,6 @@ node_modules/
 .DS_Store
 
 
+
+# Agent evaluation: synthetic databases' files and run reports
+agent/eval/.data/
