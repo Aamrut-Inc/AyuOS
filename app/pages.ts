@@ -126,6 +126,7 @@ const LOGO_SVG = `<svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="t
 const NAV: Array<[string, string]> = [
   ["/", "Home"],
   ["/record", "My record"],
+  ["/agent", "Ask AI"],
   ["/data/ehr", "Hospital records"],
   ["/labs", "Lab results"],
   ["/hospitals", "Hospitals"],
@@ -418,6 +419,7 @@ export function loginPage(connections: WearableConnection[], ehrConnected: boole
 
     <div class="row" style="margin: 22px 0 12px;">
       <a class="btn big" href="/record">Open my health record</a>
+      <a class="btn big secondary" href="/agent">💬 Talk to AI agent</a>
       <form method="post" action="/sync/now" style="margin: 0;"><button class="btn secondary" type="submit">Sync wearables now</button></form>
     </div>
 
